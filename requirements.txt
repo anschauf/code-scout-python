@@ -1,0 +1,6 @@
+
+# Core packages
+matplotlib
+numpy
+pandas
+awswrangler
