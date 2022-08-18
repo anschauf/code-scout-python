@@ -16,12 +16,23 @@ for filename in all_ranking_filenames:
     temp_method_name = splitext(basename(filename))[0]
     all_rankings.append((temp_method_name, temp_data))
 
+code_ranks = []
 
 
 for method_name, rankings in all_rankings:
 
-     for case_index in range(revised_cases.shape[0]):
+    rankings['suggested_codes_pdx_split'] = rankings['suggested_codes_pdx'].apply(lambda x: x.split('|') if (isinstance(x, str)) else [])
+    revised_cases['ICD_added_split'] =  revised_cases['ICD_added'].apply(lambda x: x.split('|') if (isinstance(x, str)) else [])
+
+    for case_index in range(revised_cases.shape[0]):
         current_case = revised_cases.iloc[case_index]
+        case_Id = current_case['CaseId']
+        ICD_added_list = current_case['ICD_added_split']# AttributeError: 'float' object has no attribute 'split'
+        # ICD_added = str(ICD_added)
+        #ICD_added_list = ICD_added.split('|')
+        case_model = rankings[rankings['case_id'] == case_Id]
+        ICD_suggested_list = case_model['suggested_codes_pdx_split']
+
 
         # find matching case id in rankings if present
         # if not present, skip
@@ -30,6 +41,15 @@ for method_name, rankings in all_rankings:
         # use .split('|')
 
         # find revised diagnoses in current ranking after also here splitting the diagnoses like before with the revised case
+        for ICD in ICD_added_list:
+            if ICD not in ICD_suggested_list:
+                rank = 'not suggest'
+            else:
+                idx = ICD_added_list.index(ICD)
+                rank = idx + 1
+            code_rank = [case_Id, method_name, rank]
+            code_ranks.append(code_rank)
+
         # if diagnosis is present, find index where its ranked and classify it in one of the ranking labels
         # 1-3, 4-6, 7-9, 10+
         # if not present add to not suggested label
@@ -57,4 +77,4 @@ for method_name, rankings in all_rankings:
 
 
 
-print('')
+# print('')
