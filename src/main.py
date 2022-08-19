@@ -1,5 +1,5 @@
 from os.path import basename, splitext
-
+import numpy as np
 import awswrangler as wr
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -51,33 +51,33 @@ for method_name, rankings in all_rankings:
             if ICD not in ICD_suggested_list:
                 rank = 'not suggest'
             else:
-                idx = ICD_added_list.index(ICD)
+                idx = ICD_suggested_list.index(ICD)  # error was here
                 rank = idx + 1
 
-        if rank in [1,2,3]:
-                rank_1_3 = 1
-                rank_4_6 = 0
-                rank_7_9 = 0
-                rank_10 = 0
-                rank_not_suggest = 0
+        if rank == 'not suggest':
+            rank_1_3 = 0
+            rank_4_6 = 0
+            rank_7_9 = 0
+            rank_10 = 0
+            rank_not_suggest = 1
+        elif rank in [1, 2, 3]:
+            rank_1_3 = 1
+            rank_4_6 = 0
+            rank_7_9 = 0
+            rank_10 = 0
+            rank_not_suggest = 0
         elif rank in [4, 5, 6]:
-                rank_1_3 = 0
-                rank_4_6 = 1
-                rank_7_9 = 0
-                rank_10 = 0
-                rank_not_suggest = 0
+            rank_1_3 = 0
+            rank_4_6 = 1
+            rank_7_9 = 0
+            rank_10 = 0
+            rank_not_suggest = 0
         elif rank in [7, 8, 9]:
-                rank_1_3 = 0
-                rank_4_6 = 0
-                rank_7_9 = 1
-                rank_10 = 0
-                rank_not_suggest = 0
-        elif rank == 'not suggest':
-                rank_1_3 = 0
-                rank_4_6 = 0
-                rank_7_9 = 0
-                rank_10 = 0
-                rank_not_suggest = 1
+            rank_1_3 = 0
+            rank_4_6 = 0
+            rank_7_9 = 1
+            rank_10 = 0
+            rank_not_suggest = 0
         else:
             rank_1_3 = 0
             rank_4_6 = 0
@@ -102,22 +102,26 @@ drg1_rank_sum = rank_evaluation_drg_1.loc[:, ['rank_1_3', 'rank_4_6', 'rank_7_9'
 drg2_rank_sum = rank_evaluation_drg_2.loc[:, ['rank_1_3', 'rank_4_6', 'rank_7_9', 'rank_10', 'rank_not_suggest']].sum(axis=0)
 
 
-
 # same result in the local folder
 rank_evaluation.to_csv('rank_evaluation.csv')
 
 
 
-# plt.figure()
+
+plt.figure()
 # remember to rank the method from best performing method to worse performing method
 # we could use just a simple approach of ranking the class label 1-3 from high to low
-# plt.bar(lists of x positions of ranking labels, lists of heights of the bars, label=list of method names, color=['green', 'red'])
-# plt.xlabel('Ranking classes')
-# plt.ylabel('Frequency')
-# plt.xticks(range(ranking_classes.shape[1]), ranking_labels)
-# plt.tight_layout()
-# plt.savefig(join(dir_output, f'bar_ranking_classes{tag}.pdf'), bbox_inches='tight')
-# plt.close()
+ranking_labels = ['rank_1_3', 'rank_4_6', 'rank_7_9', 'rank_10', 'rank_not_suggest']
+X_axis = np.arange(len(ranks))
+width = 0.25
+plt.bar(X_axis, drg1_rank_sum.values, width, color = 'r')
+plt.bar(X_axis+width, drg2_rank_sum.values, width, color = 'g')
+plt.xlabel('Ranking classes')
+plt.ylabel('Frequency')
+plt.xticks(X_axis, ranking_labels)
+plt.tight_layout()
+plt.savefig('bar_ranking_classes{tag}.pdf', bbox_inches='tight')
+plt.close()
 
 
 
