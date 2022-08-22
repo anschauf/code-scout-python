@@ -148,32 +148,3 @@ plt.ylabel('Frequency')
 plt.savefig('bar_ranking_classes_TEST.pdf', bbox_inches='tight')
 
 
-
-
-
-#################
-# Solution Lirui
-#################
-
-plt.figure()
-# remember to rank the method from best performing method to worse performing method
-# we could use just a simple approach of ranking the class label 1-3 from high to low
-ranking_labels = ['rank_1_3', 'rank_4_6', 'rank_7_9', 'rank_10', 'rank_not_suggest']
-X_axis = np.arange(len(ranks))
-width = 0.25
-plt.bar(X_axis, drg1_rank_sum.values, width, color = 'r')
-plt.bar(X_axis+width, drg2_rank_sum.values, width, color = 'g')
-plt.xlabel('Ranking classes')
-plt.ylabel('Frequency')
-plt.xticks(X_axis, ranking_labels)
-plt.tight_layout()
-plt.savefig('bar_ranking_classes{tag}.pdf', bbox_inches='tight')
-plt.close()
-
-
-
-
-
-
-
-# print('')
