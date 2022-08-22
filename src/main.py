@@ -10,7 +10,19 @@ revised_cases = wr.s3.read_csv('s3://code-scout/performance-measuring/revised_ev
 # find all the rankings provided
 all_ranking_filenames = wr.s3.list_objects(s3_dir_rankings)
 
+
+# Data preparation (maybe possible to write this in one line)
+# Once columns are prepared, it may be easier to loop through the rest (as no more Nan Values)
+
+revised_cases['ICD_added_split'] = revised_cases['ICD_added'].apply(lambda x: x.split('|') if (isinstance(x, str)) else [])
+revised_cases['CHOP_added_split'] = revised_cases['CHOP_added'].apply(lambda x: x.split('|') if (isinstance(x, str)) else [])
+revised_cases['CHOP_dropped_split'] = revised_cases['CHOP_dropped'].apply(lambda x: x.split('|') if (isinstance(x, str)) else [])
+
+
+
+
 # load rankings and store them in an tuple
+
 all_rankings = list()
 for filename in all_ranking_filenames:
     temp_data = wr.s3.read_csv(filename)
@@ -91,7 +103,8 @@ for method_name, rankings in all_rankings:
 
         # store in an object
         # case id, revised_icd, method name, 5 ranking labels
-import pandas as pd
+
+# import pandas as pd
 rank_evaluation = pd.DataFrame(code_ranks, columns=['case_id', 'added_ICD', 'ICD_suggested_list', 'method_name',  'rank_1_3', 'rank_4_6', 'rank_7_9', 'rank_10', 'rank_not_suggest'])
 
 
@@ -102,11 +115,45 @@ drg1_rank_sum = rank_evaluation_drg_1.loc[:, ['rank_1_3', 'rank_4_6', 'rank_7_9'
 drg2_rank_sum = rank_evaluation_drg_2.loc[:, ['rank_1_3', 'rank_4_6', 'rank_7_9', 'rank_10', 'rank_not_suggest']].sum(axis=0)
 
 
-# same result in the local folder
-rank_evaluation.to_csv('rank_evaluation.csv')
+
+
+#################
+# Addition by MK
+#################
+
+drg1_rank_sum = drg1_rank_sum.reset_index(level=0)
+drg2_rank_sum = drg2_rank_sum.reset_index(level=0)
+
+drg1_rank_sum.columns.values[1] = 'Method_1'
+drg2_rank_sum.columns.values[1] = 'Method_2'
+
+import numpy as np
+import matplotlib.pyplot as plt
+data = [drg1_rank_sum['Method_1'],
+drg2_rank_sum['Method_2']]
+
+ranking_labels = ['rank_1_3', 'rank_4_6', 'rank_7_9', 'rank_10', 'rank_not_suggest']
+X = np.arange(5)
+fig = plt.figure()
+ax = fig.add_axes([0,0,1,1])
+ax.bar(X + 0.00, data[0], color = 'r', width = 0.25)
+ax.bar(X + 0.25, data[1], color = 'g', width = 0.25)
+ax.set_xticks(range(5))
+ax.set_xticklabels(ranking_labels)
+
+# ax.set_xticklabels(["rank_1_3", "rank_4_6", "rank_7_9", "rank_10", "rank_not_suggest"])
+plt.xlabel('Ranking classes')
+plt.ylabel('Frequency')
+#ax.bar(X + 0.50, data[2], color = 'r', width = 0.25)
+plt.savefig('bar_ranking_classes_TEST.pdf', bbox_inches='tight')
 
 
 
+
+
+#################
+# Solution Lirui
+#################
 
 plt.figure()
 # remember to rank the method from best performing method to worse performing method
