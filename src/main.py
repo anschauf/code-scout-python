@@ -1,8 +1,12 @@
 from os.path import basename, splitext
-import numpy as np
+
 import awswrangler as wr
+import matplotlib
+import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+
+from src.utils import get_categorical_ranks
 
 s3_dir_rankings = 's3://code-scout/performance-measuring/mock_rankings/'
 revised_cases = wr.s3.read_csv('s3://code-scout/performance-measuring/revised_evaluation_cases.csv')
@@ -10,19 +14,13 @@ revised_cases = wr.s3.read_csv('s3://code-scout/performance-measuring/revised_ev
 # find all the rankings provided
 all_ranking_filenames = wr.s3.list_objects(s3_dir_rankings)
 
-
 # Data preparation (maybe possible to write this in one line)
 # Once columns are prepared, it may be easier to loop through the rest (as no more Nan Values)
-
 revised_cases['ICD_added_split'] = revised_cases['ICD_added'].apply(lambda x: x.split('|') if (isinstance(x, str)) else [])
 revised_cases['CHOP_added_split'] = revised_cases['CHOP_added'].apply(lambda x: x.split('|') if (isinstance(x, str)) else [])
 revised_cases['CHOP_dropped_split'] = revised_cases['CHOP_dropped'].apply(lambda x: x.split('|') if (isinstance(x, str)) else [])
 
-
-
-
 # load rankings and store them in an tuple
-
 all_rankings = list()
 for filename in all_ranking_filenames:
     temp_data = wr.s3.read_csv(filename)
@@ -30,13 +28,13 @@ for filename in all_ranking_filenames:
     all_rankings.append((temp_method_name, temp_data))
 
 code_ranks = []
-
+label_not_suggested = 'not suggest'
+ranking_labels = ['rank_1_3', 'rank_4_6', 'rank_7_9', 'rank_10', 'rank_not_suggest']
 for method_name, rankings in all_rankings:
-
     rankings['suggested_codes_pdx_split'] = rankings['suggested_codes_pdx'].apply(lambda x: x.split('|') if (isinstance(x, str)) else [])
-
     revised_cases['ICD_added_split'] = revised_cases['ICD_added'].apply(lambda x: x.split('|') if (isinstance(x, str)) else [])
 
+    current_method_code_ranks = list()
     for case_index in range(revised_cases.shape[0]):
         current_case = revised_cases.iloc[case_index]
         case_Id = current_case['CaseId']
@@ -46,11 +44,10 @@ for method_name, rankings in all_rankings:
         # find matching case id in rankings if present
         # if not present, skip
         if case_Id in ranking_case_id:
+            # TODO check whether this case id is unique, if not discard case because we can not indentify it uniquely, because now we just take the first one, even if we have more
             ICD_suggested_list = rankings[rankings['case_id'] == case_Id]['suggested_codes_pdx_split'].values[0]
         else:
             continue
-
-
 
         # if present split icd_added field in current_case object into single diagnoses, e.g. K5722|E870 => ['K5722',  'E870']
         # use .split('|')
@@ -61,90 +58,38 @@ for method_name, rankings in all_rankings:
         # if not present add to not suggested label
         for ICD in ICD_added_list:
             if ICD not in ICD_suggested_list:
-                rank = 'not suggest'
+                rank = label_not_suggested
             else:
                 idx = ICD_suggested_list.index(ICD)  # error was here
                 rank = idx + 1
 
-        if rank == 'not suggest':
-            rank_1_3 = 0
-            rank_4_6 = 0
-            rank_7_9 = 0
-            rank_10 = 0
-            rank_not_suggest = 1
-        elif rank in [1, 2, 3]:
-            rank_1_3 = 1
-            rank_4_6 = 0
-            rank_7_9 = 0
-            rank_10 = 0
-            rank_not_suggest = 0
-        elif rank in [4, 5, 6]:
-            rank_1_3 = 0
-            rank_4_6 = 1
-            rank_7_9 = 0
-            rank_10 = 0
-            rank_not_suggest = 0
-        elif rank in [7, 8, 9]:
-            rank_1_3 = 0
-            rank_4_6 = 0
-            rank_7_9 = 1
-            rank_10 = 0
-            rank_not_suggest = 0
-        else:
-            rank_1_3 = 0
-            rank_4_6 = 0
-            rank_7_9 = 0
-            rank_10 = 1
-            rank_not_suggest = 0
+        current_case_label = get_categorical_ranks(rank, label_not_suggested)
+        code_rank = [case_Id, ICD, ICD_suggested_list] + list(current_case_label)
+        current_method_code_ranks.append(code_rank)
 
-        code_rank = [case_Id, ICD, ICD_suggested_list, method_name, rank_1_3, rank_4_6, rank_7_9, rank_10, rank_not_suggest ]
-        code_ranks.append(code_rank)
-
-
-        # store in an object
-        # case id, revised_icd, method name, 5 ranking labels
-
-# import pandas as pd
-rank_evaluation = pd.DataFrame(code_ranks, columns=['case_id', 'added_ICD', 'ICD_suggested_list', 'method_name',  'rank_1_3', 'rank_4_6', 'rank_7_9', 'rank_10', 'rank_not_suggest'])
-
-
-rank_evaluation_drg_1 = rank_evaluation.loc[rank_evaluation['method_name'] == 'DRG-tree-1-prototype']
-rank_evaluation_drg_2 = rank_evaluation.loc[rank_evaluation['method_name'] == 'DRG-tree-2-prototype']
-
-drg1_rank_sum = rank_evaluation_drg_1.loc[:, ['rank_1_3', 'rank_4_6', 'rank_7_9', 'rank_10', 'rank_not_suggest']].sum(axis=0)
-drg2_rank_sum = rank_evaluation_drg_2.loc[:, ['rank_1_3', 'rank_4_6', 'rank_7_9', 'rank_10', 'rank_not_suggest']].sum(axis=0)
-
-
-
-
-#################
-# Addition by MK
-#################
-
-drg1_rank_sum = drg1_rank_sum.reset_index(level=0)
-drg2_rank_sum = drg2_rank_sum.reset_index(level=0)
-
-drg1_rank_sum.columns.values[1] = 'Method_1'
-drg2_rank_sum.columns.values[1] = 'Method_2'
-
-import numpy as np
-import matplotlib.pyplot as plt
-data = [drg1_rank_sum['Method_1'],
-drg2_rank_sum['Method_2']]
+    code_ranks.append(pd.DataFrame(np.vstack(current_method_code_ranks), columns=['case_id', 'added_ICD', 'ICD_suggested_list'] + ranking_labels))
 
 ranking_labels = ['rank_1_3', 'rank_4_6', 'rank_7_9', 'rank_10', 'rank_not_suggest']
-X = np.arange(5)
-fig = plt.figure()
-ax = fig.add_axes([0,0,1,1])
-ax.bar(X + 0.00, data[0], color = 'r', width = 0.25)
-ax.bar(X + 0.25, data[1], color = 'g', width = 0.25)
-ax.set_xticks(range(5))
-ax.set_xticklabels(ranking_labels)
 
-# ax.set_xticklabels(["rank_1_3", "rank_4_6", "rank_7_9", "rank_10", "rank_not_suggest"])
+# get the index ordering from highest to lowest 1-3 label rank
+ind_best_to_worst_ordering = np.argsort([x[ranking_labels[0]].sum() for x in code_ranks])[::-1]
+
+X = np.arange(len(ranking_labels))
+plt.figure()
+width = 0.25
+offset_x = np.linspace(0, stop=width*(len(code_ranks)-1), num=len(code_ranks))
+color_map = matplotlib.cm.get_cmap('rainbow')
+color_map_distances = np.linspace(0, 1, len(code_ranks))
+# reverse color to go from green to red
+colors = [color_map(x) for x in color_map_distances]
+for i_loop, i_best_model in enumerate(ind_best_to_worst_ordering):
+    bar_heights = code_ranks[i_best_model][ranking_labels].sum(axis=0)
+    plt.bar(X + offset_x[i_loop], bar_heights, color=colors[i_loop], width=width, label=all_rankings[i_best_model][0])
+plt.xticks(range(5), ranking_labels, rotation=90)
 plt.xlabel('Ranking classes')
 plt.ylabel('Frequency')
-#ax.bar(X + 0.50, data[2], color = 'r', width = 0.25)
-plt.savefig('bar_ranking_classes_TEST.pdf', bbox_inches='tight')
+plt.legend(loc='best', fancybox=True, framealpha=0.8)
+plt.savefig('bar_ranking_classes_TEST_2.pdf', bbox_inches='tight')
+plt.close()
 
 
