@@ -46,3 +46,10 @@ def __remove_prefix_and_bucket_if_exists(filename: str) -> str:
         return os.path.join(*np.asarray(filename_without_prefix_split)[1:])
     else:
         return filename
+
+
+def split_codes(codes: str) -> list[str]:
+    if isinstance(codes, str):
+        return codes.split('|')
+    else:
+        return list()
