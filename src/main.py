@@ -35,7 +35,7 @@ def calculate_performance(*,
     revised_cases['CHOP_dropped_split'] = revised_cases['CHOP_dropped'].apply(split_codes)
 
     # load rankings and store them in a tuple
-    logger.info(f'Listing files in {dir_rankings} ...')
+    #logger.info(f'Listing files in {dir_rankings} ...')
     all_ranking_filenames = wr.s3.list_objects(dir_rankings)
 
     all_rankings = list()
@@ -81,9 +81,9 @@ def calculate_performance(*,
                     idx = icd_suggested_list.index(icd)  # error was here
                     rank = idx + 1
 
-            current_case_label = get_categorical_ranks(rank, label_not_suggested)
-            code_rank = [case_id, icd, icd_suggested_list] + list(current_case_label)
-            current_method_code_ranks.append(code_rank)
+                current_case_label = get_categorical_ranks(rank, label_not_suggested)
+                code_rank = [case_id, icd, icd_suggested_list] + list(current_case_label)
+                current_method_code_ranks.append(code_rank)
 
         code_ranks.append(pd.DataFrame(np.vstack(current_method_code_ranks), columns=['case_id', 'added_ICD', 'ICD_suggested_list'] + ranking_labels))
 
