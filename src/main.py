@@ -115,8 +115,8 @@ def calculate_performance(*,
 
 if __name__ == '__main__':
     calculate_performance(
-        dir_rankings='s3://code-scout/performance-measuring/mock_rankings/',
-        dir_output='s3://code-scout/performance-measuring/mock_rankings_results/',
+        dir_rankings='s3://code-scout/performance-measuring/rankings/mock_rankings/',
+        dir_output='s3://code-scout/performance-measuring/rankings/mock_rankings_results/',
         filename_revised_cases='s3://code-scout/performance-measuring/revised_evaluation_cases.csv',
         s3_bucket='code-scout'
     )
