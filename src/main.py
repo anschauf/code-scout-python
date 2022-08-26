@@ -35,7 +35,7 @@ def calculate_performance(*,
     revised_cases['CHOP_dropped_split'] = revised_cases['CHOP_dropped'].apply(split_codes)
 
     # load rankings and store them in a tuple
-    #logger.info(f'Listing files in {dir_rankings} ...')
+    logger.info(f'Listing files in {dir_rankings} ...')
     all_ranking_filenames = wr.s3.list_objects(dir_rankings)
 
     all_rankings = list()
@@ -74,11 +74,12 @@ def calculate_performance(*,
             # if diagnosis is present, find index where its ranked and classify it in one of the ranking labels
             # 1-3, 4-6, 7-9, 10+
             # if not present add to not suggested label
+
             for icd in icd_added_list:
                 if icd not in icd_suggested_list:
                     rank = label_not_suggested
                 else:
-                    idx = icd_suggested_list.index(icd)  # error was here
+                    idx = icd_suggested_list.index(icd)
                     rank = idx + 1
 
                 current_case_label = get_categorical_ranks(rank, label_not_suggested)
@@ -115,8 +116,8 @@ def calculate_performance(*,
 
 if __name__ == '__main__':
     calculate_performance(
-        dir_rankings='s3://code-scout/performance-measuring/mock_rankings/',
-        dir_output='s3://code-scout/performance-measuring/mock_rankings_results/',
+        dir_rankings='s3://code-scout/performance-measuring/rankings/mock_rankings/',
+        dir_output='s3://code-scout/performance-measuring/rankings/mock_rankings_results/',
         filename_revised_cases='s3://code-scout/performance-measuring/revised_evaluation_cases.csv',
         s3_bucket='code-scout'
     )
