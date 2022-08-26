@@ -80,11 +80,12 @@ def calculate_performance(*,
             # if diagnosis is present, find index where its ranked and classify it in one of the ranking labels
             # 1-3, 4-6, 7-9, 10+
             # if not present add to not suggested label
+
             for icd in icd_added_list:
                 if icd not in icd_suggested_list:
                     rank = LABEL_NOT_SUGGESTED
                 else:
-                    idx = icd_suggested_list.index(icd)  # error was here
+                    idx = icd_suggested_list.index(icd)
                     rank = idx + 1
 
                 current_case_label = get_categorical_ranks(rank, LABEL_NOT_SUGGESTED)
