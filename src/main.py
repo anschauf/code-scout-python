@@ -11,6 +11,10 @@ from matplotlib import pyplot as plt
 from src.utils import get_categorical_ranks, save_figure_to_pdf_on_s3, split_codes
 
 
+LABEL_NOT_SUGGESTED = 'not suggest'
+RANKING_LABELS = ['rank_1_3', 'rank_4_6', 'rank_7_9', 'rank_10', 'rank_not_suggest']
+
+
 def calculate_performance(*,
                           filename_revised_cases: str,
                           dir_rankings: str,
@@ -35,8 +39,9 @@ def calculate_performance(*,
     revised_cases['CHOP_dropped_split'] = revised_cases['CHOP_dropped'].apply(split_codes)
 
     # load rankings and store them in a tuple
-    #logger.info(f'Listing files in {dir_rankings} ...')
+    logger.info(f'Listing files in {dir_rankings} ...')
     all_ranking_filenames = wr.s3.list_objects(dir_rankings)
+    logger.info(f'Found {len(all_ranking_filenames)} files')
 
     all_rankings = list()
     for filename in all_ranking_filenames:
@@ -45,12 +50,13 @@ def calculate_performance(*,
         temp_method_name = splitext(basename(filename))[0]
         all_rankings.append((temp_method_name, temp_data))
 
-    code_ranks = []
-    label_not_suggested = 'not suggest'
-    ranking_labels = ['rank_1_3', 'rank_4_6', 'rank_7_9', 'rank_10', 'rank_not_suggest']
+    icd_code_ranks = list()
+    chop_code_ranks = list()
+
     for method_name, rankings in all_rankings:
         rankings['suggested_codes_pdx_split'] = rankings['suggested_codes_pdx'].apply(split_codes)
         revised_cases['ICD_added_split'] = revised_cases['ICD_added'].apply(split_codes)
+        revised_cases['CHOP_added_split'] = revised_cases['CHOP_added'].apply(split_codes)
 
         current_method_code_ranks = list()
         for case_index in range(revised_cases.shape[0]):
@@ -76,36 +82,36 @@ def calculate_performance(*,
             # if not present add to not suggested label
             for icd in icd_added_list:
                 if icd not in icd_suggested_list:
-                    rank = label_not_suggested
+                    rank = LABEL_NOT_SUGGESTED
                 else:
                     idx = icd_suggested_list.index(icd)  # error was here
                     rank = idx + 1
 
-                current_case_label = get_categorical_ranks(rank, label_not_suggested)
+                current_case_label = get_categorical_ranks(rank, LABEL_NOT_SUGGESTED)
                 code_rank = [case_id, icd, icd_suggested_list] + list(current_case_label)
                 current_method_code_ranks.append(code_rank)
 
-        code_ranks.append(pd.DataFrame(np.vstack(current_method_code_ranks), columns=['case_id', 'added_ICD', 'ICD_suggested_list'] + ranking_labels))
+        icd_code_ranks.append(pd.DataFrame(np.vstack(current_method_code_ranks), columns=['case_id', 'added_ICD', 'ICD_suggested_list'] + RANKING_LABELS))
 
     # write results to file
-    for i, result in enumerate(code_ranks):
+    for i, result in enumerate(icd_code_ranks):
         wr.s3.to_csv(result, os.path.join(dir_output, all_rankings[i][0] + '.csv'), index=False)
 
     # get the index ordering from highest to lowest 1-3 label rank
-    ind_best_to_worst_ordering = np.argsort([x[ranking_labels[0]].sum() for x in code_ranks])[::-1]
+    ind_best_to_worst_ordering = np.argsort([x[RANKING_LABELS[0]].sum() for x in icd_code_ranks])[::-1]
 
-    X = np.arange(len(ranking_labels))
+    X = np.arange(len(RANKING_LABELS))
     plt.figure()
     width = 0.25
-    offset_x = np.linspace(0, stop=width*(len(code_ranks)-1), num=len(code_ranks))
+    offset_x = np.linspace(0, stop=width*(len(icd_code_ranks)-1), num=len(icd_code_ranks))
     color_map = matplotlib.cm.get_cmap('rainbow')
-    color_map_distances = np.linspace(0, 1, len(code_ranks))
+    color_map_distances = np.linspace(0, 1, len(icd_code_ranks))
     # reverse color to go from green to red
     colors = [color_map(x) for x in color_map_distances]
     for i_loop, i_best_model in enumerate(ind_best_to_worst_ordering):
-        bar_heights = code_ranks[i_best_model][ranking_labels].sum(axis=0)
+        bar_heights = icd_code_ranks[i_best_model][RANKING_LABELS].sum(axis=0)
         plt.bar(X + offset_x[i_loop], bar_heights, color=colors[i_loop], width=width, label=all_rankings[i_best_model][0])
-    plt.xticks(range(5), ranking_labels, rotation=90)
+    plt.xticks(range(5), RANKING_LABELS, rotation=90)
     plt.xlabel('Ranking classes')
     plt.ylabel('Frequency')
     plt.legend(loc='best', fancybox=True, framealpha=0.8)
@@ -115,8 +121,8 @@ def calculate_performance(*,
 
 if __name__ == '__main__':
     calculate_performance(
-        dir_rankings='s3://code-scout/performance-measuring/mock_rankings/',
-        dir_output='s3://code-scout/performance-measuring/mock_rankings_results/',
+        dir_rankings='s3://code-scout/performance-measuring/rankings/mock_rankings/',
+        dir_output='s3://code-scout/performance-measuring/rankings/mock_rankings_results/',
         filename_revised_cases='s3://code-scout/performance-measuring/revised_evaluation_cases.csv',
         s3_bucket='code-scout'
     )
