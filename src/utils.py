@@ -6,13 +6,12 @@ import numpy as np
 from loguru import logger
 from matplotlib import pyplot
 
-from src.rankings import LABEL_NOT_SUGGESTED
+from src.rankings import LABEL_NOT_SUGGESTED, RANKING_LABELS, RANKING_RANGES
 
 s3_prefix = 's3://'
 
-
-def get_categorical_ranks(non_categorical_rank: int) -> np.ndarray:
-    raise NotImplemented('to be cleaned up :)')
+# this function get_categorical_ranks is not used in the main.py, can be deleted
+def get_categorical_ranks(rankings: list) -> list:
 
     # if non_categorical_rank == LABEL_NOT_SUGGESTED:
     #     categorical_rank[-1] = 1
@@ -27,22 +26,22 @@ def get_categorical_ranks(non_categorical_rank: int) -> np.ndarray:
 
     # rankings = np.random.randint(1, 500, 1000)
 
-    rankings_ranges = np.array([1, 4, 7, 10])
-    in_bins = np.digitize(rankings, rankings_ranges)
+    # rankings_ranges = np.array([1, 4, 7, 10])
+    in_bins = np.digitize(rankings, RANKING_RANGES)
     ranks = np.bincount(in_bins)
-    ranks = np.histogram(rankings, np.array([1, 4, 7, 10, np.inf]))[0]
+    # ranks = np.histogram(rankings, np.array([1, 4, 7, 10, np.inf]))[0]
 
-    all_ranks = [{1, 2, 3},
-                 {4, 5, 6},
-                 [7, 8, 9, 10],
-                 range(11, 20),]
+    # all_ranks = [{1, 2, 3},
+                # {4, 5, 6},
+                # [7, 8, 9, 10],
+                # range(11, 20),]
 
-    categorical_rank = np.zeros((len(all_ranks) + 2,))
+    # categorical_rank = np.zeros((len(all_ranks) + 2,))
 
-    for final_rank, rank_range in enumerate(all_ranks):
-        if non_categorical_rank in rank_range:
-            categorical_rank[final_rank] = 1
-            break
+    # for final_rank, rank_range in enumerate(all_ranks):
+       # if non_categorical_rank in rank_range:
+            # categorical_rank[final_rank] = 1
+            # break
 
     # if non_categorical_rank == LABEL_NOT_SUGGESTED:
     #     categorical_rank[-1] = 1
@@ -55,24 +54,7 @@ def get_categorical_ranks(non_categorical_rank: int) -> np.ndarray:
     # else:
     #     categorical_rank[3] = 1
 
-
-    if non_categorical_rank < 1:
-        raise Exception
-
-    elif non_categorical_rank <= 3:
-        categorical_rank[0] = 1
-
-    elif non_categorical_rank <= 7:
-        categorical_rank[1] = 1
-
-    elif non_categorical_rank <= 9:
-        categorical_rank[2] = 1
-
-    else:
-       categorical_rank[3] = 1
-
-
-    return categorical_rank
+    return ranks
 
 
 def save_figure_to_pdf_on_s3(plt: pyplot, bucket: str, filename: str):
