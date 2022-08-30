@@ -33,7 +33,7 @@ def calculate_performance(*,
     # chop_code_ranks = list()
 
     for method_name, rankings in all_rankings:
-        ranking_case_id = rankings['case_id'].tolist()
+        # ranking_case_id = rankings['case_id'].tolist()
 
         current_method_code_ranks = list()
         for case_index in range(revised_cases.shape[0]):
@@ -58,7 +58,7 @@ def calculate_performance(*,
             # ranking_case_id.index(case_id)
 
             # find matching case id in rankings if present
-            # if not present, skip
+            # skip if case id not present
             ranked_suggestions = rankings[rankings['case_id'] == case_id]['suggested_codes_pdx_split'].values
 
             if ranked_suggestions.shape[0] > 0:
