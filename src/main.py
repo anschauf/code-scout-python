@@ -30,7 +30,7 @@ def calculate_performance(*,
     all_rankings = load_all_rankings(dir_rankings)
 
     icd_code_ranks = list()
-    # chop_code_ranks = list()
+    chop_code_ranks = list()
 
     for method_name, rankings in all_rankings:
         ranking_case_id = rankings['case_id'].tolist()
@@ -41,8 +41,8 @@ def calculate_performance(*,
             case_id = current_case['CaseId']
 
             icd_added_list = current_case['ICD_added_split']
-            # chop_added_list = current_case['CHOP_added_split']
-            # chop_dropped_list = current_case['CHOP_dropped_split']
+            chop_added_list = current_case['CHOP_added_split']
+            chop_dropped_list = current_case['CHOP_dropped_split']
 
             # 1. Lookup in the DataFrame, and get the array. Then, if the array is empty, skip this case ID
             # rankings[rankings['case_id'] == case_id]['suggested_codes_pdx_split'].values
@@ -78,21 +78,18 @@ def calculate_performance(*,
                     idx = icd_suggested_list.index(icd)
                     rank = idx + 1  # so ranks are 1-based
 
-                current_case_label = rank
-                code_rank = [case_id, icd, icd_suggested_list, current_case_label]
+                current_case_label = get_categorical_ranks(rank)
+                code_rank = [case_id, icd, icd_suggested_list] + list(current_case_label)
                 current_method_code_ranks.append(code_rank)
 
-        icd_code_ranks.append(pd.DataFrame(np.vstack(current_method_code_ranks), columns=['case_id', 'added_ICD', 'ICD_suggested_list', 'rank']))
+        icd_code_ranks.append(pd.DataFrame(np.vstack(current_method_code_ranks), columns=['case_id', 'added_ICD', 'ICD_suggested_list'] + RANKING_LABELS))
 
     # write results to file
     for i, result in enumerate(icd_code_ranks):
         wr.s3.to_csv(result, os.path.join(dir_output, all_rankings[i][0] + '.csv'), index=False)
 
     # get the index ordering from highest to lowest 1-3 label rank
-
-    # ind_best_to_worst_ordering = np.argsort([x[RANKING_LABELS[0]].sum() for x in icd_code_ranks])[::-1]
-
-    a = get_categorical_ranks(rank)
+    ind_best_to_worst_ordering = np.argsort([x[RANKING_LABELS[0]].sum() for x in icd_code_ranks])[::-1]
 
     X = np.arange(len(RANKING_LABELS))
     plt.figure()
@@ -103,7 +100,7 @@ def calculate_performance(*,
     # reverse color to go from green to red
     colors = [color_map(x) for x in color_map_distances]
     for i_loop, i_best_model in enumerate(ind_best_to_worst_ordering):
-        bar_heights = icd_code_ranks[i_best_model][RANKING_LABELS].sum(axis=0) # replace with np.histogram here
+        bar_heights = icd_code_ranks[i_best_model][RANKING_LABELS].sum(axis=0)
         plt.bar(X + offset_x[i_loop], bar_heights, color=colors[i_loop], width=width, label=all_rankings[i_best_model][0])
     plt.xticks(range(5), RANKING_LABELS, rotation=90)
     plt.xlabel('Ranking classes')
