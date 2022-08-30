@@ -1,6 +1,6 @@
 import unittest
 
-from src.main import calculate_performance
+from src.apps.code_ranking_tier import calculate_performance
 
 
 class MyTestCase(unittest.TestCase):

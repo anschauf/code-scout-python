@@ -6,3 +6,4 @@ pandas
 awswrangler
 boto3
 loguru
+venn

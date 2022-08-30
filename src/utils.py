@@ -10,7 +10,7 @@ from src.rankings import RANKING_RANGES
 
 s3_prefix = 's3://'
 
-# this function get_categorical_ranks is not used in the main.py, can be deleted
+# this function get_categorical_ranks is not used in the code_ranking_tier.py, can be deleted
 def get_categorical_ranks(rankings: list) -> np.array:
 
     # if non_categorical_rank == LABEL_NOT_SUGGESTED:
