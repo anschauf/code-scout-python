@@ -6,7 +6,7 @@ import numpy as np
 from loguru import logger
 from matplotlib import pyplot
 
-from src.rankings import LABEL_NOT_SUGGESTED, RANKING_LABELS, RANKING_RANGES
+from src.rankings import RANKING_RANGES
 
 s3_prefix = 's3://'
 
