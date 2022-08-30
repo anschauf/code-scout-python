@@ -5,14 +5,13 @@ import boto3
 import numpy as np
 from loguru import logger
 from matplotlib import pyplot
-
 from src.rankings import LABEL_NOT_SUGGESTED
 
 s3_prefix = 's3://'
 
 
 def get_categorical_ranks(non_categorical_rank: int) -> np.ndarray:
-    raise NotImplemented('to be cleaned up :)')
+    # raise NotImplemented('to be cleaned up :)')
 
     # if non_categorical_rank == LABEL_NOT_SUGGESTED:
     #     categorical_rank[-1] = 1
@@ -26,23 +25,23 @@ def get_categorical_ranks(non_categorical_rank: int) -> np.ndarray:
     #     categorical_rank[3] = 1
 
     # rankings = np.random.randint(1, 500, 1000)
-
+    #
     rankings_ranges = np.array([1, 4, 7, 10])
     in_bins = np.digitize(rankings, rankings_ranges)
     ranks = np.bincount(in_bins)
     ranks = np.histogram(rankings, np.array([1, 4, 7, 10, np.inf]))[0]
 
     all_ranks = [{1, 2, 3},
-                 {4, 5, 6},
-                 [7, 8, 9, 10],
-                 range(11, 20),]
+                {4, 5, 6},
+                [7, 8, 9, 10],
+                range(11, 20),]
 
     categorical_rank = np.zeros((len(all_ranks) + 2,))
 
     for final_rank, rank_range in enumerate(all_ranks):
-        if non_categorical_rank in rank_range:
-            categorical_rank[final_rank] = 1
-            break
+       if non_categorical_rank in rank_range:
+           categorical_rank[final_rank] = 1
+           break
 
     # if non_categorical_rank == LABEL_NOT_SUGGESTED:
     #     categorical_rank[-1] = 1
@@ -54,23 +53,17 @@ def get_categorical_ranks(non_categorical_rank: int) -> np.ndarray:
     #     categorical_rank[2] = 1
     # else:
     #     categorical_rank[3] = 1
-
-
-    if non_categorical_rank < 1:
-        raise Exception
-
-    elif non_categorical_rank <= 3:
-        categorical_rank[0] = 1
-
-    elif non_categorical_rank <= 7:
-        categorical_rank[1] = 1
-
-    elif non_categorical_rank <= 9:
-        categorical_rank[2] = 1
-
-    else:
-       categorical_rank[3] = 1
-
+    #
+    # if non_categorical_rank < 1:
+    #     raise Exception
+    # elif non_categorical_rank <= 3:
+    #     categorical_rank[0] = 1
+    # elif non_categorical_rank <= 7:
+    #     categorical_rank[1] = 1
+    # elif non_categorical_rank <= 9:
+    #     categorical_rank[2] = 1
+    # else:
+    #    categorical_rank[3] = 1
 
     return categorical_rank
 
