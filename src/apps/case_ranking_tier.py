@@ -3,8 +3,6 @@ from src.files import load_revised_cases, load_code_scout_results
 
 
 
-
-
 def create_rankings_of_revised_cases(
         filename_revised_cases: str,
         filename_codescout_results: str
@@ -15,10 +13,10 @@ def create_rankings_of_revised_cases(
     # load the KSSG19 data from Codescout
     codescout_rankings = load_code_scout_results(filename_codescout_results)
 
-
+    print('')
     codescout_rankings[].sort_values(by = 'prob_most_likely_code', ascending = False)
 
-    print('')
+
 
 
     # sort the codescout_rankings based on probabilities and get the caseID from codescout_rankings as list
