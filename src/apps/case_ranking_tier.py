@@ -1,6 +1,5 @@
 import os
-import venn
-
+from pyvenn import venn
 from os.path import basename, splitext
 
 import awswrangler as wr
@@ -17,6 +16,7 @@ def load_revised_cases(filename_revised_cases: str) -> pd.DataFrame:
     logger.info(f'Read {revised_cases.shape[0]} rows')
 
     return revised_cases
+
 
 def load_code_scout_results(dir_rankings: str) -> list[(str, pd.DataFrame)]:
     # load rankings and store them in a tuple
@@ -43,81 +43,52 @@ def load_code_scout_results(dir_rankings: str) -> list[(str, pd.DataFrame)]:
 
 def create_rankings_of_revised_cases(
         filename_revised_cases: str,
-        filename_codescout_results: str,
-    ):
+        filename_codescout_results: str,):
 
     # load revision data from DtoD
     revised_cases = load_revised_cases(filename_revised_cases)
-    # load the KSSG19 data from Codescout
+    # load the KSW2019 data from Codescout
     codescout_rankings = load_code_scout_results(filename_codescout_results)
     revised_cases['CaseId'] = revised_cases['FID']
     revised_cases['CaseId'] = revised_cases['CaseId'].fillna(0).astype(int)
 
-    # codescout_rankings[].sort_values(by = 'prob_most_likely_code', ascending = False)
+    for hospital_year, method_name, rankings in codescout_rankings:
+        # sort the codescout_rankings based on probabilities and get the caseID from codescout_rankings as list
+        rankings.sort_values(by='prob_most_likely_code', ascending=False)
+        caseid_codescout = rankings['case_id'].tolist()
 
+        # get the caseid from revised cases as a list
+        caseid_revised = revised_cases['CaseId'].tolist()
 
+        # go to revision cases
+        # based on caseID get the index from the Codescout data
+        # iterate through revision cases (for loop) doing this:
+        #   check if caseID (of DtoD revision data) is present in the Codescout suggestions data
+        #   if yes, return the row index (i.e. position or rank bucket)
+        # if two cases (two identical CaseID) present in Codescout suggestions -> ignore the case at the moment
+        revised_codescout_overlap = list()
+        for case in caseid_revised:
+            if case in caseid_codescout and case != 0:
+                revised_codescout_overlap.append(caseid_codescout.index(case))
+        # check the venn diagram (if possible, so we can skip making a label with rank groups) (pyvenn or venn)
+        # Count the number of row index fall into different rank tiers
+        # venn diagram
+        # https://github.com/tctianchi/pyvenn
 
+        top100 = set(np.arange(0, 100))
+        top1000 = set(np.arange(0, 1000))
+        all_cases = set(np.arange(len(caseid_codescout)))
+        revised_codescout_overlap = set(revised_codescout_overlap)
 
-    # sort the codescout_rankings based on probabilities and get the caseID from codescout_rankings as list
-    # first the caseid from revised cases
-    caseid_revised = revised_cases['CaseId'].tolist()
-    caseid_codescout = codescout_rankings[0][2]['case_id'].tolist()
-
-
-    # sorting once to make sure it is sorted
-
-
-    # go to revision cases
-    # based on caseID get the index from the Codescout data
-    # iterate through revision cases (for loop) doing this:
-    revised_codescout_overlap = list()
-
-    for id in caseid_revised:
-        if id in caseid_codescout and id != 0:
-            revised_codescout_overlap.append(caseid_codescout.index(id))
-
-    return revised_codescout_overlap
-    #   check if caseID (of DtoD revision data) is present in the Codescout suggestions data
-    #   if yes, return the row index (i.e. position or rank bucket)
-    # if two cases (two identical CaseID) present in Codescout suggestions -> ignore the case at the moment
-
-    # check the venn diagram (if possible, so we can skip making a label with rank groups) (pyvenn or venn)
-    # Count the number of row index fall into different rank tiers
-
-
-    # venn diagram
-    # https://github.com/tctianchi/pyvenn
-
-
+        labels = venn.get_labels([top100, top1000, all_cases, revised_codescout_overlap],
+                                 fill=['number', 'logic'])
+        fig, ax = venn.venn4(labels, names=['Top 100', 'Top 1000', 'All cases', 'Revised cases'])
+        fig.suptitle(f'Case Ranking Tier ({hospital_year})', fontsize=40)
+        fig.savefig(f'case_ranking_{hospital_year}.png', bbox_inches='tight')
+        fig.show()
 
 
 if __name__ == '__main__':
-    revised_codescout_overlap = create_rankings_of_revised_cases(
+    create_rankings_of_revised_cases(
         filename_revised_cases="s3://code-scout/performance-measuring/CodeScout_GroundTruthforPerformanceMeasuring.csv",
-        filename_codescout_results="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw2019/"
-    )
-
-
-# make venn diagram
-labels = venn.get_labels([np.arange(10), np.arange(5, 15), np.arange(3, 8)],
-                             fill=['number', 'logic'])
-fig, ax = venn.venn5(labels, names=['list 1', 'list 2', 'list 3'])
-fig.show()
-
-top100 = set(np.arange(0, 100))
-top1000 = set(np.arange(0, 1000))
-all_cases = set(np.arange(len(caseid_codescout)))
-revised_codescout_overlap = set(revised_codescout_overlap)
-
-
-
-labels = venn.get_labels([top100, top1000, all_cases, revised_codescout_overlap],
-                             fill=['number', 'logic'])
-fig, ax = venn.venn5(labels, names=['top100', 'top1000', 'all_cases', 'overlap_cases'])
-fig.show()
-
-
-
-
-
-
+        filename_codescout_results="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw2019/")

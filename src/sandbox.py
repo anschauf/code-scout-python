@@ -3,6 +3,27 @@ import venn
 from src.files import load_revised_cases, load_code_scout_results, load_all_rankings
 
 
+git clone https://github.com/tctianchi/pyvenn.git
+cd pyvenn
+
+from pyvenn import venn
+
+import matplotlib
+matplotlib.use('Agg')
+
+import venn
+cd pyvenn
+
+
+In [5]: labels = venn.get_labels([
+            range(10),
+            range(5, 15)
+        ], fill=['number', 'logic'])
+
+fig, ax = venn(labels, names=['list 1', 'list 2'])
+fig.show()
+
+
 def create_rankings_of_revised_cases(
         filename_revised_cases: str,
         filename_codescout_results: str,
