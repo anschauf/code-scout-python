@@ -1,4 +1,5 @@
 import os
+import venn
 
 from os.path import basename, splitext
 
@@ -52,8 +53,6 @@ def create_rankings_of_revised_cases(
     revised_cases['CaseId'] = revised_cases['FID']
     revised_cases['CaseId'] = revised_cases['CaseId'].fillna(0).astype(int)
 
-
-    print('')
     # codescout_rankings[].sort_values(by = 'prob_most_likely_code', ascending = False)
 
 
@@ -77,7 +76,7 @@ def create_rankings_of_revised_cases(
         if id in caseid_codescout and id != 0:
             revised_codescout_overlap.append(caseid_codescout.index(id))
 
-    len(revised_codescout_overlap)
+    return revised_codescout_overlap
     #   check if caseID (of DtoD revision data) is present in the Codescout suggestions data
     #   if yes, return the row index (i.e. position or rank bucket)
     # if two cases (two identical CaseID) present in Codescout suggestions -> ignore the case at the moment
@@ -89,15 +88,21 @@ def create_rankings_of_revised_cases(
     # venn diagram
     # https://github.com/tctianchi/pyvenn
 
-import venn
-import numpy as np
 
+
+
+if __name__ == '__main__':
+    revised_codescout_overlap = create_rankings_of_revised_cases(
+        filename_revised_cases="s3://code-scout/performance-measuring/CodeScout_GroundTruthforPerformanceMeasuring.csv",
+        filename_codescout_results="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw2019/"
+    )
+
+
+# make venn diagram
 labels = venn.get_labels([np.arange(10), np.arange(5, 15), np.arange(3, 8)],
                              fill=['number', 'logic'])
 fig, ax = venn.venn5(labels, names=['list 1', 'list 2', 'list 3'])
 fig.show()
-
-
 
 top100 = set(np.arange(0, 100))
 top1000 = set(np.arange(0, 1000))
@@ -110,16 +115,6 @@ labels = venn.get_labels([top100, top1000, all_cases, revised_codescout_overlap]
                              fill=['number', 'logic'])
 fig, ax = venn.venn5(labels, names=['top100', 'top1000', 'all_cases', 'overlap_cases'])
 fig.show()
-
-
-
-
-if __name__ == '__main__':
-    create_rankings_of_revised_cases(
-        filename_revised_cases="s3://code-scout/performance-measuring/CodeScout_GroundTruthforPerformanceMeasuring.csv",
-        filename_codescout_results="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw2019/"
-    )
-
 
 
 
