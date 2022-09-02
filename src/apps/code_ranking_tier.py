@@ -107,7 +107,7 @@ def calculate_performance(*,
     for i_loop, i_best_model in enumerate(ind_best_to_worst_ordering):
         bar_heights = icd_code_categorical_ranks[i_best_model] # replace with np.histogram here
         plt.bar(X + offset_x[i_loop], bar_heights, color=colors[i_loop], width=width, label=all_rankings[i_best_model][0])
-    plt.xticks(range(5), RANKING_LABELS, rotation=90)
+    plt.xticks(range(len(RANKING_LABELS)), RANKING_LABELS, rotation=90)
     plt.xlabel('Ranking classes')
     plt.ylabel('Frequency')
     plt.legend(loc='best', fancybox=True, framealpha=0.8)
