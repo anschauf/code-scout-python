@@ -1,5 +1,4 @@
 import os
-from pyvenn import venn
 from os.path import basename, splitext
 
 import awswrangler as wr
@@ -8,6 +7,9 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from loguru import logger
+from src import venn
+
+
 
 
 def load_revised_cases(filename_revised_cases: str) -> pd.DataFrame:
