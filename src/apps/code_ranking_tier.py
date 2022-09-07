@@ -38,7 +38,7 @@ def calculate_performance(*,
         current_method_code_ranks = list()
         for case_index in range(revised_cases.shape[0]):
             current_case = revised_cases.iloc[case_index]
-            case_id = current_case['CaseId']
+            case_id = current_case['combined_id']
 
             icd_added_list = current_case['ICD_added_split']
             # chop_added_list = current_case['CHOP_added_split']
@@ -59,7 +59,7 @@ def calculate_performance(*,
 
             # find matching case id in rankings if present
             # skip if case id not present
-            ranked_suggestions = rankings[rankings['case_id'] == case_id]['suggested_codes_pdx_split'].values
+            ranked_suggestions = rankings[rankings['case_id'] == case_id]['suggested_code_rankings_split'].values
 
             if ranked_suggestions.shape[0] > 0:
                 icd_suggested_list = ranked_suggestions[0]  # There is only one element in the array, which is a list of str
@@ -89,8 +89,8 @@ def calculate_performance(*,
     for i, result in enumerate(icd_code_ranks):
         wr.s3.to_csv(result, os.path.join(dir_output, all_rankings[i][0] + '.csv'), index=False)
         # get categorical rank based on predefined RANKING_RANGES
-        in_bins = np.digitize(result['rank'].tolist(), RANKING_RANGES, right=True)
-        current_categorical_rank = np.bincount(in_bins)
+        in_bins = np.digitize(result['rank'].tolist(), RANKING_RANGES, right=False)
+        current_categorical_rank = np.bincount(in_bins)[1:] # ignore smaller than 1 rankings
         icd_code_categorical_ranks.append(current_categorical_rank)
 
     # get the index ordering from highest to lowest 1-3 label rank
@@ -98,7 +98,7 @@ def calculate_performance(*,
 
     X = np.arange(len(RANKING_LABELS))
     plt.figure()
-    width = 0.25
+    width = 0.9 / len(all_rankings)
     offset_x = np.linspace(0, stop=width*(len(icd_code_ranks)-1), num=len(icd_code_ranks))
     color_map = matplotlib.cm.get_cmap('rainbow')
     color_map_distances = np.linspace(0, 1, len(icd_code_ranks))
@@ -117,8 +117,8 @@ def calculate_performance(*,
 
 if __name__ == '__main__':
     calculate_performance(
-        dir_rankings='s3://code-scout/performance-measuring/code_rankings/mock_rankings/',
-        dir_output='s3://code-scout/performance-measuring/code_rankings/mock_rankings_results/',
-        filename_revised_cases='s3://code-scout/performance-measuring/revised_evaluation_cases.csv',
+        dir_rankings='s3://code-scout/performance-measuring/code_rankings/2022-09-07_first-filter-comparison/',
+        dir_output='s3://code-scout/performance-measuring/code_rankings/2022-09-07_first-filter-comparison_results_4-classes/',
+        filename_revised_cases='s3://code-scout/performance-measuring/CodeScout_GroundTruthforPerformanceMeasuring.csv',
         s3_bucket='code-scout'
     )
