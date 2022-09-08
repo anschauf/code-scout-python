@@ -110,7 +110,7 @@ def calculate_performance(*,
     plt.xticks(range(len(RANKING_LABELS)), RANKING_LABELS, rotation=90)
     plt.xlabel('Ranking classes')
     plt.ylabel('Frequency')
-    plt.legend(loc='best', fancybox=True, framealpha=0.8)
+    plt.legend(loc='best', fancybox=True, framealpha=0.8, bbox_to_anchor = (1.05, 0.6))
     save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'bar_ranking_classes.pdf'))
     plt.close()
 
