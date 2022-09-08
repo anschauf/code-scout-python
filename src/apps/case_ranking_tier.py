@@ -9,36 +9,8 @@ from matplotlib import pyplot as plt
 from loguru import logger
 from src import venn
 
+from src.files import load_revised_cases, load_code_scout_results
 
-
-
-def load_revised_cases(filename_revised_cases: str) -> pd.DataFrame:
-    logger.info(f'Reading revised cases from {filename_revised_cases} ...')
-    revised_cases = wr.s3.read_csv(filename_revised_cases)
-    logger.info(f'Read {revised_cases.shape[0]} rows')
-
-    return revised_cases
-
-
-def load_code_scout_results(dir_rankings: str) -> list[(str, pd.DataFrame)]:
-    # load rankings and store them in a tuple
-    logger.info(f'Listing files in {dir_rankings} ...')
-    all_ranking_filenames = wr.s3.list_objects(dir_rankings)
-    if len(all_ranking_filenames) == 0:
-        raise Exception(f'Found no ranking files')
-    else:
-        logger.info(f'Found {len(all_ranking_filenames)} files')
-
-    all_rankings = list()
-    for filename in all_ranking_filenames:
-        logger.info(f'Reading {filename} ...')
-        rankings = wr.s3.read_csv(filename)
-
-        method_name = splitext(basename(filename))[0]
-        hospital_year = os.path.dirname(filename).split('/')[-1]
-        all_rankings.append((hospital_year, method_name, rankings))
-
-    return all_rankings
 
 
 
@@ -51,16 +23,17 @@ def create_rankings_of_revised_cases(
     revised_cases = load_revised_cases(filename_revised_cases)
     # load the KSW2019 data from Codescout
     codescout_rankings = load_code_scout_results(filename_codescout_results)
-    revised_cases['CaseId'] = revised_cases['FID']
-    revised_cases['CaseId'] = revised_cases['CaseId'].fillna(0).astype(int)
+
 
     for hospital_year, method_name, rankings in codescout_rankings:
         # sort the codescout_rankings based on probabilities and get the caseID from codescout_rankings as list
         rankings.sort_values(by='prob_most_likely_code', ascending=False)
+        rankings['prob_rank'] = np.arange(1, len(rankings)+1)
+
         caseid_codescout = rankings['case_id'].tolist()
 
         # get the caseid from revised cases as a list
-        caseid_revised = revised_cases['CaseId'].tolist()
+        caseid_revised = revised_cases['combined_id'].tolist()
 
         # go to revision cases
         # based on caseID get the index from the Codescout data
@@ -68,19 +41,30 @@ def create_rankings_of_revised_cases(
         #   check if caseID (of DtoD revision data) is present in the Codescout suggestions data
         #   if yes, return the row index (i.e. position or rank bucket)
         # if two cases (two identical CaseID) present in Codescout suggestions -> ignore the case at the moment
-        revised_codescout_overlap = list()
-        for case in caseid_revised:
-            if case in caseid_codescout and case != 0:
-                revised_codescout_overlap.append(caseid_codescout.index(case))
-        # check the venn diagram (if possible, so we can skip making a label with rank groups) (pyvenn or venn)
-        # Count the number of row index fall into different rank tiers
-        # venn diagram
-        # https://github.com/tctianchi/pyvenn
+
+        revised_cases['case_id'] = revised_cases['combined_id']
+
+        overlap = pd.merge(revised_cases, rankings, on = 'case_id', how = 'inner')
+
+        # need a nice name!!!
+        revised_codescout = overlap[['case_id', 'CW_old', 'CW_new', 'prob_rank']].sort_values(by='prob_rank')
+
+        revised_codescout['delta_CW'] = revised_codescout['CW_new'].astype(float) - revised_codescout['CW_old'].astype(float)
+
+        revised_codescout['cdf'] = revised_codescout['delta_CW'].cumsum()
+
+        x = revised_codescout['prob_rank'].tolist()
+        y = revised_codescout['cdf'].tolist()
+
+        plt.plot(x, y)
+        plt.savefig(f'Cumulative distribution_{hospital_year}.png', bbox_inches='tight')
+        plt.show()
+
 
         top100 = set(np.arange(0, 100))
         top1000 = set(np.arange(0, 1000))
-        all_cases = set(np.arange(len(caseid_codescout)))
-        revised_codescout_overlap = set(revised_codescout_overlap)
+        all_cases = set(rankings['prob_rank'].tolist())
+        revised_codescout_overlap = set(revised_codescout['prob_rank'].tolist())
 
         labels = venn.get_labels([top100, top1000, all_cases, revised_codescout_overlap],
                                  fill=['number', 'logic'])

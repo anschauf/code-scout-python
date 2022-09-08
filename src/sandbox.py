@@ -1,4 +1,4 @@
-mport os
+import os
 from os.path import basename, splitext
 
 import awswrangler as wr
