@@ -10,6 +10,7 @@ from loguru import logger
 from src import venn
 
 from src.files import load_revised_cases, load_code_scout_results
+from src.utils import save_figure_to_pdf_on_s3
 
 
 
@@ -17,7 +18,9 @@ from src.files import load_revised_cases, load_code_scout_results
 
 def create_rankings_of_revised_cases(
         filename_revised_cases: str,
-        filename_codescout_results: str,):
+        filename_codescout_results: str,
+        dir_output: str,
+        s3_bucket: str = 'code-scout'):
 
     # load revision data from DtoD
     revised_cases = load_revised_cases(filename_revised_cases)
@@ -69,6 +72,7 @@ def create_rankings_of_revised_cases(
                                  fill=['number', 'logic'])
         fig, ax = venn.venn4(labels, names=['Top 100', 'Top 1000', 'All cases', 'Revised cases'])
         fig.suptitle(f'Case Ranking Tier ({hospital_year})', fontsize=40)
+        # save_figure_to_pdf_on_s3(fig, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_venn.pdf'))
         fig.savefig(f'case_ranking_{hospital_year}.png', bbox_inches='tight')
         fig.show()
 
@@ -79,20 +83,22 @@ def create_rankings_of_revised_cases(
         df.columns=['prob_rank', 'CDF']
         cdf_list.append(df)
 
-
-
-    for method_name in CDF.keys():
+    plt.figure()
+    for method_name, data in CDF.items():
         data = CDF[method_name]
         x = data[0]
         y = data[1]
-        plt.figure()
         plt.plot(x, y, label=method_name)
-        plt.savefig('xxx')
-        # plt.plot()
-    plt.show()
+    plt.title("Cumulative distribution of delta cost weight (CW_delta)")
+    plt.legend()
+    plt.savefig('CDF.png')
+    # save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf.pdf'))
+
 
 
 if __name__ == '__main__':
     create_rankings_of_revised_cases(
         filename_revised_cases="s3://code-scout/performance-measuring/CodeScout_GroundTruthforPerformanceMeasuring.csv",
-        filename_codescout_results="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw2019/")
+        filename_codescout_results="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw2019/",
+        dir_output="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw2019/case_ranking_tier_plots/",
+        s3_bucket='code-scout')
