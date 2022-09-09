@@ -92,7 +92,7 @@ def create_rankings_of_revised_cases(
     plt.title("Cumulative distribution of delta cost weight (CW_delta)")
     plt.legend()
     plt.savefig('CDF.png')
-    # save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf.pdf'))
+    # save_figure_to_pdf_on_s3(fig2, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf.pdf'))
 
 
 
