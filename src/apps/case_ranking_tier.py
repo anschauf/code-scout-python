@@ -25,15 +25,16 @@ def create_rankings_of_revised_cases(
     codescout_rankings = load_code_scout_results(filename_codescout_results)
 
 
+    CDF = dict()
     for hospital_year, method_name, rankings in codescout_rankings:
         # sort the codescout_rankings based on probabilities and get the caseID from codescout_rankings as list
         rankings.sort_values(by='prob_most_likely_code', ascending=False)
         rankings['prob_rank'] = np.arange(1, len(rankings)+1)
 
-        caseid_codescout = rankings['case_id'].tolist()
+        # caseid_codescout = rankings['case_id'].tolist()
 
         # get the caseid from revised cases as a list
-        caseid_revised = revised_cases['combined_id'].tolist()
+        # caseid_revised = revised_cases['combined_id'].tolist()
 
         # go to revision cases
         # based on caseID get the index from the Codescout data
@@ -56,11 +57,9 @@ def create_rankings_of_revised_cases(
         x = revised_codescout['prob_rank'].tolist()
         y = revised_codescout['cdf'].tolist()
 
-        plt.plot(x, y)
-        plt.savefig(f'Cumulative distribution_{hospital_year}.png', bbox_inches='tight')
-        plt.show()
+        CDF[method_name] = [x, y]
 
-
+        # Computation of the Venn diagram
         top100 = set(np.arange(0, 100))
         top1000 = set(np.arange(0, 1000))
         all_cases = set(rankings['prob_rank'].tolist())
@@ -72,6 +71,25 @@ def create_rankings_of_revised_cases(
         fig.suptitle(f'Case Ranking Tier ({hospital_year})', fontsize=40)
         fig.savefig(f'case_ranking_{hospital_year}.png', bbox_inches='tight')
         fig.show()
+
+    # Cumulative plot for each methods from CDF
+    cdf_list = list()
+    for method_name, data in CDF.items():
+        df = pd.DataFrame(data).transpose()
+        df.columns=['prob_rank', 'CDF']
+        cdf_list.append(df)
+
+
+
+    for method_name in CDF.keys():
+        data = CDF[method_name]
+        x = data[0]
+        y = data[1]
+        plt.figure()
+        plt.plot(x, y, label=method_name)
+        plt.savefig('xxx')
+        # plt.plot()
+    plt.show()
 
 
 if __name__ == '__main__':
