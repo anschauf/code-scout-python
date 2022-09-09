@@ -72,15 +72,12 @@ def create_rankings_of_revised_cases(
         fig.savefig(f'case_ranking_{hospital_year}.png', bbox_inches='tight')
         fig.show()
 
-
-
     # Cumulative plot for each methods from CDF
     cdf_list = list()
     for method_name, data in CDF.items():
         df = pd.DataFrame(data).transpose()
         df.columns=['prob_rank', 'CDF']
         cdf_list.append(df)
-
 
 
 
