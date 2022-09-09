@@ -72,8 +72,8 @@ def create_rankings_of_revised_cases(
                                  fill=['number', 'logic'])
         fig, ax = venn.venn4(labels, names=['Top 100', 'Top 1000', 'All cases', 'Revised cases'])
         fig.suptitle(f'Case Ranking Tier ({hospital_year})', fontsize=40)
-        # save_figure_to_pdf_on_s3(fig, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_venn.pdf'))
-        fig.savefig(f'case_ranking_{hospital_year}.png', bbox_inches='tight')
+        save_figure_to_pdf_on_s3(fig, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_venn.pdf'))
+        # fig.savefig(f'case_ranking_{hospital_year}.png', bbox_inches='tight')
         fig.show()
 
     # Cumulative plot for each methods from CDF
@@ -91,8 +91,8 @@ def create_rankings_of_revised_cases(
         plt.plot(x, y, label=method_name)
     plt.title("Cumulative distribution of delta cost weight (CW_delta)")
     plt.legend()
-    plt.savefig('CDF.png')
-    # save_figure_to_pdf_on_s3(fig2, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf.pdf'))
+    # plt.savefig('CDF.png')
+    save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf.pdf'))
 
 
 
@@ -100,5 +100,5 @@ if __name__ == '__main__':
     create_rankings_of_revised_cases(
         filename_revised_cases="s3://code-scout/performance-measuring/CodeScout_GroundTruthforPerformanceMeasuring.csv",
         filename_codescout_results="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw2019/",
-        dir_output="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw2019/case_ranking_tier_plots/",
+        dir_output="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw2019_case_ranking_tier_plots/",
         s3_bucket='code-scout')
