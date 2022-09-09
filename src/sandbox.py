@@ -1,4 +1,4 @@
-mport os
+import os
 from os.path import basename, splitext
 
 import awswrangler as wr
@@ -127,21 +127,3 @@ delta_cw = list()
 for item1, item2 in zip(cw_new_list, cw_old_list):
     item = item1 - item2
     delta_cw.append(item)
-
-
-
-
-
-
-
-
-
-
-
-filename_revised_cases="s3://code-scout/performance-measuring/CodeScout_GroundTruthforPerformanceMeasuring.csv"
-filename_codescout_results="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw2019/"
-
-if __name__ == '__main__':
-    create_rankings_of_revised_cases(
-        filename_revised_cases="s3://code-scout/performance-measuring/CodeScout_GroundTruthforPerformanceMeasuring.csv",
-        filename_codescout_results="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw2019/")
