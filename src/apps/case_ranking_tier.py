@@ -69,7 +69,7 @@ def create_rankings_of_revised_cases(
         labels = venn.get_labels([top100, top1000, all_cases, revised_codescout_overlap],
                                  fill=['number', 'logic'])
         fig, ax = venn.venn4(labels, names=['Top 100', 'Top 1000', 'All cases', 'Revised cases'])
-        fig.suptitle(f'Case Ranking Tier ({hospital_year})', fontsize=40)
+        fig.suptitle(f'Case Ranking Tier Venn Diagram ({hospital_year})', fontsize=40)
         fig.savefig(f'case_ranking_{hospital_year}.png', bbox_inches='tight')
         fig.show()
 
