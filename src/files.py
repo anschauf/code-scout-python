@@ -1,4 +1,5 @@
 from os.path import basename, splitext
+import os
 
 import numpy as np
 import pandas as pd
@@ -57,7 +58,7 @@ def load_all_rankings(dir_rankings: str) -> list[(str, pd.DataFrame)]:
 
         method_name = splitext(basename(filename))[0]
 
-        all_rankings.append((method_name, rankings))
+        all_rankings.append((hospital_year, method_name, rankings))
 
     return all_rankings
 
@@ -74,7 +75,7 @@ def load_code_scout_results(dir_rankings: str) -> list[(str, pd.DataFrame)]:
     all_rankings = list()
     for filename in all_ranking_filenames:
         logger.info(f'Reading {filename} ...')
-        rankings = wr.s3.read_csv(filename)
+        rankings = wr.s3.read_csv(filename, dtype='string')
 
         all_case_ids = rankings['case_id'].values
         unique_case_ids = np.unique(all_case_ids)
@@ -82,8 +83,9 @@ def load_code_scout_results(dir_rankings: str) -> list[(str, pd.DataFrame)]:
             raise Exception('There are duplicated case IDs in the ranked cases file')
 
         method_name = splitext(basename(filename))[0]
+        hospital_year = os.path.dirname(filename).split('/')[-1]
 
-        all_rankings.append((method_name, rankings))
+        all_rankings.append((hospital_year, method_name, rankings))
 
     return all_rankings
 
