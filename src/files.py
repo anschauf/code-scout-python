@@ -57,8 +57,9 @@ def load_all_rankings(dir_rankings: str) -> list[(str, pd.DataFrame)]:
         rankings['suggested_code_rankings_split'] = rankings['suggested_code_rankings'].apply(split_codes)
 
         method_name = splitext(basename(filename))[0]
+        folder_name = os.path.dirname(filename).split('/')[-1]
 
-        all_rankings.append((hospital_year, method_name, rankings))
+        all_rankings.append((folder_name, method_name, rankings))
 
     return all_rankings
 
@@ -83,9 +84,9 @@ def load_code_scout_results(dir_rankings: str) -> list[(str, pd.DataFrame)]:
             raise Exception('There are duplicated case IDs in the ranked cases file')
 
         method_name = splitext(basename(filename))[0]
-        hospital_year = os.path.dirname(filename).split('/')[-1]
+        folder_name = os.path.dirname(filename).split('/')[-1]
 
-        all_rankings.append((hospital_year, method_name, rankings))
+        all_rankings.append((folder_name, method_name, rankings))
 
     return all_rankings
 
