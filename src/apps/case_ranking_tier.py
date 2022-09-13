@@ -17,7 +17,7 @@ def create_rankings_of_revised_cases(
         s3_bucket: str = 'code-scout'):
     """
 
-    @param dir_rankings: This directory contains all ranking results from the recommender systems.
+    @param filename_codescout_results: This directory contains all ranking results from the recommender systems.
     @param dir_output: Directory to store the results in.
     @param filename_revised_cases: This is the filename to all revised cases we want to compare the rankings to.
     @param s3_bucket: Directory to store the results in.
