@@ -1,17 +1,11 @@
 import os
-from os.path import basename, splitext
-
-import awswrangler as wr
-import matplotlib
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
-from loguru import logger
 from src import venn
 
 from src.files import load_revised_cases, load_code_scout_results
 from src.utils import save_figure_to_pdf_on_s3
-
 
 
 
@@ -27,8 +21,7 @@ def create_rankings_of_revised_cases(
     # load the KSW2019 data from Codescout
     codescout_rankings = load_code_scout_results(filename_codescout_results)
 
-
-    CDF = dict()
+    cdf_delt_cw = dict()
     for hospital_year, method_name, rankings in codescout_rankings:
         # sort the codescout_rankings based on probabilities and get the caseID from codescout_rankings as list
         rankings.sort_values(by='prob_most_likely_code', ascending=False)
@@ -48,9 +41,8 @@ def create_rankings_of_revised_cases(
 
         revised_cases['case_id'] = revised_cases['combined_id']
 
-        overlap = pd.merge(revised_cases, rankings, on = 'case_id', how = 'inner')
+        overlap = pd.merge(revised_cases, rankings, on='case_id', how='inner')
 
-        # need a nice name!!!
         revised_codescout = overlap[['case_id', 'CW_old', 'CW_new', 'prob_rank']].sort_values(by='prob_rank')
 
         revised_codescout['delta_CW'] = revised_codescout['CW_new'].astype(float) - revised_codescout['CW_old'].astype(float)
@@ -60,7 +52,7 @@ def create_rankings_of_revised_cases(
         x = revised_codescout['prob_rank'].tolist()
         y = revised_codescout['cdf'].tolist()
 
-        CDF[method_name] = [x, y]
+        cdf_delt_cw[method_name] = [x, y]
 
         # Computation of the Venn diagram
         top100 = set(np.arange(0, 100))
@@ -76,24 +68,23 @@ def create_rankings_of_revised_cases(
         # fig.savefig(f'case_ranking_{hospital_year}.png', bbox_inches='tight')
         fig.show()
 
-    # Cumulative plot for each methods from CDF
+    # Cumulative plot for each methods from cdf_delt_cw
     cdf_list = list()
-    for method_name, data in CDF.items():
+    for method_name, data in cdf_delt_cw.items():
         df = pd.DataFrame(data).transpose()
-        df.columns=['prob_rank', 'CDF']
+        df.columns = ['prob_rank', 'cdf_delt_cw']
         cdf_list.append(df)
 
     plt.figure()
-    for method_name, data in CDF.items():
-        data = CDF[method_name]
+    for method_name, data in cdf_delt_cw.items():
+        data = cdf_delt_cw[method_name]
         x = data[0]
         y = data[1]
         plt.plot(x, y, label=method_name)
     plt.title("Cumulative distribution of delta cost weight (CW_delta)")
     plt.legend()
-    # plt.savefig('CDF.png')
+    # plt.savefig('cdf_delt_cw.png')
     save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf.pdf'))
-
 
 
 if __name__ == '__main__':

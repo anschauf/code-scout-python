@@ -8,7 +8,7 @@ from matplotlib import pyplot as plt
 
 from src.files import load_revised_cases, load_all_rankings
 from src.rankings import LABEL_NOT_SUGGESTED, RANKING_LABELS, RANKING_RANGES
-from src.utils import get_categorical_ranks, save_figure_to_pdf_on_s3, split_codes
+from src.utils import save_figure_to_pdf_on_s3
 
 
 def calculate_performance(*,
@@ -32,7 +32,7 @@ def calculate_performance(*,
     icd_code_ranks = list()
     # chop_code_ranks = list()
 
-    for method_name, rankings in all_rankings:
+    for _, _, rankings in all_rankings:
         # ranking_case_id = rankings['case_id'].tolist()
 
         current_method_code_ranks = list()
@@ -90,7 +90,7 @@ def calculate_performance(*,
         wr.s3.to_csv(result, os.path.join(dir_output, all_rankings[i][0] + '.csv'), index=False)
         # get categorical rank based on predefined RANKING_RANGES
         in_bins = np.digitize(result['rank'].tolist(), RANKING_RANGES, right=False)
-        current_categorical_rank = np.bincount(in_bins)[1:] # ignore smaller than 1 rankings
+        current_categorical_rank = np.bincount(in_bins)[1:]  # ignore smaller than 1 rankings
         icd_code_categorical_ranks.append(current_categorical_rank)
 
     # get the index ordering from highest to lowest 1-3 label rank
@@ -105,12 +105,12 @@ def calculate_performance(*,
     # reverse color to go from green to red
     colors = [color_map(x) for x in color_map_distances]
     for i_loop, i_best_model in enumerate(ind_best_to_worst_ordering):
-        bar_heights = icd_code_categorical_ranks[i_best_model] # replace with np.histogram here
-        plt.bar(X + offset_x[i_loop], bar_heights, color=colors[i_loop], width=width, label=all_rankings[i_best_model][0])
+        bar_heights = icd_code_categorical_ranks[i_best_model]  # replace with np.histogram here
+        plt.bar(X + offset_x[i_loop], bar_heights, color=colors[i_loop], width=width, label=all_rankings[i_best_model][1])
     plt.xticks(range(len(RANKING_LABELS)), RANKING_LABELS, rotation=90)
     plt.xlabel('Ranking classes')
     plt.ylabel('Frequency')
-    plt.legend(loc='best', fancybox=True, framealpha=0.8, bbox_to_anchor = (1.05, 0.6))
+    plt.legend(loc='best', fancybox=True, framealpha=0.8, bbox_to_anchor=(1.05, 0.6))
     save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'bar_ranking_classes.pdf'))
     plt.close()
 
