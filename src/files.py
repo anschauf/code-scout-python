@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 import awswrangler as wr
-
+from src.schema import case_id_col, suggested_code_rankings_split_col
 from src.utils import split_codes
 
 
@@ -49,12 +49,12 @@ def load_all_rankings(dir_rankings: str) -> list[(str, pd.DataFrame)]:
         logger.info(f'Reading {filename} ...')
         rankings = wr.s3.read_csv(filename, sep=";", dtype='string')
 
-        all_case_ids = rankings['case_id'].values
+        all_case_ids = rankings[case_id_col].values
         unique_case_ids = np.unique(all_case_ids)
         if all_case_ids.shape[0] != unique_case_ids.shape[0]:
             raise Exception('There are duplicated case IDs in the ranked cases file')
 
-        rankings['suggested_code_rankings_split'] = rankings['suggested_code_rankings'].apply(split_codes)
+        rankings[suggested_code_rankings_split_col] = rankings[suggested_code_rankings_split_col].apply(split_codes)
 
         method_name = splitext(basename(filename))[0]
         folder_name = os.path.dirname(filename).split('/')[-1]
@@ -78,7 +78,7 @@ def load_code_scout_results(dir_rankings: str) -> list[(str, pd.DataFrame)]:
         logger.info(f'Reading {filename} ...')
         rankings = wr.s3.read_csv(filename, dtype='string')
 
-        all_case_ids = rankings['case_id'].values
+        all_case_ids = rankings[case_id_col].values
         unique_case_ids = np.unique(all_case_ids)
         if all_case_ids.shape[0] != unique_case_ids.shape[0]:
             raise Exception('There are duplicated case IDs in the ranked cases file')

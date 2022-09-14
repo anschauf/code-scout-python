@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from src import venn
+from src.schema import case_id_col, suggested_code_rankings_split_col
+
 
 from src.files import load_revised_cases, load_code_scout_results
 from src.utils import save_figure_to_pdf_on_s3
@@ -49,11 +51,11 @@ def create_rankings_of_revised_cases(
         #   if yes, return the row index (i.e. position or rank bucket)
         # if two cases (two identical CaseID) present in Codescout suggestions -> ignore the case at the moment
 
-        revised_cases['case_id'] = revised_cases['combined_id']
+        revised_cases[case_id_col] = revised_cases['combined_id']
 
-        overlap = pd.merge(revised_cases, rankings, on='case_id', how='inner')
+        overlap = pd.merge(revised_cases, rankings, on=case_id_col, how='inner')
 
-        revised_codescout = overlap[['case_id', 'CW_old', 'CW_new', 'prob_rank']].sort_values(by='prob_rank')
+        revised_codescout = overlap[[case_id_col, 'CW_old', 'CW_new', 'prob_rank']].sort_values(by='prob_rank')
 
         revised_codescout['delta_CW'] = revised_codescout['CW_new'].astype(float) - revised_codescout['CW_old'].astype(float)
 
@@ -104,6 +106,6 @@ def create_rankings_of_revised_cases(
 if __name__ == '__main__':
     create_rankings_of_revised_cases(
         filename_revised_cases="s3://code-scout/performance-measuring/CodeScout_GroundTruthforPerformanceMeasuring.csv",
-        filename_codescout_results="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw2019/",
-        dir_output="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw2019_case_ranking_tier_plots/",
+        filename_codescout_results="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw2019_2/",
+        dir_output="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw2019_case_ranking_tier_plots_2/",
         s3_bucket='code-scout')

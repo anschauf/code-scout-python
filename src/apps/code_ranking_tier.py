@@ -8,6 +8,7 @@ from matplotlib import pyplot as plt
 
 from src.files import load_revised_cases, load_all_rankings
 from src.rankings import LABEL_NOT_SUGGESTED, RANKING_LABELS, RANKING_RANGES
+from src.schema import case_id_col, suggested_code_rankings_split_col
 from src.utils import save_figure_to_pdf_on_s3
 
 
@@ -26,6 +27,7 @@ def calculate_performance(*,
 
     @return:
     """
+
     revised_cases = load_revised_cases(filename_revised_cases)
     all_rankings = load_all_rankings(dir_rankings)
 
@@ -59,7 +61,7 @@ def calculate_performance(*,
 
             # find matching case id in rankings if present
             # skip if case id not present
-            ranked_suggestions = rankings[rankings['case_id'] == case_id]['suggested_code_rankings_split'].values
+            ranked_suggestions = rankings[rankings[case_id_col] == case_id][suggested_code_rankings_split_col].values
 
             if ranked_suggestions.shape[0] > 0:
                 icd_suggested_list = ranked_suggestions[0]  # There is only one element in the array, which is a list of str
@@ -82,7 +84,7 @@ def calculate_performance(*,
                 code_rank = [case_id, icd, icd_suggested_list, current_case_label]
                 current_method_code_ranks.append(code_rank)
 
-        icd_code_ranks.append(pd.DataFrame(np.vstack(current_method_code_ranks), columns=['case_id', 'added_ICD', 'ICD_suggested_list', 'rank']))
+        icd_code_ranks.append(pd.DataFrame(np.vstack(current_method_code_ranks), columns=[case_id_col, 'added_ICD', 'ICD_suggested_list', 'rank']))
 
     # write results to file and get the categorical rankings
     icd_code_categorical_ranks = list()
@@ -117,8 +119,8 @@ def calculate_performance(*,
 
 if __name__ == '__main__':
     calculate_performance(
-        dir_rankings='s3://code-scout/performance-measuring/code_rankings/2022-09-07_first-filter-comparison/',
-        dir_output='s3://code-scout/performance-measuring/code_rankings/2022-09-07_first-filter-comparison_results_4-classes/',
+        dir_rankings='s3://code-scout/performance-measuring/code_rankings/2022-09-14_first-filter-comparison_ksw/',
+        dir_output='s3://code-scout/performance-measuring/code_rankings/2022-09-14_first-filter-comparison_results_4-classes_ksw/',
         filename_revised_cases='s3://code-scout/performance-measuring/CodeScout_GroundTruthforPerformanceMeasuring.csv',
         s3_bucket='code-scout'
     )
