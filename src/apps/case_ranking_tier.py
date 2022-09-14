@@ -15,6 +15,15 @@ def create_rankings_of_revised_cases(
         filename_codescout_results: str,
         dir_output: str,
         s3_bucket: str = 'code-scout'):
+    """
+
+    @param filename_codescout_results: This directory contains all ranking results from the recommender systems.
+    @param dir_output: Directory to store the results in.
+    @param filename_revised_cases: This is the filename to all revised cases we want to compare the rankings to.
+    @param s3_bucket: Directory to store the results in.
+
+    @return:
+    """
 
     # load revision data from DtoD
     revised_cases = load_revised_cases(filename_revised_cases)
@@ -22,6 +31,7 @@ def create_rankings_of_revised_cases(
     codescout_rankings = load_code_scout_results(filename_codescout_results)
 
     cdf_delt_cw = dict()
+    num_cases = dict()
     for hospital_year, method_name, rankings in codescout_rankings:
         # sort the codescout_rankings based on probabilities and get the caseID from codescout_rankings as list
         rankings.sort_values(by='prob_most_likely_code', ascending=False)
@@ -52,6 +62,7 @@ def create_rankings_of_revised_cases(
         x = revised_codescout['prob_rank'].tolist()
         y = revised_codescout['cdf'].tolist()
 
+        num_cases[method_name] = rankings.shape[0]
         cdf_delt_cw[method_name] = [x, y]
 
         # Computation of the Venn diagram
@@ -78,9 +89,12 @@ def create_rankings_of_revised_cases(
     plt.figure()
     for method_name, data in cdf_delt_cw.items():
         data = cdf_delt_cw[method_name]
-        x = data[0]
-        y = data[1]
-        plt.plot(x, y, label=method_name)
+        n_cases = num_cases[method_name]
+        x = [0] + data[0] + [n_cases]
+        y = [0] + data[1] + [data[1][-1]]
+        plt.step(x, y, where='post', label=method_name)
+    plt.xlabel("# cases")
+    plt.ylabel("delta CW")
     plt.title("Cumulative distribution of delta cost weight (CW_delta)")
     plt.legend()
     # plt.savefig('cdf_delt_cw.png')
