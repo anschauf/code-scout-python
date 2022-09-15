@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from src import venn
-from src.schema import case_id_col, suggested_code_rankings_split_col, prob_most_likely_code_col
+from src.schema import case_id_col, prob_most_likely_code_col
 
 
 from src.files import load_revised_cases, load_code_scout_results
@@ -39,18 +39,6 @@ def create_rankings_of_revised_cases(
         rankings.sort_values(by=prob_most_likely_code_col, ascending=False)
         rankings['prob_rank'] = np.arange(1, len(rankings)+1)
 
-        # caseid_codescout = rankings['case_id'].tolist()
-
-        # get the caseid from revised cases as a list
-        # caseid_revised = revised_cases['combined_id'].tolist()
-
-        # go to revision cases
-        # based on caseID get the index from the Codescout data
-        # iterate through revision cases (for loop) doing this:
-        #   check if caseID (of DtoD revision data) is present in the Codescout suggestions data
-        #   if yes, return the row index (i.e. position or rank bucket)
-        # if two cases (two identical CaseID) present in Codescout suggestions -> ignore the case at the moment
-
         revised_cases[case_id_col] = revised_cases['combined_id']
 
         overlap = pd.merge(revised_cases, rankings, on=case_id_col, how='inner')
@@ -78,10 +66,9 @@ def create_rankings_of_revised_cases(
         fig, ax = venn.venn4(labels, names=['Top 100', 'Top 1000', 'All cases', 'Revised cases'])
         fig.suptitle(f'Case Ranking Tier ({hospital_year})', fontsize=40)
         save_figure_to_pdf_on_s3(fig, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_venn.pdf'))
-        # fig.savefig(f'case_ranking_{hospital_year}.png', bbox_inches='tight')
         fig.show()
 
-    # Cumulative plot for each methods from cdf_delt_cw
+    # Cumulative plot for each method from cdf_delt_cw
     cdf_list = list()
     for method_name, data in cdf_delt_cw.items():
         df = pd.DataFrame(data).transpose()
@@ -99,13 +86,12 @@ def create_rankings_of_revised_cases(
     plt.ylabel("delta CW")
     plt.title("Cumulative distribution of delta cost weight (CW_delta)")
     plt.legend()
-    # plt.savefig('cdf_delt_cw.png')
     save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf.pdf'))
 
 
 if __name__ == '__main__':
     create_rankings_of_revised_cases(
         filename_revised_cases="s3://code-scout/performance-measuring/CodeScout_GroundTruthforPerformanceMeasuring.csv",
-        filename_codescout_results="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw2019_2/",
-        dir_output="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw2019_case_ranking_tier_plots_2/",
+        filename_codescout_results="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw_2019_2/",
+        dir_output="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw_2019_2_case_ranking_tier_plots/",
         s3_bucket='code-scout')

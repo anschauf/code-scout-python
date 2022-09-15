@@ -35,7 +35,6 @@ def calculate_performance(*,
     # chop_code_ranks = list()
 
     for _, _, rankings in all_rankings:
-        # ranking_case_id = rankings['case_id'].tolist()
 
         current_method_code_ranks = list()
         for case_index in range(revised_cases.shape[0]):
@@ -46,32 +45,12 @@ def calculate_performance(*,
             # chop_added_list = current_case['CHOP_added_split']
             # chop_dropped_list = current_case['CHOP_dropped_split']
 
-            # 1. Lookup in the DataFrame, and get the array. Then, if the array is empty, skip this case ID
-            # rankings[rankings['case_id'] == case_id]['suggested_codes_pdx_split'].values
-
-            # 2. Lookup in the list of ranked Case IDs with numpy. Then, if the array is empty, skip this case ID
-            # indices = np.where(rankings['case_id'] == case_id)[0]
-            # if indices.shape[0] == 0:
-            #   continue
-            # else:
-            # rankings.loc[indices[0]]['suggested_codes_pdx_split'].values[0]
-
-            # 3. Get the index of the case id in the list. Add a try / except to catch the ValueError
-            # ranking_case_id.index(case_id)
-
-            # find matching case id in rankings if present
-            # skip if case id not present
             ranked_suggestions = rankings[rankings[case_id_col] == case_id][suggested_code_rankings_split_col].values
 
             if ranked_suggestions.shape[0] > 0:
                 icd_suggested_list = ranked_suggestions[0]  # There is only one element in the array, which is a list of str
             else:
                 continue
-
-            # find revised diagnoses in current ranking
-            # if diagnosis is present, find index where it's ranked and classify it in one of the ranking labels
-            # 1-3, 4-6, 7-9, 10+
-            # if not present add to not suggested label
 
             for icd in icd_added_list:
                 if icd not in icd_suggested_list:
