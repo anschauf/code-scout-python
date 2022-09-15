@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from src import venn
-from src.schema import case_id_col, suggested_code_rankings_split_col
+from src.schema import case_id_col, suggested_code_rankings_split_col, prob_most_likely_code_col
 
 
 from src.files import load_revised_cases, load_code_scout_results
@@ -36,7 +36,7 @@ def create_rankings_of_revised_cases(
     num_cases = dict()
     for hospital_year, method_name, rankings in codescout_rankings:
         # sort the codescout_rankings based on probabilities and get the caseID from codescout_rankings as list
-        rankings.sort_values(by='prob_most_likely_code', ascending=False)
+        rankings.sort_values(by=prob_most_likely_code_col, ascending=False)
         rankings['prob_rank'] = np.arange(1, len(rankings)+1)
 
         # caseid_codescout = rankings['case_id'].tolist()

@@ -76,7 +76,7 @@ def load_code_scout_results(dir_rankings: str) -> list[(str, pd.DataFrame)]:
     all_rankings = list()
     for filename in all_ranking_filenames:
         logger.info(f'Reading {filename} ...')
-        rankings = wr.s3.read_csv(filename, dtype='string')
+        rankings = wr.s3.read_csv(filename, sep=";", dtype='string')
 
         all_case_ids = rankings[case_id_col].values
         unique_case_ids = np.unique(all_case_ids)
