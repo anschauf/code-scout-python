@@ -39,21 +39,22 @@ Python 3, Docker Desktop and the PyCharm IDE must be installed locally => see Te
 For the apps to run, it is to be ensured that the docker environment is set up as follows in the PyCharm IDE 
 <b>(Run > Edit configurations...)</b>:
 
-<img src="/Users/michaelkunz/Desktop/Screenshot 2022-09-14 at 11.00.03.png"/>
+
+<img src="resources/images/readme/run_debug_config_docker.png"/>
 
 To run the case ranking and code ranking tier apps, the following configurations are needed in the PyCharm IDE 
 (here shown in the case ranking tier) <b>(Run > Edit configurations...)</b>:
 
-<img src="/Users/michaelkunz/Desktop/Screenshot 2022-09-14 at 11.34.57.png"/>
+<img src="resources/images/readme/config_case_ranking.png"/>
 
 The script path as well as the working directory are set up according to the individual local space of the user.
 Another thing to ensure is that the <b>AWS Connection</b> is set to "Use the currently selected credential profile/region" (also in <b>(Run > Edit configurations...)</b>) is set up as follows:
 
-<img src="/Users/michaelkunz/Desktop/Screenshot 2022-09-14 at 11.53.32.png"/>
+<img src="resources/images/readme/aws_config.png"/>
 
 Further, the AWS Connection setting (bottom right in PyCharm IDE) are to be set up as follows:
 
-<img height="201" src="/Users/michaelkunz/Desktop/Screenshot 2022-09-14 at 11.57.27.png" width="206"/>
+<img height="201" src="resources/images/readme/aws_connection_settings.png" width="206"/>
 
 
 <h3>Input and Output</h3>
