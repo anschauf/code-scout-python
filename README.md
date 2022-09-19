@@ -16,18 +16,18 @@ The corresponding .py files to run the apps can be found in the following folder
 The detailed description of the CodeScout apps can be found here [RFC 0011 - Performance testing tool for Code Scout](https://www.notion.so/aimedic/RFC-0011-Performance-testing-tool-for-Code-Scout-554e9d35b96845afa42c70f7fe8ccef2)
 
 
-<h4>Technology Stack </h4>
+### Technology Stack
 
 Python 3.10.5, Docker Desktop, PyCharm IDE
 
 
-<h2>Getting Started </h2>
+## Getting Started
 
-<h4>Prerequisites</h4>
+#### Prerequisites
 
 Python 3, Docker Desktop and the PyCharm IDE must be installed locally => see Technology stack
 
-<h4>Installation (TO BE VERIFIED!) </h4>
+#### Installation (TO BE VERIFIED!) 
 
 1. Open the project folder in PyCharm 
 2. In the run configurations at the top right, you need to launch the build of the docker container.
@@ -36,23 +36,25 @@ Python 3, Docker Desktop and the PyCharm IDE must be installed locally => see Te
 5. Click the gear icon and select add.
 6. Select the image which you created in the previous step. Default: Remote Python 3.10.5 Docker (codescout-performance-app)
 
-<h4>Setting up the Docker Environment and interpreter in the PyCharm IDE</h4>
+#### Setting up the Docker Environment and interpreter in the PyCharm IDE
 
 For the apps to run, it is to be ensured that the docker environment is set up as follows in the PyCharm IDE 
-<b>(Run > Edit configurations...)</b>:
+**(Run > Edit configurations...)**:
+
+<img src="resources/images/readme/run_debug_config_docker.png" width="700">
 
 
-<img src="resources/images/readme/run_debug_config_docker.png"/>
+
 
 To run the case ranking and code ranking tier apps, the following configurations are needed in the PyCharm IDE 
-(here shown in the case ranking tier) <b>(Run > Edit configurations...)</b>:
+(here shown in the case ranking tier) **(Run > Edit configurations...)**:
 
-<img src="resources/images/readme/config_case_ranking.png"/>
+<img src="resources/images/readme/config_case_ranking.png" width="700">
 
 The script path as well as the working directory are set up according to the individual local space of the user.
-Another thing to ensure is that the <b>AWS Connection</b> is set to "Use the currently selected credential profile/region" (also in <b>(Run > Edit configurations...)</b>) is set up as follows:
+Another thing to ensure is that the **AWS Connection** is set to "Use the currently selected credential profile/region" (also in <b>(Run > Edit configurations...)</b>) is set up as follows:
 
-<img src="resources/images/readme/aws_config.png"/>
+<img src="resources/images/readme/aws_config.png"width="700">
 
 Further, the AWS Connection setting (bottom right in PyCharm IDE) are to be set up as follows:
 
@@ -95,12 +97,8 @@ to restructuring.
    
 ## Maintainers
 
-
-<p>Libraries:</p>
-<li>awswrangler</li>
-<li>Pandas, Numpy, Matplotlib</li>
-<li>loguru</li>
-<li>For the Venn Diagramm: pyvenn, Repository: https://github.com/tctianchi/pyvenn </li> 
+- Lirui Zhang
+- Michael Kunz 
 
 
 
