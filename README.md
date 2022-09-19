@@ -6,7 +6,8 @@
 The CodeScout performance testing tool was developed to be able to measure and compare various CodeScout approaches/prototypes. 
 The tool aims to take suggestions from different prototypes and measures and to compare their results, thus offering support
 in finding the best working solution for CodeScout. 
-Currently, the performance measure tool consists of two separate apps: 
+Currently, the performance measure tool consists of two separate apps:
+
 -  code_ranking_tier
 -  case_ranking_tier
 
@@ -18,7 +19,9 @@ The detailed description of the CodeScout apps can be found here [RFC 0011 - Per
 
 ### Technology Stack
 
-Python 3.10.5, Docker Desktop, PyCharm IDE
+- Python 3.10.5
+- Docker Desktop
+- PyCharm IDE
 
 
 ## Getting Started
@@ -27,7 +30,7 @@ Python 3.10.5, Docker Desktop, PyCharm IDE
 
 Python 3, Docker Desktop and the PyCharm IDE must be installed locally => see Technology stack
 
-#### Installation (TO BE VERIFIED!) 
+#### Installation 
 
 1. Open the project folder in PyCharm 
 2. In the run configurations at the top right, you need to launch the build of the docker container.
