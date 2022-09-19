@@ -7,8 +7,8 @@ The CodeScout performance testing tool was developed to be able to measure and c
 The tool aims to take suggestions from different prototypes and measures and to compare their results, thus offering support
 in finding the best working solution for CodeScout. 
 Currently, the performance measure tool consists of two separate apps: 
-- code_ranking_tier
-- case_ranking_tier
+-  code_ranking_tier
+-  case_ranking_tier
 
 The corresponding .py files to run the apps can be found in the following folder: **codescout-performance-app &rarr; src &rarr; apps** 
 
