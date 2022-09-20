@@ -1,9 +1,11 @@
-
 # Core packages
-matplotlib
-numpy
-pandas
+beartype
+loguru
 awswrangler
 boto3
-loguru
+numpy
+pandas
+
+# Plotting
+matplotlib
 venn

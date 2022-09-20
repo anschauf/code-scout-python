@@ -1,10 +1,12 @@
-from os.path import basename, splitext
 import os
+from os.path import basename, splitext
 
+import awswrangler as wr
 import numpy as np
 import pandas as pd
+from beartype import beartype
 from loguru import logger
-import awswrangler as wr
+
 from src.schema import case_id_col, suggested_code_rankings_split_col
 from src.utils import split_codes
 
@@ -30,12 +32,12 @@ def load_revised_cases(filename_revised_cases: str) -> pd.DataFrame:
 
     revised_cases['ICD_added_split'] = revised_cases['ICD_added'].apply(split_codes)
     revised_cases['CHOP_added_split'] = revised_cases['CHOP_added'].apply(split_codes)
-    revised_cases['CHOP_dropped_split'] = revised_cases['CHOP_dropped'].apply(split_codes)
 
     return revised_cases
 
 
-def load_all_rankings(dir_rankings: str) -> list[(str, pd.DataFrame)]:
+@beartype
+def load_all_rankings(dir_rankings: str) -> list[tuple[str, str, pd.DataFrame]]:
     # load rankings and store them in a tuple
     logger.info(f'Listing files in {dir_rankings} ...')
     all_ranking_filenames = wr.s3.list_objects(dir_rankings)

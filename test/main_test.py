@@ -1,11 +1,11 @@
 import unittest
 
-from src.apps.code_ranking_tier import calculate_performance
+from src.apps.code_ranking_tier import calculate_code_ranking_performance
 
 
 class MyTestCase(unittest.TestCase):
     def test_calculate_performance(self):
-        calculate_performance()
+        calculate_code_ranking_performance()
 
 
 if __name__ == '__main__':
