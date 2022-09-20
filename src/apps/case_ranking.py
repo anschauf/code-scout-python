@@ -31,7 +31,6 @@ def create_rankings_of_revised_cases(*,
 
     # Load the revised cases, which are the ground truth for calculating the performance
     revised_cases = load_revised_cases(filename_revised_cases)
-    n_revised_cases = revised_cases.shape[0]
 
     # Load the rankings from CodeScout
     all_rankings = load_all_rankings(dir_rankings)
