@@ -7,7 +7,7 @@ import pandas as pd
 from beartype import beartype
 from loguru import logger
 
-from src.schema import case_id_col, suggested_code_rankings_split_col
+from src.schema import case_id_col, suggested_code_rankings_split_col, prob_most_likely_code_col
 from src.utils import split_codes
 
 
@@ -50,6 +50,7 @@ def load_all_rankings(dir_rankings: str) -> list[tuple[str, str, pd.DataFrame]]:
     for filename in all_ranking_filenames:
         logger.info(f'Reading {filename} ...')
         rankings = wr.s3.read_csv(filename, sep=";", dtype='string')
+        rankings[prob_most_likely_code_col] = rankings[prob_most_likely_code_col].astype(float)
 
         all_case_ids = rankings[case_id_col].values
         unique_case_ids = np.unique(all_case_ids)
