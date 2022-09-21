@@ -84,11 +84,39 @@ def create_rankings_of_revised_cases(*,
         x = [0] + list(ranks) + [n_cases]
         y = [0] + list(cdf) + [cdf[-1]]
         plt.step(x, y, where='post', label=method_name)
+        x_50 = int(n_cases/2)
+        y_50 = int(cdf[-1]/2)
+        plt.axhline(y_50, color="red", linestyle="--", linewidth=1)
+        plt.axvline(x_50, color="red", linestyle="--", linewidth=1)
     plt.xlabel("# cases")
     plt.ylabel("delta CW")
-    plt.title("Cumulative distribution of delta cost weight (CW_delta)")
+    plt.suptitle("Cumulative distribution of delta cost weight (CW_delta)")
     plt.legend()
     save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf.pdf'))
+
+    # Cumulative plot for each method from cdf_delta_cw in percent
+
+    plt.figure()
+    for method_name, data in cdf_delta_cw.items():
+        ranks, cdf = cdf_delta_cw[method_name]
+        n_cases = int(num_cases[method_name])
+        rank_percent = [cases / n_cases*100 for cases in list(ranks)]
+        cdf_percent = [cases / max(list(cdf))*100 for cases in list(cdf)]
+        x = [0] + list(rank_percent) + [rank_percent[-1]]
+        y = [0] + list(cdf_percent) + [cdf_percent[-1]]
+        plt.step(x, y, where='post', label=method_name)
+    x_50 = int(rank_percent[-1]/2)
+    y_50 = int(cdf_percent[-1]/2)
+    plt.axhline(y_50, color="red", linestyle="--", linewidth=1)
+    plt.axvline(x_50, color="blue", linestyle="--", linewidth=1)
+    plt.axvline(50, color="red", linestyle="--", linewidth=1)
+    plt.xticks(np.arange(0, max(rank_percent), step=10))
+    plt.yticks(np.arange(0, max(cdf_percent), step=10))
+    plt.xlabel("cases in %")
+    plt.ylabel("delta CW in %")
+    plt.title("Cumulative distribution of delta cost weight (CW_delta) in %")
+    plt.legend()
+    save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf_percentage.pdf'))
 
 
 if __name__ == '__main__':
