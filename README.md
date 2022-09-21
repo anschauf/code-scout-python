@@ -9,7 +9,7 @@ in finding the best working solution for CodeScout.
 Currently, the performance measure tool consists of two separate apps:
 
 -  code_ranking_tier
--  case_ranking_tier
+-  case_ranking
 
 The corresponding .py files to run the apps can be found in the following folder: **codescout-performance-app &rarr; src &rarr; apps** 
 
