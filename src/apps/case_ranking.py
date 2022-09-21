@@ -102,8 +102,8 @@ def create_rankings_of_revised_cases(*,
         n_cases = int(num_cases[method_name])
         rank_percent = [cases / n_cases*100 for cases in list(ranks)]
         cdf_percent = [cases / max(list(cdf))*100 for cases in list(cdf)]
-        x = [0] + list(rank_percent) + [rank_percent[-1]]
-        y = [0] + list(cdf_percent) + [cdf_percent[-1]]
+        x = [0] + rank_percent + [rank_percent[-1]]
+        y = [0] + cdf_percent + [cdf_percent[-1]]
         plt.step(x, y, where='post', label=method_name)
     x_50 = int(rank_percent[-1]/2)
     y_50 = int(cdf_percent[-1]/2)
