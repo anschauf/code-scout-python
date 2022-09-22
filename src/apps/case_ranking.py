@@ -84,10 +84,10 @@ def create_rankings_of_revised_cases(*,
         x = [0] + list(ranks) + [n_cases]
         y = [0] + list(cdf) + [cdf[-1]]
         plt.step(x, y, where='post', label=method_name)
-        x_50 = int(n_cases/2)
-        y_50 = int(cdf[-1]/2)
-        plt.axhline(y_50, color="red", linestyle="--", linewidth=1)
-        plt.axvline(x_50, color="red", linestyle="--", linewidth=1)
+    x_50 = int(n_cases/2)
+    y_50 = int(cdf[-1]/2)
+    plt.axhline(y_50, color="red", linestyle="--", linewidth=1)
+    plt.axvline(x_50, color="red", linestyle="--", linewidth=1)
     plt.xlabel("# cases")
     plt.ylabel("delta CW")
     plt.suptitle("Cumulative distribution of delta cost weight (CW_delta)")
