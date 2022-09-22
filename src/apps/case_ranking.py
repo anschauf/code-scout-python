@@ -99,8 +99,7 @@ def create_rankings_of_revised_cases(*,
     plt.figure()
     for method_name, data in cdf_delta_cw.items():
         ranks, cdf = cdf_delta_cw[method_name]
-        n_cases = int(num_cases[method_name])
-        rank_percent = [cases / n_cases*100 for cases in list(ranks)]
+        rank_percent = [cases / list(ranks)[-1]*100 for cases in list(ranks)]
         cdf_percent = [cases / max(list(cdf))*100 for cases in list(cdf)]
         x = [0] + rank_percent + [rank_percent[-1]]
         y = [0] + cdf_percent + [cdf_percent[-1]]
