@@ -9,3 +9,6 @@ pandas
 # Plotting
 matplotlib
 venn
+
+# DB
+psycopg[binary]
