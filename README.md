@@ -38,6 +38,7 @@ Python 3, Docker Desktop and the PyCharm IDE must be installed locally => see Te
 4. Go to the interpreter settings in PyCharm.
 5. Click the gear icon and select add.
 6. Select the image which you created in the previous step. Default: Remote Python 3.10.5 Docker (codescout-performance-app)
+7. Copy and rename the file `.env-example` to `.env` and replace all variables with values found in the App: `KeePass > aimedic > AWS > databases`
 
 #### Setting up the Docker Environment and interpreter in the PyCharm IDE
 

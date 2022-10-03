@@ -9,3 +9,10 @@ pandas
 # Plotting
 matplotlib
 venn
+
+# database
+psycopg2
+sqlalchemy
+
+# environment variable
+python-decouple
