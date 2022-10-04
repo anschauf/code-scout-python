@@ -8,6 +8,7 @@ from matplotlib import pyplot
 
 s3_prefix = 's3://'
 
+
 def save_figure_to_pdf_on_s3(plt: pyplot, bucket: str, filename: str):
     filename = __remove_prefix_and_bucket_if_exists(filename)
     img_data = io.BytesIO()
