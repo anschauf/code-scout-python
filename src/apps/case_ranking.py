@@ -81,8 +81,8 @@ def create_rankings_of_revised_cases(*,
     for method_name, data in cdf_delta_cw.items():
         ranks, cdf = cdf_delta_cw[method_name]
         n_cases = num_cases[method_name]
-        x = [0] + ranks + [n_cases]
-        y = [0] + cdf + [cdf[-1]]
+        x = [0] + list(ranks) + [n_cases]
+        y = [0] + list(cdf) + [cdf[-1]]
         plt.step(x, y, where='post', label=method_name)
     plt.xlabel("# cases")
     plt.ylabel("delta CW")
