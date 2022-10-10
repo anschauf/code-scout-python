@@ -1,5 +1,6 @@
 .run
 .idea
+src/.ipynb_checkpoints
 .ipynb_checkpoints
 
 
