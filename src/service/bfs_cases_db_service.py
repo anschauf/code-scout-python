@@ -1,6 +1,5 @@
 import boto3
 import pandas as pd
-import psycopg2
 from decouple import config
 from pandas import DataFrame
 from sqlalchemy import create_engine, event
@@ -17,9 +16,12 @@ BFS_CASES_DB_USER = config('BFS_CASES_DB_USER')
 BFS_CASES_DB_NAME = config('BFS_CASES_DB_NAME')
 BFS_CASES_DB_PORT = config('BFS_CASES_DB_PORT')
 AWS_REGION = config('AWS_REGION')
+AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
 
 # gets the credentials from .aws/credentials
-client = boto3.client('rds')
+client = boto3.client('rds', region_name=AWS_REGION, aws_access_key_id=AWS_ACCESS_KEY_ID,
+                      aws_secret_access_key=AWS_SECRET_ACCESS_KEY)
 
 engine = create_engine(
     f'postgresql://{BFS_CASES_DB_USER}@{BFS_CASES_DB_URL}:{BFS_CASES_DB_PORT}/{BFS_CASES_DB_NAME}')

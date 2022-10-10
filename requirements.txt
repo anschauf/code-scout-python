@@ -10,7 +10,7 @@ pandas
 matplotlib
 
 # database
-psycopg2
+psycopg2-binary
 sqlalchemy
 
 # environment variable
