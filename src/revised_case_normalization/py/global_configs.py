@@ -75,6 +75,45 @@ FILES_TO_ANALYZE = {
          '2020',
          ['Änderungen_Winterthur_2020']),
     
+    'USZ 2018': FileInfo(
+         os.path.join(ROOT_DIR, 'raw_data/USZ_2018-2019_20200730.xlsx'),
+         'USZ',
+         '2018',
+         ['Rückmeldungen_USZ_2018']),
+    
+    'USZ 2019': FileInfo(
+         os.path.join(ROOT_DIR, 'raw_data/USZ_2018-2019_20200730.xlsx'),
+         'USZ',
+          '2019',
+         ['Gesamtauffällige_USZ_2019']),
+    
+    'USZ 2019_30_04_2020': FileInfo(
+         os.path.join(ROOT_DIR, 'raw_data/USZ_2018-2019_20200730.xlsx'),
+         'USZ',
+         '2019-2020',
+         ['Rückmeldung_USZ_2019_30.04.2020']),
+    
+    'KSSG 2021': FileInfo(os.path.join(ROOT_DIR, 'raw_data/KSSG_2021.xlsx'),
+                          'KSSG HQ', '2021', ['Änderungen_KSSG_2021']),
+    
+    'KSSG Linth 2019': FileInfo(
+         os.path.join(ROOT_DIR, 'raw_data/Linth_Toggenburg_SRRWS_2019.xlsx'),
+         'KSSG Linth',
+         '2019',
+         ['Änderungen_Spital_Linth_2019']),
+    
+    'KSSG Toggenburg 2019': FileInfo(
+         os.path.join(ROOT_DIR, 'raw_data/Linth_Toggenburg_SRRWS_2019.xlsx'),
+         'KSSG Toggenburg',
+         '2019', 
+         ['Änderungen_Toggenburg_2019']),
+    
+    'KSSG SRRWS 2019': FileInfo(
+         os.path.join(ROOT_DIR, 'raw_data/Linth_Toggenburg_SRRWS_2019.xlsx'),
+         'KSSG SRRWS',
+         '2019',
+         ['Änderungen SRRWS_2019']),
+    
 }
 
 
