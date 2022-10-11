@@ -5,6 +5,8 @@ awswrangler
 boto3
 numpy
 pandas
+openpyxl==3.2.0b1
+pyarrow==9.0.0
 
 # Plotting
 matplotlib

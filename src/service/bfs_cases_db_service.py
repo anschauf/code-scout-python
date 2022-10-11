@@ -51,6 +51,18 @@ def get_by_sql_query(sql_query) -> DataFrame:
     return pd.read_sql(sql_query, session.bind)
 
 
+def get_bfs_cases_by_ids(case_ids: list) -> DataFrame:
+    """
+
+    @param case_ids:
+    @return:
+    """
+
+    query = session.query(BfsCase).filter(BfsCase.case_id.in_(case_ids))
+
+    return pd.read_sql(query.statement, session.bind)
+
+
 def get_hospital_cases_df(hopsital_name) -> DataFrame:
     """
 
