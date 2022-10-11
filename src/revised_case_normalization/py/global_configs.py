@@ -51,8 +51,30 @@ FILES_TO_ANALYZE = {
          '2018',
          ['Änderungen Beau Site_ 2018']),
     
+    'Winterthur 2017': FileInfo(
+         os.path.join(ROOT_DIR, 'raw_data/Winterthur.xlsx'),
+         'KSW',
+         '2017', 
+         ['Änderungen _Winterthur_2017']),
     
-
+    'Winterthur 2018': FileInfo(
+         os.path.join(ROOT_DIR, 'raw_data/Winterthur.xlsx'),
+         'KSW',
+         '2018', 
+         ['Änderungen Winterthur 2018']),
+    
+    'Winterthur 2019': FileInfo(
+         os.path.join(ROOT_DIR, 'raw_data/Winterthur.xlsx'),
+         'KSW',
+         '2019',
+         ['Änderungen Winterthur 2019']),
+    
+    'Winterthur 2020': FileInfo(
+         os.path.join(ROOT_DIR, 'raw_data/Winterthur.xlsx'),
+         'KSW',
+         '2020',
+         ['Änderungen_Winterthur_2020']),
+    
 }
 
 

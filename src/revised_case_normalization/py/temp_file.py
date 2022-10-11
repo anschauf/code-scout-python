@@ -28,8 +28,3 @@
          ['2018', '2019', '2019-2020'],
          ['Rückmeldungen_USZ_2018', 'Gesamtauffällige_USZ_2019', 'Rückmeldung_USZ_2019_30.04.2020']),
 
-    'Winterthur.xlsx': FileInfo(
-         os.path.join(ROOT_DIR, 'raw_data/Winterthur.xlsx'),
-         ['KSW',  'KSW'],
-         ['2017',  '2020'],
-         ['Änderungen _Winterthur_2017', 'Änderungen_Winterthur_2020']),
