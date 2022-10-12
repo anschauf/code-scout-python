@@ -152,11 +152,8 @@ COLS_TO_SELECT = VALIDATION_COLS + [
 
 # Define a common mapping from some column names to our normalized names. 
 # Mind that columns are converted to lower case when read from the file.
-# TODO: Zurich: Fall Nummer not admno
-
-
 COLUMNS_TO_RENAME = {
-    'admno': CASE_ID_COL,
+    'admno': CASE_ID_COL,  
     'patid': PATIENT_ID_COL,
     'geschlecht': GENDER_COL,
     'alter (jahre)': AGE_COL,
@@ -182,3 +179,12 @@ COLUMNS_TO_LSTRIP = {
     PATIENT_ID_COL, 
     CASE_ID_COL,
 }
+
+
+###################
+# TODO: Zurich: Fall Nummer not admno
+# cols_to_rename = dict(COLUMNS_TO_RENAME)
+# Replace 'admno' with 'fall nummer'
+# cols_to_rename.pop('admno')
+# cols_to_rename['fall nummer'] = CASE_ID_COL
+# df_revised_case_d2d = normalize(file_info, 0, columns_mapper=cols_to_rename)
