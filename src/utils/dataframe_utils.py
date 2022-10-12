@@ -21,9 +21,9 @@ def remove_duplicated_chops(df: pd.DataFrame,
     @return: The input DataFrame, with the columns `cleaned_added_chops_col` and `cleaned_removed_chops_col` added,
         possibly overwriting existing columns.
     """
-    def _remove_duplicated_chops(s):
-        s[cleaned_added_chops_col], s[cleaned_removed_chops_col] = _remove_duplicates_case_insensitive(s[added_chops_col], s[removed_chops_col])
-        return s
+    def _remove_duplicated_chops(row):
+        row[cleaned_added_chops_col], row[cleaned_removed_chops_col] = _remove_duplicates_case_insensitive(row[added_chops_col], row[removed_chops_col])
+        return row
 
     df = df.apply(_remove_duplicated_chops, axis=1)
     return df
