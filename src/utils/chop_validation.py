@@ -6,6 +6,7 @@ VALID_CHOP_REGEX = re.compile(r"^\d[A-Z0-9]{1,5}$")
 
 def validate_chop_codes_list(chop_codes: list[str]) -> list[str]:
     valid_chop_codes = list()
+    invalid_chop_codes = list()
 
     for chop in chop_codes:
         # Remove the optional dots
