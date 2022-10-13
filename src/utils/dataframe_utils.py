@@ -1,6 +1,8 @@
 import pandas as pd
 from beartype import beartype
 
+from src.utils.icd_validation import validate_icd_codes_list
+
 
 @beartype
 def remove_duplicated_chops(df: pd.DataFrame,
@@ -26,6 +28,28 @@ def remove_duplicated_chops(df: pd.DataFrame,
         return row
 
     df = df.apply(_remove_duplicated_chops, axis=1)
+    return df
+
+
+@beartype
+def validate_icd_codes(df: pd.DataFrame,
+                       *,
+                       icd_codes_col: str = 'added_icds',
+                       output_icd_codes_col: str = 'added_icds',
+                       ) -> pd.DataFrame:
+    """Validate whether a list of supposed ICD codes is actually made of ICD codes, discarding those which don't fit the
+    known pattern for ICD codes.
+
+    @param df: The data where to perform the filter.
+    @param icd_codes_col: The column containing the ICDs to validate.
+    @param output_icd_codes_col: The column where to store the results of the filtering / validation.
+    @return: The input DataFrame, with the column `output_icd_codes_col` added, possibly overwriting an existing column.
+    """
+    def _validate_icd_codes(row):
+        row[output_icd_codes_col] = validate_icd_codes_list(row[icd_codes_col])
+        return row
+
+    df = df.apply(_validate_icd_codes, axis=1)
     return df
 
 

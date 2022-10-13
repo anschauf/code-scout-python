@@ -1,6 +1,8 @@
 import pandas as pd
 from py.global_configs import *
 
+from src.utils.dataframe_utils import validate_icd_codes
+
 
 def normalize(fi: FileInfo, 
               excel_sheet_idx: int,
@@ -14,7 +16,7 @@ def normalize(fi: FileInfo,
     # Read the Excel file and sheet. Cast all columns to strings, so we can format / cast the columns ourselves later on.
     # `string[pyarrow]` is an efficient way of storing strings in a DataFrame
     df = pd.read_excel(fi.path, sheet_name=fi.sheets[excel_sheet_idx], dtype='string[pyarrow]')
-    
+
     # Convert all column names to lower-case, so we don't have to deal with columns named `HD Alt` vs `HD alt`
     df.columns = [c.lower() for c in df.columns]
 
@@ -45,5 +47,13 @@ def normalize(fi: FileInfo,
     for col_name in columns_to_lstrip:
         df[col_name] = df[col_name].apply(lstrip_fun)
 
-    return df 
+    # Split ICD and CHOP columns into list[str]
+    for code_col_to_fix in (ADDED_ICD_CODES, REMOVED_ICD_CODES, ADDED_CHOP_CODES, REMOVED_CHOP_CODES):
+        df[code_col_to_fix] = df[code_col_to_fix].fillna('').str.split(',')
+
+    # Validate ICD codes
+    df = validate_icd_codes(df, icd_codes_col=ADDED_ICD_CODES, output_icd_codes_col=ADDED_ICD_CODES)
+    df = validate_icd_codes(df, icd_codes_col=REMOVED_ICD_CODES, output_icd_codes_col=REMOVED_ICD_CODES)
+
+    return df
     
