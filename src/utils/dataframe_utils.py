@@ -1,6 +1,8 @@
 import pandas as pd
 from beartype import beartype
+from loguru import logger
 
+from src.utils.chop_validation import validate_chop_codes_list
 from src.utils.icd_validation import validate_icd_codes_list
 
 
@@ -46,10 +48,39 @@ def validate_icd_codes(df: pd.DataFrame,
     @return: The input DataFrame, with the column `output_icd_codes_col` added, possibly overwriting an existing column.
     """
     def _validate_icd_codes(row):
-        row[output_icd_codes_col] = validate_icd_codes_list(row[icd_codes_col])
+        result = validate_icd_codes_list(row[icd_codes_col])
+
+        # Log changes
+        different_codes = set(row[icd_codes_col]).difference(set(result))
+        if len(different_codes) > 0:
+            logger.debug(f"row {row.name}: removed ICDs {different_codes}")
+
+        row[output_icd_codes_col] = result
         return row
 
     df = df.apply(_validate_icd_codes, axis=1)
+    return df
+
+
+@beartype
+def validate_chop_codes(df: pd.DataFrame,
+                        *,
+                        chop_codes_col: str = 'added_chops',
+                        output_chop_codes_col: str = 'added_chops',
+                        ) -> pd.DataFrame:
+    """Validate whether a list of supposed CHOP codes is actually made of CHOP codes, discarding those which don't fit
+    the known pattern for CHOP codes.
+
+    @param df: The data where to perform the filter.
+    @param chop_codes_col: The column containing the CHOPs to validate.
+    @param output_chop_codes_col: The column where to store the results of the filtering / validation.
+    @return: The input DataFrame, with the column `output_chop_codes_col` added, possibly overwriting an existing column.
+    """
+    def _validate_chop_codes(row):
+        row[output_chop_codes_col] = validate_chop_codes_list(row[chop_codes_col])
+        return row
+
+    df = df.apply(_validate_chop_codes, axis=1)
     return df
 
 

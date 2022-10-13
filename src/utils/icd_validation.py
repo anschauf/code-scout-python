@@ -18,8 +18,3 @@ def validate_icd_codes_list(icd_codes: list[str]) -> list[str]:
             valid_icd_codes.append(valid_icd_code)
 
     return valid_icd_codes
-
-
-
-
-

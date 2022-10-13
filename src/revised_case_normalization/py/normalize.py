@@ -1,7 +1,7 @@
 import pandas as pd
 from py.global_configs import *
 
-from src.utils.dataframe_utils import validate_icd_codes
+from src.utils.dataframe_utils import validate_icd_codes, validate_chop_codes, remove_duplicated_chops
 
 
 def normalize(fi: FileInfo, 
@@ -51,9 +51,16 @@ def normalize(fi: FileInfo,
     for code_col_to_fix in (ADDED_ICD_CODES, REMOVED_ICD_CODES, ADDED_CHOP_CODES, REMOVED_CHOP_CODES):
         df[code_col_to_fix] = df[code_col_to_fix].fillna('').str.split(',')
 
-    # Validate ICD codes
+    # Validate ICD and CHOP codes
     df = validate_icd_codes(df, icd_codes_col=ADDED_ICD_CODES, output_icd_codes_col=ADDED_ICD_CODES)
     df = validate_icd_codes(df, icd_codes_col=REMOVED_ICD_CODES, output_icd_codes_col=REMOVED_ICD_CODES)
+    df = validate_chop_codes(df, icd_codes_col=ADDED_CHOP_CODES, output_icd_codes_col=ADDED_CHOP_CODES)
+    df = validate_chop_codes(df, icd_codes_col=REMOVED_CHOP_CODES, output_icd_codes_col=REMOVED_CHOP_CODES)
+
+    # Remove CHOP codes which appear in both added and removed lists
+    df = remove_duplicated_chops(df,
+                                 added_chops_col=ADDED_CHOP_CODES, cleaned_added_chops_col=ADDED_CHOP_CODES,
+                                 removed_chops_col=REMOVED_CHOP_CODES, cleaned_removed_chops_col=REMOVED_CHOP_CODES)
 
     return df
     

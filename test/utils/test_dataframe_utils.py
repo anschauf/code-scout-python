@@ -3,7 +3,8 @@ import unittest
 import pandas as pd
 
 # noinspection PyProtectedMember
-from src.utils.dataframe_utils import _remove_duplicates_case_insensitive, remove_duplicated_chops, validate_icd_codes
+from src.utils.dataframe_utils import _remove_duplicates_case_insensitive, remove_duplicated_chops, validate_icd_codes, \
+    validate_chop_codes
 
 
 class DataFrameUtilsTest(unittest.TestCase):
@@ -60,6 +61,17 @@ class DataFrameUtilsTest(unittest.TestCase):
         df = validate_icd_codes(df)
         first_row = df.loc[0]
         self.assertListEqual(first_row['added_icds'], ['I1090', 'F03'])
+
+    def test_validate_chop_codes(self):
+        invalid_chops = ['aa', 'a1', '8311.807799']
+        valid_chops = ['1a', '7a4412', '807799', '8311']
+        added_chops = invalid_chops + valid_chops
+        df = pd.DataFrame([[added_chops]]).T
+        df.columns = ['added_chops']
+
+        df = validate_chop_codes(df)
+        first_row = df.loc[0]
+        self.assertListEqual(first_row['added_chops'], ['1A', '7A4412', '807799', '8311'])
 
 
 if __name__ == '__main__':
