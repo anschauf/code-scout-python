@@ -54,8 +54,8 @@ def normalize(fi: FileInfo,
     # Validate ICD and CHOP codes
     df = validate_icd_codes(df, icd_codes_col=ADDED_ICD_CODES, output_icd_codes_col=ADDED_ICD_CODES)
     df = validate_icd_codes(df, icd_codes_col=REMOVED_ICD_CODES, output_icd_codes_col=REMOVED_ICD_CODES)
-    df = validate_chop_codes(df, icd_codes_col=ADDED_CHOP_CODES, output_icd_codes_col=ADDED_CHOP_CODES)
-    df = validate_chop_codes(df, icd_codes_col=REMOVED_CHOP_CODES, output_icd_codes_col=REMOVED_CHOP_CODES)
+    df = validate_chop_codes(df, chop_codes_col=ADDED_CHOP_CODES, output_chop_codes_col=ADDED_CHOP_CODES)
+    df = validate_chop_codes(df, chop_codes_col=REMOVED_CHOP_CODES, output_chop_codes_col=REMOVED_CHOP_CODES)
 
     # Remove CHOP codes which appear in both added and removed lists
     df = remove_duplicated_chops(df,

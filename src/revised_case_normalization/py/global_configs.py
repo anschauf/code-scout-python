@@ -144,7 +144,7 @@ VALIDATION_COLS = [
 
 COLS_TO_SELECT = VALIDATION_COLS + [
     # Additional columns, not yet used for validation
-    PRIMARY_DIAGNOSIS_COL, CLINIC_COL,
+    PRIMARY_DIAGNOSIS_COL, NEW_PRIMARY_DIAGNOSIS_COL, CLINIC_COL,
 
     # Columns to copy to the DB, which are not used for validation
     ADDED_ICD_CODES, REMOVED_ICD_CODES, ADDED_CHOP_CODES, REMOVED_CHOP_CODES

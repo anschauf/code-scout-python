@@ -66,6 +66,7 @@ def validate_icd_codes(df: pd.DataFrame,
 def validate_chop_codes(df: pd.DataFrame,
                         *,
                         chop_codes_col: str = 'added_chops',
+                        chop_codes_deleted_col: str = 'removed_chops',
                         output_chop_codes_col: str = 'added_chops',
                         ) -> pd.DataFrame:
     """Validate whether a list of supposed CHOP codes is actually made of CHOP codes, discarding those which don't fit
@@ -77,7 +78,33 @@ def validate_chop_codes(df: pd.DataFrame,
     @return: The input DataFrame, with the column `output_chop_codes_col` added, possibly overwriting an existing column.
     """
     def _validate_chop_codes(row):
-        row[output_chop_codes_col] = validate_chop_codes_list(row[chop_codes_col])
+        valid_chop_codes, invalid_chop_codes = validate_chop_codes_list(row[chop_codes_col])
+        valid_chop_codes_deleted, invalid_chop_codes_deleted = validate_chop_codes_list(row[chop_codes_deleted_col])
+
+        # Log changes
+        # different_valid_codes = set(row[chop_codes_col].upper()).difference(set(valid_chop_codes))
+        invalid_chop_codes = set(invalid_chop_codes)
+        valid_codes_duplicated = list()
+        for chop in valid_chop_codes:
+            if chop in valid_chop_codes_deleted:
+                valid_codes_duplicated.append(chop)
+
+        discard_chops = invalid_chop_codes.union(set(valid_codes_duplicated))
+        # set(row[chop_codes_col]).difference(set(chop_codes_deleted_col))
+        # different_invalid_codes = set(row[chop_codes_col]).difference(set(invalid_chop_codes))
+        #invalid_chop_codes_set = set(invalid_chop_codes)
+        # discarded_chops = different_valid_codes.union(set(invalid_chop_codes))
+
+        if len(discard_chops) > 0:
+            logger.debug(f"row {row.name}: discarded duplicated and invalid CHOP entries after validation {discard_chops}")
+        # if len(different_invalid_codes) > 0:
+            # logger.debug(f"row {row.name}: discarded invalid CHOPs after validation {different_invalid_codes}")
+            # logger.debug(f"row {row.name}: discarded valid CHOPs after validation {discarded_chops} discarded invalid CHOPs after validation {different_invalid_codes}")
+
+        #if len(different_invalid_codes) > 0:
+        #    logger.debug(f"row {row.name}: discarded invalid CHOPs after validation {different_invalid_codes}")
+
+        row[output_chop_codes_col] = valid_chop_codes
         return row
 
     df = df.apply(_validate_chop_codes, axis=1)
