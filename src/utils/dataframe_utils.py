@@ -53,7 +53,7 @@ def validate_icd_codes(df: pd.DataFrame,
         # Log changes
         different_codes = set(row[icd_codes_col]).difference(set(result))
         if len(different_codes) > 0:
-            logger.debug(f"row {row.name}: removed ICDs {different_codes}")
+            logger.debug(f"row {row.name}: discarded ICDs after validation {different_codes}")
 
         row[output_icd_codes_col] = result
         return row
