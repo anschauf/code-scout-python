@@ -81,11 +81,7 @@ FILES_TO_ANALYZE = {
          '2018',
          ['Rückmeldungen_USZ_2018']),
     
-    'USZ 2019': FileInfo(
-         os.path.join(ROOT_DIR, 'raw_data/USZ_2018-2019_20200730.xlsx'),
-         'USZ',
-          '2019',
-         ['Gesamtauffällige_USZ_2019']),
+
     
     'USZ 2019_30_04_2020': FileInfo(
          os.path.join(ROOT_DIR, 'raw_data/USZ_2018-2019_20200730.xlsx'),
