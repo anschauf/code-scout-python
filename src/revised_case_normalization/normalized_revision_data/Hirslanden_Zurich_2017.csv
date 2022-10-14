@@ -1,0 +1,5 @@
+,case_id,patient_id,gender,age_years,duration_of_stay,pccl,drg,old_pd,new_pd,bfs_code,added_icds,removed_icds,added_chops,removed_chops
+0,0041221789,1AEBB433167DC079,M,68,15,3,H09B,C252,C252,M200,"['B957', 'T8578']",[],[],[]
+1,0041284390,069F80C552C5C7A1,W,85,13,3,I08D,S7210,S7210,M200,['F058'],[],[],[]
+2,0041360825,18B60893412E0DEC,W,84,12,3,I46C,S7204,S7204,M200,"['N1793', 'E1173', 'K564']",[],[],[]
+3,0041409899,0C5B1859D8F479AD,W,65,14,3,I09C,M4786,M4786,M200,['D62'],[],['990410'],[]
