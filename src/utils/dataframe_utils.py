@@ -92,12 +92,6 @@ def validate_chop_codes(df: pd.DataFrame,
 
         if len(discard_chops) > 0:
             logger.debug(f"row {row.name}: discarded duplicated and invalid CHOP entries after validation {discard_chops}")
-        # if len(different_invalid_codes) > 0:
-            # logger.debug(f"row {row.name}: discarded invalid CHOPs after validation {different_invalid_codes}")
-            # logger.debug(f"row {row.name}: discarded valid CHOPs after validation {discarded_chops} discarded invalid CHOPs after validation {different_invalid_codes}")
-
-        #if len(different_invalid_codes) > 0:
-        #    logger.debug(f"row {row.name}: discarded invalid CHOPs after validation {different_invalid_codes}")
 
         row[output_chop_codes_col] = valid_chop_codes
         return row
@@ -105,7 +99,7 @@ def validate_chop_codes(df: pd.DataFrame,
     df = df.apply(_validate_chop_codes, axis=1)
     return df
 
-
+@beartype
 def validate_pd_revised_sd(df: pd.DataFrame,
                         *,
                         pd_col: str = 'old_pd',
@@ -130,6 +124,7 @@ def validate_pd_revised_sd(df: pd.DataFrame,
         new_pd = row[pd_new_col]
         added_icds = row[added_icd_col]
         removed_icds = row[removed_icd_col]
+
         # comparing old pd with new pd: discarding the new_pd if it is the same as the old pd.
         if old_pd != new_pd:
             logger.debug(f'in row {row.name}, primary diagnosis was changed from {old_pd} to {new_pd}')
