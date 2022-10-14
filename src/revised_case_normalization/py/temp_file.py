@@ -1,10 +1,5 @@
 
 
-    'Hirslanden Zurich 2017': FileInfo(
-        os.path.join(ROOT_DIR, 'raw_data/HI-Zurich.xlsx'),
-        'Hirslanden Zurich',
-        '2017',
-        ['Änderungen_Hirslanden_2017']),
 
     'Hirslanden Zurich 2018': FileInfo(
         os.path.join(ROOT_DIR, 'raw_data/HI-Zurich.xlsx'),
