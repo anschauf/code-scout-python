@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 
 
 ROOT_DIR = '/home/jovyan/work/src/revised_case_normalization'
-
+OUTPUT_DIR = '/home/jovyan/work/src/revised_case_normalization/'
 
 @dataclass
 class FileInfo:
@@ -142,6 +142,8 @@ VALIDATION_COLS = [
     DURATION_OF_STAY_COL, PCCL_COL, DRG_COL,
 ]
 
+COL_SUBSET_FROM_REVISED_CASES = [CASE_ID_COL, PRIMARY_DIAGNOSIS_COL,  NEW_PRIMARY_DIAGNOSIS_COL,  CLINIC_COL,  ADDED_ICD_CODES,  REMOVED_ICD_CODES,  ADDED_CHOP_CODES, REMOVED_CHOP_CODES]
+
 COLS_TO_SELECT = VALIDATION_COLS + [
     # Additional columns, not yet used for validation
     PRIMARY_DIAGNOSIS_COL, NEW_PRIMARY_DIAGNOSIS_COL, CLINIC_COL,
@@ -149,6 +151,7 @@ COLS_TO_SELECT = VALIDATION_COLS + [
     # Columns to copy to the DB, which are not used for validation
     ADDED_ICD_CODES, REMOVED_ICD_CODES, ADDED_CHOP_CODES, REMOVED_CHOP_CODES
 ]
+
 
 # Define a common mapping from some column names to our normalized names. 
 # Mind that columns are converted to lower case when read from the file.

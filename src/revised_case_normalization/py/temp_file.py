@@ -1,10 +1,38 @@
         
 
-    'HI-Zurich.xlsx': FileInfo(
+    'Hirslanden Zurich': FileInfo(
          os.path.join(ROOT_DIR, 'raw_data/HI-Zurich.xlsx'),
-         ['Hirslanden Zurich', 'Hirslanden Zurich', 'Hirslanden Zurich', 'Hirslanden Zurich'],
-         ['2016', '2017', '2018', '2019'],
-         ['Änderungen_Hirslanden 2016', 'Änderungen_Hirslanden_2017', 'Änderungen_Hirslanden_2018', 'Änderungen_MIX_Hirslanden_2019']),
+         'Hirslanden Zurich',
+         '2016',
+         ['Änderungen_Hirslanden 2016']),
+
+    'Hirslanden Zurich': FileInfo(
+        os.path.join(ROOT_DIR, 'raw_data/HI-Zurich.xlsx'),
+        'Hirslanden Zurich',
+        '2017',
+        ['Änderungen_Hirslanden_2017']),
+
+    'HI-Zurich.xlsx': FileInfo(
+        os.path.join(ROOT_DIR, 'raw_data/HI-Zurich.xlsx'),
+        'Hirslanden Zurich',
+         '2018',
+        ['Änderungen_Hirslanden_2018']),
+
+    'HI-Zurich.xlsx': FileInfo(
+        os.path.join(ROOT_DIR, 'raw_data/HI-Zurich.xlsx'),
+        'Hirslanden Zurich', 'Hirslanden Zurich', 'Hirslanden Zurich', 'Hirslanden Zurich'],
+         '2019',
+        ['Änderungen_Hirslanden 2016', 'Änderungen_Hirslanden_2017', 'Änderungen_Hirslanden_2018',
+         'Änderungen_MIX_Hirslanden_2019']),
+
+    'HI-Zurich.xlsx': FileInfo(
+        os.path.join(ROOT_DIR, 'raw_data/HI-Zurich.xlsx'),
+        ['Hirslanden Zurich', 'Hirslanden Zurich', 'Hirslanden Zurich', 'Hirslanden Zurich'],
+        ['2016', '2017', '2018', '2019'],
+        ['Änderungen_Hirslanden 2016', 'Änderungen_Hirslanden_2017', 'Änderungen_Hirslanden_2018',
+         'Änderungen_MIX_Hirslanden_2019']),
+
+
 
     'HI_Aarau_Birshof_ST. Anna.xlsx': FileInfo(
         os.path.join(ROOT_DIR, 'raw_data/HI_Aarau_Birshof_ST. Anna.xlsx'),
