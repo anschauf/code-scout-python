@@ -111,6 +111,48 @@ def validate_chop_codes(df: pd.DataFrame,
     return df
 
 
+def validate_pd_revised_sd(df: pd.DataFrame,
+                        *,
+                        pd_col: str = 'old_pd',
+                        pd_new_col: str = 'new_pd',
+                        added_icd_col: str = 'added_icds',
+                        removed_icd_col: str = 'removed_icds',
+                           ) -> pd.DataFrame:
+    """Validate whether a list of old and new primary diagnosis are captured, discarding codes which are not correctly captured.
+    Further: validation of added and removed secondary diagnosis (added_icds and removed icds),
+    discarding those which do not correspond to an added or removed secondary diagnosis respectively.
+
+    @param df: The data where to perform the filter.
+    @param pd_col: The column containing the unrevised primary diagnosis to validate.
+    @param pd_new_col: The column containing the revised primary diagnosis to validate.
+    @param added_icd_col: The column containing the added secondary icds to validate.
+    @param removed_icd_col: The column containing the removed secondary icds to validate.
+    @return: The input DataFrame, with a validated 'pd' (consolidated column with 'pd' and 'pd_new'), 'added_icds',
+    'removed_icds', overwriting existing columns
+    """
+    def _validate_pd_revised_sd(row):
+        old_pd = row[pd_col]
+        new_pd = row[pd_new_col]
+        added_icds = row[added_icd_col]
+        removed_icds = row[removed_icd_col]
+        # comparing old pd with new pd: discarding the new_pd if it is the same as the old pd.
+        if old_pd != new_pd:
+            print(row.name)
+            logger.debug(f'in the {row.name}, primary diagnosis where changed from {pd} to {new_pd}')
+            if new_pd in added_icds:
+                added_icds.remove(new_pd)
+            if old_pd in removed_icds:
+                removed_icds.remove(old_pd)
+        row[pd_col] = new_pd
+        row[added_icds] = added_icds
+        row[removed_icd_col] = removed_icds
+
+        return row
+
+    df = df.apply(_validate_pd_revised_sd, axis=1)
+    return df
+
+
 def _remove_duplicates_case_insensitive(codes_list1: list[str], codes_list2: list[str]) -> (list[str], list[str]):
     """Compare 2 lists of CHOP codes, which are formatted as '<code>:<side>:<date>', and remove the codes which appear
     in both lists, regardless of their casing.

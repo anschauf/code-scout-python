@@ -12,6 +12,6 @@ Normalization:
 - still need to do (TODO):    
     -  Check CHOP upper/lowercase
     -  Check whether the PD changed. If it did, new and old PD are stored together with added and removed ICDs, respectively
-    -  Pad case IDs with 0s
+    -  Pad case IDs with 0s to have the same format with bfs data
     -  Write function to validate cases
     

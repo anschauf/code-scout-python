@@ -125,7 +125,7 @@ AGE_COL = 'age_years'
 CLINIC_COL = 'bfs_code'  # After joining `bfs_cases` to `clinics`, the clinic code will be stored in `bfs_code`
 DURATION_OF_STAY_COL = 'duration_of_stay'
 PCCL_COL = 'pccl'
-PRIMARY_DIAGNOSIS_COL = 'pd'  # After joining `bfs_cases` to `icd_codes`, the primary diagnosis is renamed from `code` to `PD`
+PRIMARY_DIAGNOSIS_COL = 'old_pd'  # After joining `bfs_cases` to `icd_codes`, the primary diagnosis is renamed from `code` to `PD`
 DRG_COL = 'drg'
 
 # List the columns which need to be imported in the DB
