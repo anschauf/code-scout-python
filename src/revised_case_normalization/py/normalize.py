@@ -63,7 +63,7 @@ def normalize(fi: FileInfo,
                                  removed_chops_col=REMOVED_CHOP_CODES, cleaned_removed_chops_col=REMOVED_CHOP_CODES)
     # compare if the primary diagnosis change or not, if changed, remove from added_icds
 
-    # df = validate_pd_revised_sd(df, pd_col=PRIMARY_DIAGNOSIS_COL, pd_new_col=NEW_PRIMARY_DIAGNOSIS_COL, added_icd_col=ADDED_ICD_CODES, removed_icd_col=REMOVED_ICD_CODES)
+    df = validate_pd_revised_sd(df, pd_col=PRIMARY_DIAGNOSIS_COL, pd_new_col=NEW_PRIMARY_DIAGNOSIS_COL, added_icd_col=ADDED_ICD_CODES, removed_icd_col=REMOVED_ICD_CODES)
 
     return df
     

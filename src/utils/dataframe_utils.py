@@ -81,8 +81,7 @@ def validate_chop_codes(df: pd.DataFrame,
         valid_chop_codes, invalid_chop_codes = validate_chop_codes_list(row[chop_codes_col])
         valid_chop_codes_deleted, invalid_chop_codes_deleted = validate_chop_codes_list(row[chop_codes_deleted_col])
 
-        # Log changes
-        # different_valid_codes = set(row[chop_codes_col].upper()).difference(set(valid_chop_codes))
+        # Log of changes
         invalid_chop_codes = set(invalid_chop_codes)
         valid_codes_duplicated = list()
         for chop in valid_chop_codes:
@@ -90,10 +89,6 @@ def validate_chop_codes(df: pd.DataFrame,
                 valid_codes_duplicated.append(chop)
 
         discard_chops = invalid_chop_codes.union(set(valid_codes_duplicated))
-        # set(row[chop_codes_col]).difference(set(chop_codes_deleted_col))
-        # different_invalid_codes = set(row[chop_codes_col]).difference(set(invalid_chop_codes))
-        #invalid_chop_codes_set = set(invalid_chop_codes)
-        # discarded_chops = different_valid_codes.union(set(invalid_chop_codes))
 
         if len(discard_chops) > 0:
             logger.debug(f"row {row.name}: discarded duplicated and invalid CHOP entries after validation {discard_chops}")
@@ -137,14 +132,13 @@ def validate_pd_revised_sd(df: pd.DataFrame,
         removed_icds = row[removed_icd_col]
         # comparing old pd with new pd: discarding the new_pd if it is the same as the old pd.
         if old_pd != new_pd:
-            print(row.name)
-            logger.debug(f'in the {row.name}, primary diagnosis where changed from {pd} to {new_pd}')
+            logger.debug(f'in row {row.name}, primary diagnosis was changed from {old_pd} to {new_pd}')
             if new_pd in added_icds:
-                added_icds.remove(new_pd)
+                added_icds.remove(new_pd) #delete the new_pd from added_icds if it appears in added_icds
             if old_pd in removed_icds:
-                removed_icds.remove(old_pd)
+                removed_icds.remove(old_pd) #delete the old_pd from removed_icds if it appears in removed_icds
         row[pd_col] = new_pd
-        row[added_icds] = added_icds
+        row[added_icd_col] = added_icds
         row[removed_icd_col] = removed_icds
 
         return row
