@@ -63,6 +63,24 @@ def get_bfs_cases_by_ids(case_ids: list) -> DataFrame:
     return pd.read_sql(query.statement, session.bind)
 
 
+def get_bfs_cases_by_ids_no_pad0(case_ids: list) -> DataFrame:
+    """
+
+    @param case_ids:
+    @return:
+    """
+    cases = list()
+    for case_id in case_ids:
+        case_id_pad = '%' + case_id
+        query = session.query(BfsCase).filter(BfsCase.case_id.like(case_id_pad))
+        cases.append(pd.read_sql(query.statement, session.bind))
+
+    return pd.concat(cases)
+
+
+
+
+
 def get_hospital_cases_df(hopsital_name) -> DataFrame:
     """
 
