@@ -130,6 +130,7 @@ REMOVED_ICD_CODES = 'removed_icds'
 ADDED_CHOP_CODES = 'added_chops'
 REMOVED_CHOP_CODES = 'removed_chops'
 NEW_PRIMARY_DIAGNOSIS_COL = 'new_pd'
+AIMEDIC_ID = 'aimedic_id'
 
 # Select the columns used to validate / match the case in the DB
 VALIDATION_COLS = [
@@ -147,6 +148,10 @@ COLS_TO_SELECT = VALIDATION_COLS + [
     # Columns to copy to the DB, which are not used for validation
     ADDED_ICD_CODES, REMOVED_ICD_CODES, ADDED_CHOP_CODES, REMOVED_CHOP_CODES
 ]
+
+
+# These are the columns needed for export the revised cases for Grupper
+COLS_TO_OUTPUT = [AIMEDIC_ID] + COLS_TO_SELECT
 
 
 # Define a common mapping from some column names to our normalized names. 
