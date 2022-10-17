@@ -1,5 +1,6 @@
 import pandas as pd
 from py.global_configs import *
+import numpy as np
 
 from src.utils.dataframe_utils import validate_icd_codes, validate_chop_codes, remove_duplicated_chops, validate_pd_revised_sd
 
@@ -23,6 +24,7 @@ def normalize(fi: FileInfo,
     # Renaming columns that don't exist is a no-op. Make sure that all names actually exist
     assert(len(set(columns_mapper.keys()).difference(df.columns)) == 0)
     df.rename(columns=columns_mapper, inplace=True)
+   
     
     assert(len(set(COLS_TO_SELECT).difference(df.columns)) == 0)
     df = df[COLS_TO_SELECT]
@@ -31,12 +33,14 @@ def normalize(fi: FileInfo,
     
     # Remove rows where any value is NaN
     assert(len(set(VALIDATION_COLS).difference(df.columns)) == 0)
+    df[DURATION_OF_STAY_COL] = df[DURATION_OF_STAY_COL].replace('n.ü.', np.nan)
+
     df.dropna(subset=VALIDATION_COLS, inplace=True)
     n_valid_rows = df.shape[0]
     if n_valid_rows < n_all_rows:
         print(f'{n_all_rows - n_valid_rows}/{n_all_rows} rows were deleted because contained NaNs')
         
-    # Cast columns to correct data type (according to DB)
+    # Cast columns to correct data type (according to DB)    
     assert(len(set(columns_to_cast.keys()).difference(df.columns)) == 0)
     for col_name, col_type in columns_to_cast.items():
         df[col_name] = df[col_name].astype(col_type)  
