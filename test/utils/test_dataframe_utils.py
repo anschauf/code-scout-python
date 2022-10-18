@@ -4,7 +4,7 @@ import pandas as pd
 
 # noinspection PyProtectedMember
 from src.utils.dataframe_utils import _remove_duplicates_case_insensitive, remove_duplicated_chops, validate_icd_codes, \
-    validate_chop_codes
+    validate_chop_codes, validate_pd_revised_sd
 
 
 class DataFrameUtilsTest(unittest.TestCase):
@@ -72,6 +72,24 @@ class DataFrameUtilsTest(unittest.TestCase):
         df = validate_chop_codes(df)
         first_row = df.loc[0]
         self.assertListEqual(first_row['added_chops'], ['1A', '7A4412', '807799', '8311'])
+
+    def test_validate_pd_revised_sd(self):
+        old_pd = 'D'
+        new_pd = 'A'
+        added_icds = ['A', 'B', 'C']
+        removed_icds = ['D']
+        df = pd.DataFrame([[old_pd], [new_pd], [added_icds], [removed_icds]]).T
+        df.columns = ['old_pd', 'new_pd', 'added_icds', 'removed_icds']
+
+        df = validate_pd_revised_sd(df)
+        first_row = df.loc[0]
+
+        # The following 2 rows are left untouched
+        self.assertEqual(first_row['old_pd'], old_pd)
+        self.assertEqual(first_row['new_pd'], new_pd)
+
+        self.assertListEqual(first_row['added_icds'], ['B', 'C'])
+        self.assertListEqual(first_row['removed_icds'], [])
 
 
 if __name__ == '__main__':

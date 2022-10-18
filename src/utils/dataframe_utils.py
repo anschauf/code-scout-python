@@ -135,9 +135,8 @@ def validate_pd_revised_sd(df: pd.DataFrame,
             if old_pd in removed_icds:
                 removed_icds.remove(old_pd)  # delete the old_pd from removed_icds if it appears in removed_icds
 
-        row[pd_col] = new_pd
-        row[added_icd_col] = added_icds
-        row[removed_icd_col] = removed_icds
+            row[added_icd_col] = added_icds
+            row[removed_icd_col] = removed_icds
 
         return row
 
