@@ -1,4 +1,4 @@
 .idea
 .ipynb_checkpoints
 src/revised_case_normalization/raw_data
-.env
+!/.env
