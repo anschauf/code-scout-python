@@ -1,18 +1,18 @@
 import numpy as np
 import pandas as pd
 from loguru import logger
-from py.global_configs import *
 
+from src.revised_case_normalization.py.global_configs import *
 from src.utils.dataframe_utils import validate_icd_codes, validate_chop_codes, remove_duplicated_chops, \
     validate_pd_revised_sd
 
 
-def normalize(fi: FileInfo, 
+def normalize(fi: FileInfo,
               excel_sheet_idx: int,
-              *, 
+              *,
               columns_mapper: dict = COLUMNS_TO_RENAME,
+              columns_to_lstrip: set = COLUMNS_TO_LSTRIP,
               columns_to_cast: dict = COLUMNS_TO_CAST,
-              columns_to_lstrip: set = COLUMNS_TO_LSTRIP
               ) -> pd.DataFrame:
     """Given an Excel sheet containing an almost standardized schema for revising cases (which is manually filled in by
     coders), this function normalizes that content so that it can be further validated, analyzed, and loaded into the
@@ -22,9 +22,9 @@ def normalize(fi: FileInfo,
     @param excel_sheet_idx: The index of the sheet to analyze in the `fi` object.
     @param columns_mapper: A dictionary of columns to rename. All column names are lower-cased before being mapped. A
         default is provided.
-    @param columns_to_cast: A dictionary of the columns to cast to a different type, from string. A default is provided.
     @param columns_to_lstrip: A set of columns on which to apply `.lstrip("'")`, which removes the leading apostrophe
-    symbol.
+        symbol.
+    @param columns_to_cast: A dictionary of the columns to cast to a different type, from string. A default is provided.
 
     @return: A pandas DataFrame, with the normalized column names and data. If any row is discarded, it is logged.
     """
@@ -56,50 +56,48 @@ def normalize(fi: FileInfo,
     n_valid_rows = df.shape[0]
     if n_valid_rows < n_all_rows:
         logger.info(f'{n_all_rows - n_valid_rows}/{n_all_rows} rows were deleted because contained NaNs')
-        
-    # Cast columns to correct data type (according to DB)    
-    assert(len(set(columns_to_cast.keys()).difference(df.columns)) == 0)
-    for col_name, col_type in columns_to_cast.items():
-        df[col_name] = df[col_name].astype(col_type)  
-    logger.info(f'TYPES:\n{df.dtypes}')
-    
+
     # Fix format of some columns
     lstrip_fun = lambda x: x.lstrip("'")
     for col_name in columns_to_lstrip:
         df[col_name] = df[col_name].apply(lstrip_fun)
 
+    # Cast columns to correct data type (according to DB)
+    assert(len(set(columns_to_cast.keys()).difference(df.columns)) == 0)
+    for col_name, col_type in columns_to_cast.items():
+        df[col_name] = df[col_name].astype(col_type)
+    logger.info(f'TYPES:\n{df.dtypes}')
+
     # Split ICD and CHOP columns into list[str]
     for code_col_to_fix in (ADDED_ICD_CODES, REMOVED_ICD_CODES, ADDED_CHOP_CODES, REMOVED_CHOP_CODES):
         df[code_col_to_fix] = df[code_col_to_fix].fillna('').str.split(',')
 
-    print(df[[ADDED_ICD_CODES, REMOVED_ICD_CODES, ADDED_CHOP_CODES, REMOVED_CHOP_CODES]])
-
     # Validate ICD and CHOP codes
-    logger.info(f'Validating ICD codes in {ADDED_ICD_CODES} ...')
     df = validate_icd_codes(df, icd_codes_col=ADDED_ICD_CODES, output_icd_codes_col=ADDED_ICD_CODES)
-
-    logger.info(f'Validating ICD codes in {REMOVED_ICD_CODES} ...')
     df = validate_icd_codes(df, icd_codes_col=REMOVED_ICD_CODES, output_icd_codes_col=REMOVED_ICD_CODES)
-
-    logger.info(f'Validating CHOP codes in {ADDED_CHOP_CODES} ...')
     df = validate_chop_codes(df, chop_codes_col=ADDED_CHOP_CODES, output_chop_codes_col=ADDED_CHOP_CODES)
-
-    logger.info(f'Validating CHOP codes in {REMOVED_CHOP_CODES} ...')
     df = validate_chop_codes(df, chop_codes_col=REMOVED_CHOP_CODES, output_chop_codes_col=REMOVED_CHOP_CODES)
 
     # Remove CHOP codes which appear in both added and removed lists
-    logger.info(f'Validating duplication of CHOP codes due to different casing ...')
     df = remove_duplicated_chops(df,
                                  added_chops_col=ADDED_CHOP_CODES, cleaned_added_chops_col=ADDED_CHOP_CODES,
                                  removed_chops_col=REMOVED_CHOP_CODES, cleaned_removed_chops_col=REMOVED_CHOP_CODES)
 
     # Compare if the primary diagnosis changed or not. If so, remove it from added ICD and removed ICD lists
-    logger.info(f'Validating duplication of PD in different lists ...')
     df = validate_pd_revised_sd(df,
                                 pd_col=PRIMARY_DIAGNOSIS_COL,
                                 pd_new_col=NEW_PRIMARY_DIAGNOSIS_COL,
                                 added_icd_col=ADDED_ICD_CODES,
                                 removed_icd_col=REMOVED_ICD_CODES)
 
+    # Remove duplicated cases
+    n_rows_with_duplicates = df.shape[0]
+    df.drop_duplicates(subset=[CASE_ID_COL], keep=False, inplace=True)
+    df.drop_duplicates(subset=VALIDATION_COLS, keep=False, inplace=True)
+    n_rows_without_duplicates = df.shape[0]
+    if n_rows_without_duplicates != n_rows_with_duplicates:
+        logger.info(f'Removed {n_rows_with_duplicates - n_rows_without_duplicates} rows containing duplicates')
+
+    logger.success('Completed validation')
     return df
     

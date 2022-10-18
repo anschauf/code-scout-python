@@ -29,7 +29,9 @@ def remove_duplicated_chops(df: pd.DataFrame,
         row[cleaned_added_chops_col], row[cleaned_removed_chops_col] = _remove_duplicates_case_insensitive(row[added_chops_col], row[removed_chops_col])
         return row
 
+    logger.info(f'Removing duplicated CHOP codes due to different casing ...')
     df = df.apply(_remove_duplicated_chops, axis=1)
+
     return df
 
 
@@ -47,18 +49,27 @@ def validate_icd_codes(df: pd.DataFrame,
     @param output_icd_codes_col: The column where to store the results of the filtering / validation.
     @return: The input DataFrame, with the column `output_icd_codes_col` added, possibly overwriting an existing column.
     """
+    invalid_rows_info = list()
+
     def _validate_icd_codes(row):
         original_codes = _filter_empty_strings(row[icd_codes_col])
         result = validate_icd_codes_list(original_codes)
 
         different_codes = _get_list_diff_case_insensitive(original_codes, result)
         if len(different_codes) > 0:
-            logger.debug(f"row {row.name}: discarded ICDs after validation {different_codes}")
+            invalid_rows_info.append(f'row {row.name}: discarded ICDs after validation {different_codes}')
 
         row[output_icd_codes_col] = result
         return row
 
     df = df.apply(_validate_icd_codes, axis=1)
+
+    if len(invalid_rows_info) == 0:
+        logger.info(f"Validated ICD codes in '{icd_codes_col}' and stored them into '{output_icd_codes_col}': All rows contain valid codes")
+    else:
+        log_message = '\n'.join(invalid_rows_info)
+        logger.info(f"Validated ICD codes in '{icd_codes_col}' and stored them into '{output_icd_codes_col}': The following {len(invalid_rows_info)} rows were affected:\n{log_message}")
+
     return df
 
 
@@ -76,18 +87,27 @@ def validate_chop_codes(df: pd.DataFrame,
     @param output_chop_codes_col: The column where to store the results of the filtering / validation.
     @return: The input DataFrame, with the column `output_chop_codes_col` added, possibly overwriting an existing column.
     """
+    invalid_rows_info = list()
+
     def _validate_chop_codes(row):
         original_codes = _filter_empty_strings(row[chop_codes_col])
         result = validate_chop_codes_list(original_codes)
 
         different_codes = _get_list_diff_case_insensitive(original_codes, result)
         if len(different_codes) > 0:
-            logger.debug(f"row {row.name}: discarded CHOPs after validation {different_codes}")
+            invalid_rows_info.append(f'row {row.name}: discarded CHOPs after validation {different_codes}')
 
         row[output_chop_codes_col] = result
         return row
 
     df = df.apply(_validate_chop_codes, axis=1)
+
+    if len(invalid_rows_info) == 0:
+        logger.info(f"Validated CHOP codes in '{chop_codes_col}' and stored them into '{output_chop_codes_col}': All rows contain valid codes")
+    else:
+        log_message = '\n'.join(invalid_rows_info)
+        logger.info(f"Validated CHOP codes in '{chop_codes_col}' and stored them into '{output_chop_codes_col}': The following {len(invalid_rows_info)} rows were affected:\n{log_message}")
+
     return df
 
 
@@ -111,27 +131,35 @@ def validate_pd_revised_sd(df: pd.DataFrame,
     @return: The input DataFrame, with a validated 'pd' (consolidated column with 'pd' and 'pd_new'), 'added_icds',
         'removed_icds', overwriting existing columns
     """
+    invalid_rows_info = list()
+
     def _validate_pd_revised_sd(row):
         old_pd = row[pd_col]
         new_pd = row[pd_new_col]
         added_icds = row[added_icd_col]
         removed_icds = row[removed_icd_col]
 
-        # comparing old PD with new PD: discarding the new PD if it is the same as the old PD.
         if old_pd != new_pd:
-            logger.debug(f'in row {row.name}, primary diagnosis was changed from {old_pd} to {new_pd}')
+            invalid_rows_info.append(f'row {row.name}: primary diagnosis {old_pd} => {new_pd}')
+
             if new_pd in added_icds:
                 added_icds.remove(new_pd)  # delete the new_pd from added_icds if it appears in added_icds
+                row[added_icd_col] = added_icds
 
             if old_pd in removed_icds:
                 removed_icds.remove(old_pd)  # delete the old_pd from removed_icds if it appears in removed_icds
-
-            row[added_icd_col] = added_icds
-            row[removed_icd_col] = removed_icds
+                row[removed_icd_col] = removed_icds
 
         return row
 
     df = df.apply(_validate_pd_revised_sd, axis=1)
+
+    if len(invalid_rows_info) == 0:
+        logger.info(f"Validated redundant PD info in '{added_icd_col}'/'{removed_icd_col}': All rows contain valid codes")
+    else:
+        log_message = '\n'.join(invalid_rows_info)
+        logger.info(f"Validated redundant PD info in '{added_icd_col}'/'{removed_icd_col}': The following {len(invalid_rows_info)} rows were affected:\n{log_message}")
+
     return df
 
 
@@ -193,3 +221,4 @@ def _get_list_diff_case_insensitive(list1: list[str], list2: list[str]) -> set[s
 
     different_items = set(upper_list1).difference(set(upper_list2))
     return different_items
+

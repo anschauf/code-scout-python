@@ -12,6 +12,5 @@ services:
     working_dir: "/home/jovyan/work"
     command: >
        sh -c "python3 -m pip install --upgrade pip &&
-             export PIP_CONSTRAINT=constraints.txt &&
-             pip3 install -r requirements.txt &&
-             '/usr/local/bin/start.sh' jupyter lab"
+             pip3 install -r requirements.txt -c constraints.txt &&
+             '/usr/local/bin/start.sh' jupyter lab --NotebookApp.token='' --NotebookApp.password=''"

@@ -25,7 +25,13 @@ def validate_chop_codes_list(chop_codes: list[str]) -> list[str]:
         assert(len(matches) <= 1)
         if len(matches) == 1:
             valid_chop_code = matches[0].group()
-            valid_chop_code_info = ':'.join([valid_chop_code, chop_info[1], chop_info[2]])
+
+            if len(chop_info) > 1:
+                chop_info_to_concatenate = [valid_chop_code] + chop_info[1:]
+            else:
+                chop_info_to_concatenate = [valid_chop_code]
+
+            valid_chop_code_info = ':'.join(chop_info_to_concatenate)
             valid_chop_codes.append(valid_chop_code_info)
 
     return valid_chop_codes

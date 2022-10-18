@@ -73,6 +73,7 @@ COLUMNS_TO_RENAME = {
 }
 
 COLUMNS_TO_CAST = {
+    CASE_ID_COL: int,
     AGE_COL: int,
     DURATION_OF_STAY_COL: int,
     PCCL_COL: int,
