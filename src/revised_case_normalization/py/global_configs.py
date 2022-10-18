@@ -150,7 +150,7 @@ COLS_TO_SELECT = VALIDATION_COLS + [
 ]
 
 
-# These are the columns needed for export the revised cases for Grupper
+# These are the columns needed for exporting the revised cases for Grupper
 COLS_TO_OUTPUT = [AIMEDIC_ID] + COLS_TO_SELECT
 
 
