@@ -1,9 +1,8 @@
 import os
 from dataclasses import dataclass, field
 
-
 ROOT_DIR = '/home/jovyan/work/src/revised_case_normalization'
-OUTPUT_DIR = '/home/jovyan/work/src/revised_case_normalization/'
+
 
 @dataclass
 class FileInfo:

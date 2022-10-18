@@ -1,5 +1,6 @@
 import unittest
 
+import numpy as np
 import pandas as pd
 
 # noinspection PyProtectedMember
@@ -62,6 +63,19 @@ class DataFrameUtilsTest(unittest.TestCase):
         first_row = df.loc[0]
         self.assertListEqual(first_row['added_icds'], ['I1090', 'F03'])
 
+    def test_validate_icd_codes__empty_string(self):
+        """Check that empty strings are not treated as codes"""
+        df = pd.DataFrame([[np.nan]]).T
+        df.columns = ['added_icds']
+
+        # This line replaces a NaN with a list of one empty string
+        df['added_icds'] = df['added_icds'].fillna('').str.split(',')
+        self.assertListEqual(df.loc[0]['added_icds'], [''])
+
+        df = validate_icd_codes(df)
+        first_row = df.loc[0]
+        self.assertListEqual(first_row['added_icds'], [])
+
     def test_validate_chop_codes(self):
         invalid_chops = ['aa', 'a1', '8311.807799']
         valid_chops = ['1a', '7a4412', '807799', '8311']
@@ -72,6 +86,18 @@ class DataFrameUtilsTest(unittest.TestCase):
         df = validate_chop_codes(df)
         first_row = df.loc[0]
         self.assertListEqual(first_row['added_chops'], ['1A', '7A4412', '807799', '8311'])
+
+    def test_validate_chop_codes__empty_string(self):
+        df = pd.DataFrame([[np.nan]]).T
+        df.columns = ['added_chops']
+
+        # This line replaces a NaN added_chops a list of one empty string
+        df['added_chops'] = df['added_chops'].fillna('').str.split(',')
+        self.assertListEqual(df.loc[0]['added_chops'], [''])
+
+        df = validate_chop_codes(df)
+        first_row = df.loc[0]
+        self.assertListEqual(first_row['added_chops'], [])
 
     def test_validate_pd_revised_sd(self):
         old_pd = 'D'

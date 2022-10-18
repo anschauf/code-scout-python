@@ -48,10 +48,10 @@ def validate_icd_codes(df: pd.DataFrame,
     @return: The input DataFrame, with the column `output_icd_codes_col` added, possibly overwriting an existing column.
     """
     def _validate_icd_codes(row):
-        result = validate_icd_codes_list(row[icd_codes_col])
+        original_codes = _filter_empty_strings(row[icd_codes_col])
+        result = validate_icd_codes_list(original_codes)
 
-        # Log changes
-        different_codes = set(row[icd_codes_col]).difference(set(result))
+        different_codes = set(original_codes).difference(set(result))
         if len(different_codes) > 0:
             logger.debug(f"row {row.name}: discarded ICDs after validation {different_codes}")
 
@@ -66,7 +66,6 @@ def validate_icd_codes(df: pd.DataFrame,
 def validate_chop_codes(df: pd.DataFrame,
                         *,
                         chop_codes_col: str = 'added_chops',
-                        chop_codes_deleted_col: str = 'removed_chops',
                         output_chop_codes_col: str = 'added_chops',
                         ) -> pd.DataFrame:
     """Validate whether a list of supposed CHOP codes is actually made of CHOP codes, discarding those which don't fit
@@ -78,22 +77,14 @@ def validate_chop_codes(df: pd.DataFrame,
     @return: The input DataFrame, with the column `output_chop_codes_col` added, possibly overwriting an existing column.
     """
     def _validate_chop_codes(row):
-        valid_chop_codes, invalid_chop_codes = validate_chop_codes_list(row[chop_codes_col])
-        valid_chop_codes_deleted, invalid_chop_codes_deleted = validate_chop_codes_list(row[chop_codes_deleted_col])
+        original_codes = _filter_empty_strings(row[chop_codes_col])
+        result = validate_chop_codes_list(original_codes)
 
-        # Log of changes
-        invalid_chop_codes = set(invalid_chop_codes)
-        valid_codes_duplicated = list()
-        for chop in valid_chop_codes:
-            if chop in valid_chop_codes_deleted:
-                valid_codes_duplicated.append(chop)
+        different_codes = set(original_codes).difference(set(result))
+        if len(different_codes) > 0:
+            logger.debug(f"row {row.name}: discarded CHOPs after validation {different_codes}")
 
-        discard_chops = invalid_chop_codes.union(set(valid_codes_duplicated))
-
-        if len(discard_chops) > 0:
-            logger.debug(f"row {row.name}: discarded duplicated and invalid CHOP entries after validation {discard_chops}")
-
-        row[output_chop_codes_col] = valid_chop_codes
+        row[output_chop_codes_col] = result
         return row
 
     df = df.apply(_validate_chop_codes, axis=1)
@@ -197,3 +188,8 @@ def _filter_out_codes_from_list(codes_list: list[list[str]], *, codes_to_filter_
             clean_codes_list.append(codes_info)
 
     return clean_codes_list
+
+
+def _filter_empty_strings(lst: list[str]) -> list[str]:
+    """Remove empty strings from a list."""
+    return [item for item in lst if item != '']

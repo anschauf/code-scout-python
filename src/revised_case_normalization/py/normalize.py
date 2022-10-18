@@ -47,8 +47,11 @@ def normalize(fi: FileInfo,
     
     # Remove rows where any value is NaN
     assert(len(set(VALIDATION_COLS).difference(df.columns)) == 0)
+
+    # Fix unavailable duration of stay
     df[DURATION_OF_STAY_COL] = df[DURATION_OF_STAY_COL].replace('n.ü.', np.nan)
 
+    # Discard rows where any value on any validation col is empty
     df.dropna(subset=VALIDATION_COLS, inplace=True)
     n_valid_rows = df.shape[0]
     if n_valid_rows < n_all_rows:
