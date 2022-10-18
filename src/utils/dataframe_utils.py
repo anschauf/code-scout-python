@@ -2,7 +2,7 @@ import pandas as pd
 from beartype import beartype
 from loguru import logger
 
-from src.utils.chop_validation import validate_chop_codes_list
+from src.utils.chop_validation import validate_chop_codes_list, _split_chop_codes
 from src.utils.icd_validation import validate_icd_codes_list
 
 
@@ -51,7 +51,7 @@ def validate_icd_codes(df: pd.DataFrame,
         original_codes = _filter_empty_strings(row[icd_codes_col])
         result = validate_icd_codes_list(original_codes)
 
-        different_codes = set(original_codes).difference(set(result))
+        different_codes = _get_list_diff_case_insensitive(original_codes, result)
         if len(different_codes) > 0:
             logger.debug(f"row {row.name}: discarded ICDs after validation {different_codes}")
 
@@ -80,7 +80,7 @@ def validate_chop_codes(df: pd.DataFrame,
         original_codes = _filter_empty_strings(row[chop_codes_col])
         result = validate_chop_codes_list(original_codes)
 
-        different_codes = set(original_codes).difference(set(result))
+        different_codes = _get_list_diff_case_insensitive(original_codes, result)
         if len(different_codes) > 0:
             logger.debug(f"row {row.name}: discarded CHOPs after validation {different_codes}")
 
@@ -166,15 +166,6 @@ def _remove_duplicates_case_insensitive(codes_list1: list[str], codes_list2: lis
         return cleaned_codes_list1, cleaned_codes_list2
 
 
-def _split_chop_codes(codes_list: list[str]) -> list[list[str]]:
-    """From a list of CHOP codes, which are formatted as '<code>:<side>:<date>', split them into their components.
-
-    @param codes_list: The list of CHOP codes.
-    @return: A list of the info for each code, split into strings.
-    """
-    return [code_with_colons.split(':') for code_with_colons in codes_list]
-
-
 def _filter_out_codes_from_list(codes_list: list[list[str]], *, codes_to_filter_out: set[str]) -> list[list[str]]:
     """Remove codes from a list of CHOP codes info. The codes are compared all upper-cased.
 
@@ -193,3 +184,12 @@ def _filter_out_codes_from_list(codes_list: list[list[str]], *, codes_to_filter_
 def _filter_empty_strings(lst: list[str]) -> list[str]:
     """Remove empty strings from a list."""
     return [item for item in lst if item != '']
+
+
+def _get_list_diff_case_insensitive(list1: list[str], list2: list[str]) -> set[str]:
+    """Lists the items which are different between 2 lists, returning them upper-case."""
+    upper_list1 = [item.upper() for item in list1]
+    upper_list2 = [item.upper() for item in list2]
+
+    different_items = set(upper_list1).difference(set(upper_list2))
+    return different_items

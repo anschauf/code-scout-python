@@ -87,6 +87,15 @@ class DataFrameUtilsTest(unittest.TestCase):
         first_row = df.loc[0]
         self.assertListEqual(first_row['added_chops'], ['1A', '7A4412', '807799', '8311'])
 
+    def test_validate_chop_codes2(self):
+        df = pd.DataFrame([[['99b713::20161225', '948x40::20170103']], [['99B713::20161225', '948X40::20170103']]]).T
+        df.columns = ['added_chops', 'removed_chops']
+
+        df = validate_chop_codes(df)
+        first_row = df.loc[0]
+        self.assertListEqual(first_row['added_chops'], ['99B713::20161225', '948X40::20170103'])
+        self.assertListEqual(first_row['removed_chops'], ['99B713::20161225', '948X40::20170103'])
+
     def test_validate_chop_codes__empty_string(self):
         df = pd.DataFrame([[np.nan]]).T
         df.columns = ['added_chops']

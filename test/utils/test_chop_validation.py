@@ -10,6 +10,6 @@ class TestChopValidation(TestCase):
         self.assertEqual(len(valid_chops), 0)
 
     def test_validate_chop_codes_list__valid_codes(self):
-        chops = ['1a', '7a4412', '807799', '8311']
+        chops = ['1a', '7a4412', '807799', '8311', '80051d']
         valid_chops = validate_chop_codes_list(chops)
-        self.assertListEqual(valid_chops, ['1A', '7A4412', '807799', '8311'])
+        self.assertListEqual(valid_chops, ['1A', '7A4412', '807799', '8311', '80051D'])

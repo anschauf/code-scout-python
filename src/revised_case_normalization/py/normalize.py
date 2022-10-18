@@ -44,7 +44,7 @@ def normalize(fi: FileInfo,
     df = df[COLS_TO_SELECT]
     n_all_rows = df.shape[0]
     logger.info(f'Read {n_all_rows} cases for {fi.hospital_name_db} {fi.year}')
-    
+
     # Remove rows where any value is NaN
     assert(len(set(VALIDATION_COLS).difference(df.columns)) == 0)
 
@@ -72,18 +72,29 @@ def normalize(fi: FileInfo,
     for code_col_to_fix in (ADDED_ICD_CODES, REMOVED_ICD_CODES, ADDED_CHOP_CODES, REMOVED_CHOP_CODES):
         df[code_col_to_fix] = df[code_col_to_fix].fillna('').str.split(',')
 
+    print(df[[ADDED_ICD_CODES, REMOVED_ICD_CODES, ADDED_CHOP_CODES, REMOVED_CHOP_CODES]])
+
     # Validate ICD and CHOP codes
+    logger.info(f'Validating ICD codes in {ADDED_ICD_CODES} ...')
     df = validate_icd_codes(df, icd_codes_col=ADDED_ICD_CODES, output_icd_codes_col=ADDED_ICD_CODES)
+
+    logger.info(f'Validating ICD codes in {REMOVED_ICD_CODES} ...')
     df = validate_icd_codes(df, icd_codes_col=REMOVED_ICD_CODES, output_icd_codes_col=REMOVED_ICD_CODES)
+
+    logger.info(f'Validating CHOP codes in {ADDED_CHOP_CODES} ...')
     df = validate_chop_codes(df, chop_codes_col=ADDED_CHOP_CODES, output_chop_codes_col=ADDED_CHOP_CODES)
+
+    logger.info(f'Validating CHOP codes in {REMOVED_CHOP_CODES} ...')
     df = validate_chop_codes(df, chop_codes_col=REMOVED_CHOP_CODES, output_chop_codes_col=REMOVED_CHOP_CODES)
 
     # Remove CHOP codes which appear in both added and removed lists
+    logger.info(f'Validating duplication of CHOP codes due to different casing ...')
     df = remove_duplicated_chops(df,
                                  added_chops_col=ADDED_CHOP_CODES, cleaned_added_chops_col=ADDED_CHOP_CODES,
                                  removed_chops_col=REMOVED_CHOP_CODES, cleaned_removed_chops_col=REMOVED_CHOP_CODES)
 
     # Compare if the primary diagnosis changed or not. If so, remove it from added ICD and removed ICD lists
+    logger.info(f'Validating duplication of PD in different lists ...')
     df = validate_pd_revised_sd(df,
                                 pd_col=PRIMARY_DIAGNOSIS_COL,
                                 pd_new_col=NEW_PRIMARY_DIAGNOSIS_COL,
