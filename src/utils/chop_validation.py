@@ -5,6 +5,11 @@ VALID_CHOP_REGEX = re.compile(r"^\d[A-Z0-9]{1,5}$")
 
 
 def validate_chop_codes_list(chop_codes: list[str]) -> list[str]:
+    """Check whether a list of CHOPs contains valid codes.
+
+    @param chop_codes: The list of codes.
+    @return: A list of valid codes only.
+    """
     valid_chop_codes = list()
     invalid_chop_codes = list()
 

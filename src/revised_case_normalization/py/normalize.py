@@ -1,8 +1,10 @@
-import pandas as pd
-from py.global_configs import *
 import numpy as np
+import pandas as pd
+from loguru import logger
+from py.global_configs import *
 
-from src.utils.dataframe_utils import validate_icd_codes, validate_chop_codes, remove_duplicated_chops, validate_pd_revised_sd
+from src.utils.dataframe_utils import validate_icd_codes, validate_chop_codes, remove_duplicated_chops, \
+    validate_pd_revised_sd
 
 
 def normalize(fi: FileInfo, 
@@ -12,7 +14,19 @@ def normalize(fi: FileInfo,
               columns_to_cast: dict = COLUMNS_TO_CAST,
               columns_to_lstrip: set = COLUMNS_TO_LSTRIP
               ) -> pd.DataFrame:
-    """
+    """Given an Excel sheet containing an almost standardized schema for revising cases (which is manually filled in by
+    coders), this function normalizes that content so that it can be further validated, analyzed, and loaded into the
+    DB.
+
+    @param fi: An instance of FileInfo, which contains the filename and the sheet name to analyze.
+    @param excel_sheet_idx: The index of the sheet to analyze in the `fi` object.
+    @param columns_mapper: A dictionary of columns to rename. All column names are lower-cased before being mapped. A
+        default is provided.
+    @param columns_to_cast: A dictionary of the columns to cast to a different type, from string. A default is provided.
+    @param columns_to_lstrip: A set of columns on which to apply `.lstrip("'")`, which removes the leading apostrophe
+    symbol.
+
+    @return: A pandas DataFrame, with the normalized column names and data. If any row is discarded, it is logged.
     """
     # Read the Excel file and sheet. Cast all columns to strings, so we can format / cast the columns ourselves later on.
     # `string[pyarrow]` is an efficient way of storing strings in a DataFrame
@@ -24,12 +38,12 @@ def normalize(fi: FileInfo,
     # Renaming columns that don't exist is a no-op. Make sure that all names actually exist
     assert(len(set(columns_mapper.keys()).difference(df.columns)) == 0)
     df.rename(columns=columns_mapper, inplace=True)
-   
-    
+
+    # Select columns
     assert(len(set(COLS_TO_SELECT).difference(df.columns)) == 0)
     df = df[COLS_TO_SELECT]
     n_all_rows = df.shape[0]
-    print(f'Read {n_all_rows} cases for {fi.hospital_name_db} {fi.year}')
+    logger.info(f'Read {n_all_rows} cases for {fi.hospital_name_db} {fi.year}')
     
     # Remove rows where any value is NaN
     assert(len(set(VALIDATION_COLS).difference(df.columns)) == 0)
@@ -38,13 +52,13 @@ def normalize(fi: FileInfo,
     df.dropna(subset=VALIDATION_COLS, inplace=True)
     n_valid_rows = df.shape[0]
     if n_valid_rows < n_all_rows:
-        print(f'{n_all_rows - n_valid_rows}/{n_all_rows} rows were deleted because contained NaNs')
+        logger.info(f'{n_all_rows - n_valid_rows}/{n_all_rows} rows were deleted because contained NaNs')
         
     # Cast columns to correct data type (according to DB)    
     assert(len(set(columns_to_cast.keys()).difference(df.columns)) == 0)
     for col_name, col_type in columns_to_cast.items():
         df[col_name] = df[col_name].astype(col_type)  
-    print(f'TYPES:\n{df.dtypes}')
+    logger.info(f'TYPES:\n{df.dtypes}')
     
     # Fix format of some columns
     lstrip_fun = lambda x: x.lstrip("'")
@@ -65,9 +79,13 @@ def normalize(fi: FileInfo,
     df = remove_duplicated_chops(df,
                                  added_chops_col=ADDED_CHOP_CODES, cleaned_added_chops_col=ADDED_CHOP_CODES,
                                  removed_chops_col=REMOVED_CHOP_CODES, cleaned_removed_chops_col=REMOVED_CHOP_CODES)
-    # compare if the primary diagnosis change or not, if changed, remove from added_icds
 
-    df = validate_pd_revised_sd(df, pd_col=PRIMARY_DIAGNOSIS_COL, pd_new_col=NEW_PRIMARY_DIAGNOSIS_COL, added_icd_col=ADDED_ICD_CODES, removed_icd_col=REMOVED_ICD_CODES)
+    # Compare if the primary diagnosis changed or not. If so, remove it from added ICD and removed ICD lists
+    df = validate_pd_revised_sd(df,
+                                pd_col=PRIMARY_DIAGNOSIS_COL,
+                                pd_new_col=NEW_PRIMARY_DIAGNOSIS_COL,
+                                added_icd_col=ADDED_ICD_CODES,
+                                removed_icd_col=REMOVED_ICD_CODES)
 
     return df
     

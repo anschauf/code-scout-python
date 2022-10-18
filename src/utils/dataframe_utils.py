@@ -99,17 +99,18 @@ def validate_chop_codes(df: pd.DataFrame,
     df = df.apply(_validate_chop_codes, axis=1)
     return df
 
+
 @beartype
 def validate_pd_revised_sd(df: pd.DataFrame,
-                        *,
-                        pd_col: str = 'old_pd',
-                        pd_new_col: str = 'new_pd',
-                        added_icd_col: str = 'added_icds',
-                        removed_icd_col: str = 'removed_icds',
+                           *,
+                           pd_col: str = 'old_pd',
+                           pd_new_col: str = 'new_pd',
+                           added_icd_col: str = 'added_icds',
+                           removed_icd_col: str = 'removed_icds',
                            ) -> pd.DataFrame:
-    """Validate whether a list of old and new primary diagnosis are captured, discarding codes which are not correctly captured.
-    Further: validation of added and removed secondary diagnosis (added_icds and removed icds),
-    discarding those which do not correspond to an added or removed secondary diagnosis respectively.
+    """Validate whether a list of old and new primary diagnosis are captured, discarding codes which are not correctly
+    captured. Furthermore, we validate added and removed secondary diagnosis (added_icds and removed icds), discarding
+    those which do not correspond to an added or removed secondary diagnosis respectively.
 
     @param df: The data where to perform the filter.
     @param pd_col: The column containing the unrevised primary diagnosis to validate.
@@ -117,7 +118,7 @@ def validate_pd_revised_sd(df: pd.DataFrame,
     @param added_icd_col: The column containing the added secondary icds to validate.
     @param removed_icd_col: The column containing the removed secondary icds to validate.
     @return: The input DataFrame, with a validated 'pd' (consolidated column with 'pd' and 'pd_new'), 'added_icds',
-    'removed_icds', overwriting existing columns
+        'removed_icds', overwriting existing columns
     """
     def _validate_pd_revised_sd(row):
         old_pd = row[pd_col]
@@ -125,13 +126,15 @@ def validate_pd_revised_sd(df: pd.DataFrame,
         added_icds = row[added_icd_col]
         removed_icds = row[removed_icd_col]
 
-        # comparing old pd with new pd: discarding the new_pd if it is the same as the old pd.
+        # comparing old PD with new PD: discarding the new PD if it is the same as the old PD.
         if old_pd != new_pd:
             logger.debug(f'in row {row.name}, primary diagnosis was changed from {old_pd} to {new_pd}')
             if new_pd in added_icds:
-                added_icds.remove(new_pd) #delete the new_pd from added_icds if it appears in added_icds
+                added_icds.remove(new_pd)  # delete the new_pd from added_icds if it appears in added_icds
+
             if old_pd in removed_icds:
-                removed_icds.remove(old_pd) #delete the old_pd from removed_icds if it appears in removed_icds
+                removed_icds.remove(old_pd)  # delete the old_pd from removed_icds if it appears in removed_icds
+
         row[pd_col] = new_pd
         row[added_icd_col] = added_icds
         row[removed_icd_col] = removed_icds

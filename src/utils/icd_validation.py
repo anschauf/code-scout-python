@@ -5,6 +5,11 @@ VALID_ICD_REGEX = re.compile(r"^[A-Z]\d{2,4}$")
 
 
 def validate_icd_codes_list(icd_codes: list[str]) -> list[str]:
+    """Check whether a list of ICDs contains valid codes.
+
+    @param icd_codes: The list of codes.
+    @return: A list of valid codes only.
+    """
     valid_icd_codes = list()
 
     for icd in icd_codes:
