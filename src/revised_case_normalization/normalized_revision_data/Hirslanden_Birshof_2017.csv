@@ -1,0 +1,5 @@
+,aimedic_id,case_id,patient_id,gender,age_years,duration_of_stay,pccl,drg,old_pd,new_pd,bfs_code,added_icds,removed_icds,added_chops,removed_chops
+0,20411,0041319879,F76D75CD0067F6E4,W,72,5,2,I09E,M4726,M4726,M200,['L8915'],[],[],[]
+1,20544,0041332448,9BAAC9A58B5FB056,W,57,12,3,I46C,T845,T845,M200,['I8080'],[],[],[]
+2,20862,0041371186,AED552F02ADC590F,M,59,22,3,I03B,T845,T845,M200,['N182'],[],[],[]
+3,22065,0041497128,610ECC6F4184EF0C,M,67,7,3,I09D,M4807,M4807,M200,"['M4036', 'D62']",[],[],[]

@@ -1,0 +1,5 @@
+,aimedic_id,case_id,patient_id,gender,age_years,duration_of_stay,pccl,drg,old_pd,new_pd,bfs_code,added_icds,removed_icds,added_chops,removed_chops
+0,326234,900687808,161387C11C07FDF2,M,48,1,0,I23C,,,,,,,
+1,322808,900657093,121A1834E7AE5746,W,27,5,3,O60C,,,,,,,
+2,158400,0041663181,D916DFC86CF56334,W,74,14,2,I10B,,,,,,,
+3,159348,0041686863,B915F8521ED52AD0,M,70,2,2,F50B,,,,,,,
