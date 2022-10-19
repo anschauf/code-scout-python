@@ -2,12 +2,13 @@ import boto3
 import pandas as pd
 from decouple import config
 from pandas import DataFrame
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, extract, func
 from sqlalchemy.orm import sessionmaker
 
 from src.models.BfsCase import BfsCase
 from src.models.Clinic import Clinic
 from src.models.Hospital import Hospital
+from src.models.chop_code import ChopCode
 from src.models.icd_code import IcdCode
 
 # import envs
@@ -78,9 +79,6 @@ def get_bfs_cases_by_ids_no_pad0(case_ids: list) -> DataFrame:
     return pd.concat(cases)
 
 
-
-
-
 def get_hospital_cases_df(hopsital_name) -> DataFrame:
     """
 
@@ -88,10 +86,57 @@ def get_hospital_cases_df(hopsital_name) -> DataFrame:
 
     @return:
     """
-    # query = session.query(BfsCase).join(Hospital).filter(Hospital.name == hopsital_name)
-    query = session.query(BfsCase).join(Hospital.hospital_id).on.limit(20)
+    query = session.query(BfsCase).join(Hospital).filter(Hospital.name == hopsital_name)
     return pd.read_sql(query.statement, session.bind)
 
 
 def get_clinics():
     return session.query(Clinic).all()
+
+
+# TODO Remove this function after merging pull request #4
+def get_hospital_year_cases(hospital_name, year):
+    """
+    Get the cases filtered by year and hospital name, joint together with all its ICD and CHOP codes.
+    @param hospital_name:
+    @param year:
+    @return: a Dataframe with all matching cases.
+    """
+    subquery_cases_from_hospital_year = session.query(BfsCase).join(Hospital).filter(
+        Hospital.name == hospital_name).filter(extract('year', BfsCase.discharge_date) == year).subquery()
+
+    subquery_icds = session.query(IcdCode.aimedic_id,
+                                  func.array_agg(IcdCode.code).label('icds'),
+                                  func.array_agg(IcdCode.ccl).label('icds_ccl'),
+                                  func.array_agg(IcdCode.is_primary).label('icds_is_primary'),
+                                  func.array_agg(IcdCode.is_grouper_relevant).label('icds_is_grouper_relevant')
+                                  ).group_by(IcdCode.aimedic_id).subquery()
+
+    subquery_chops = session.query(ChopCode.aimedic_id,
+                                   func.array_agg(ChopCode.code).label('chops'),
+                                   func.array_agg(ChopCode.side).label('chops_side'),
+                                   func.array_agg(ChopCode.date).label('chops_date'),
+                                   func.array_agg(ChopCode.is_grouper_relevant).label('chops_is_grouper_relevant'),
+                                   func.array_agg(ChopCode.is_primary).label('chops_is_primary'),
+                                   ).group_by(ChopCode.aimedic_id).subquery()
+
+    subquery_bfs_icds = session.query(subquery_cases_from_hospital_year,
+                                      subquery_icds.c.icds,
+                                      subquery_icds.c.icds_ccl,
+                                      subquery_icds.c.icds_is_primary,
+                                      subquery_icds.c.icds_is_grouper_relevant
+                                      ).join(subquery_icds,
+                                             subquery_cases_from_hospital_year.c.aimedic_id == subquery_icds.c.aimedic_id,
+                                             isouter=True
+                                             ).subquery()
+
+    query = session.query(subquery_bfs_icds,
+                          subquery_chops.c.chops,
+                          subquery_chops.c.chops_side,
+                          subquery_chops.c.chops_date,
+                          subquery_chops.c.chops_is_grouper_relevant,
+                          subquery_chops.c.chops_is_primary
+                          ).join(subquery_chops,
+                                 subquery_bfs_icds.c.aimedic_id == subquery_chops.c.aimedic_id, isouter=True)
+
+    return pd.read_sql(query.statement, session.bind)

@@ -23,6 +23,5 @@ class BfsCase(Base):
     drg = Column('drg', String(5))
     adrg = Column('adrg', String(3))
     drg_cost_weight = Column('drg_cost_weight', Float)
-    effective_cost_weight = Column('drg_cost_weight', Float)
+    effective_cost_weight = Column('effective_cost_weight', Float)
     pccl = Column('pccl', Integer)
-
