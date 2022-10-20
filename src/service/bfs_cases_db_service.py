@@ -1,8 +1,10 @@
 import boto3
 import pandas as pd
+from beartype import beartype
 from decouple import config
+from loguru import logger
 from pandas import DataFrame
-from sqlalchemy import create_engine, event, extract, func
+from sqlalchemy import create_engine, event, func
 from sqlalchemy.orm import sessionmaker
 
 from src.models.BfsCase import BfsCase
@@ -64,21 +66,6 @@ def get_bfs_cases_by_ids(case_ids: list) -> DataFrame:
     return pd.read_sql(query.statement, session.bind)
 
 
-def get_bfs_cases_by_ids_no_pad0(case_ids: list) -> DataFrame:
-    """
-
-    @param case_ids:
-    @return:
-    """
-    cases = list()
-    for case_id in case_ids:
-        case_id_pad = '%' + case_id
-        query = session.query(BfsCase).filter(BfsCase.case_id.like(case_id_pad))
-        cases.append(pd.read_sql(query.statement, session.bind))
-
-    return pd.concat(cases)
-
-
 def get_hospital_cases_df(hopsital_name) -> DataFrame:
     """
 
@@ -94,16 +81,62 @@ def get_clinics():
     return session.query(Clinic).all()
 
 
-# TODO Remove this function after merging pull request #4
-def get_hospital_year_cases(hospital_name, year):
+@beartype
+def get_sociodemographics_for_hospital_year(hospital_name: str, year: int) -> pd.DataFrame:
     """
     Get the cases filtered by year and hospital name, joint together with all its ICD and CHOP codes.
     @param hospital_name:
     @param year:
     @return: a Dataframe with all matching cases.
     """
-    subquery_cases_from_hospital_year = session.query(BfsCase).join(Hospital).filter(
-        Hospital.name == hospital_name).filter(extract('year', BfsCase.discharge_date) == year).subquery()
+    query_sociodemo = (
+        session
+        .query(BfsCase)
+        # TODO: Get the list of entities to select from a list of strings, which is in the VALIDATION_COLS list
+        .with_entities(BfsCase.aimedic_id,
+                       BfsCase.case_id,
+                       BfsCase.patient_id,
+                       BfsCase.gender,
+                       BfsCase.age_years,
+                       BfsCase.duration_of_stay)
+        .join(Hospital, BfsCase.hospital_id == Hospital.hospital_id)
+        .filter(Hospital.name == hospital_name)
+        .filter(BfsCase.discharge_year == year)
+        .filter(BfsCase.case_id != '')
+    )
+
+    df = pd.read_sql(query_sociodemo.statement, session.bind)
+
+    num_cases_in_db = df.shape[0]
+    if num_cases_in_db == 0:
+        raise ValueError(f"There is no data for the hospital '{hospital_name}' in {year}")
+    else:
+        logger.info(f"Read {num_cases_in_db} rows from the DB, for the hospital '{hospital_name}' in {year}")
+
+    return df
+
+
+# TODO Remove this function after merging pull request #4
+@beartype
+def get_hospital_year_cases(hospital_name: str, year: int) -> pd.DataFrame:
+    """
+    Get the cases filtered by year and hospital name, joint together with all its ICD and CHOP codes.
+    @param hospital_name:
+    @param year:
+    @return: a Dataframe with all matching cases.
+    """
+    subquery_sociodemo = (
+        session
+        .query(BfsCase)
+        .join(Hospital, BfsCase.hospital_id == Hospital.hospital_id)
+        .filter(Hospital.name == hospital_name)
+        .filter(BfsCase.discharge_year == year)
+        .subquery()
+    )
+
+    # df = pd.read_sql(subquery_sociodemo.statement, session.bind)
+
+    print("")
 
     subquery_icds = session.query(IcdCode.aimedic_id,
                                   func.array_agg(IcdCode.code).label('icds'),
@@ -120,13 +153,13 @@ def get_hospital_year_cases(hospital_name, year):
                                    func.array_agg(ChopCode.is_primary).label('chops_is_primary'),
                                    ).group_by(ChopCode.aimedic_id).subquery()
 
-    subquery_bfs_icds = session.query(subquery_cases_from_hospital_year,
+    subquery_bfs_icds = session.query(subquery_sociodemo,
                                       subquery_icds.c.icds,
                                       subquery_icds.c.icds_ccl,
                                       subquery_icds.c.icds_is_primary,
                                       subquery_icds.c.icds_is_grouper_relevant
                                       ).join(subquery_icds,
-                                             subquery_cases_from_hospital_year.c.aimedic_id == subquery_icds.c.aimedic_id,
+                                             subquery_sociodemo.c.aimedic_id == subquery_icds.c.aimedic_id,
                                              isouter=True
                                              ).subquery()
 

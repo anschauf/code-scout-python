@@ -31,6 +31,8 @@ def normalize(fi: FileInfo,
     # Read the Excel file and sheet. Cast all columns to strings, so we can format / cast the columns ourselves later on.
     # `string[pyarrow]` is an efficient way of storing strings in a DataFrame
     df = pd.read_excel(fi.path, sheet_name=fi.sheets[excel_sheet_idx], dtype='string[pyarrow]')
+    n_all_rows = df.shape[0]
+    logger.info(f'Read {n_all_rows} cases for {fi.hospital_name_db} {fi.year}')
 
     # Convert all column names to lower-case, so we don't have to deal with columns named `HD Alt` vs `HD alt`
     df.columns = [c.lower() for c in df.columns]
@@ -39,34 +41,27 @@ def normalize(fi: FileInfo,
     assert(len(set(columns_mapper.keys()).difference(df.columns)) == 0)
     df.rename(columns=columns_mapper, inplace=True)
 
-    # Select columns
-    assert(len(set(COLS_TO_SELECT).difference(df.columns)) == 0)
-    df = df[COLS_TO_SELECT]
-    n_all_rows = df.shape[0]
-    logger.info(f'Read {n_all_rows} cases for {fi.hospital_name_db} {fi.year}')
-
-    # Remove rows where any value is NaN
-    assert(len(set(VALIDATION_COLS).difference(df.columns)) == 0)
-
     # Fix unavailable duration of stay
     df[DURATION_OF_STAY_COL] = df[DURATION_OF_STAY_COL].replace('n.ü.', np.nan)
-
-    # Discard rows where any value on any validation col is empty
-    df.dropna(subset=VALIDATION_COLS, inplace=True)
-    n_valid_rows = df.shape[0]
-    if n_valid_rows < n_all_rows:
-        logger.info(f'{n_all_rows - n_valid_rows}/{n_all_rows} rows were deleted because contained NaNs')
 
     # Fix format of some columns
     lstrip_fun = lambda x: x.lstrip("'")
     for col_name in columns_to_lstrip:
         df[col_name] = df[col_name].apply(lstrip_fun)
 
-    # Cast columns to correct data type (according to DB)
-    assert(len(set(columns_to_cast.keys()).difference(df.columns)) == 0)
+    # Duplicate the case ID column which does not have leading zeros
+    df[NORM_CASE_ID_COL] = df[CASE_ID_COL].apply(remove_leading_zeros)
+
     for col_name, col_type in columns_to_cast.items():
         df[col_name] = df[col_name].astype(col_type)
     logger.info(f'TYPES:\n{df.dtypes}')
+
+    # Discard rows where any value on any validation col is empty
+    assert(len(set(VALIDATION_COLS).difference(df.columns)) == 0)
+    df.dropna(subset=VALIDATION_COLS, inplace=True)
+    n_valid_rows = df.shape[0]
+    if n_valid_rows < n_all_rows:
+        logger.info(f'{n_all_rows - n_valid_rows}/{n_all_rows} rows were deleted because contained NaNs')
 
     # Split ICD and CHOP columns into list[str]
     for code_col_to_fix in (ADDED_ICD_CODES, REMOVED_ICD_CODES, ADDED_CHOP_CODES, REMOVED_CHOP_CODES):
@@ -90,9 +85,13 @@ def normalize(fi: FileInfo,
                                 added_icd_col=ADDED_ICD_CODES,
                                 removed_icd_col=REMOVED_ICD_CODES)
 
+    # Select columns
+    assert(len(set(COLS_TO_SELECT).difference(df.columns)) == 0)
+    df = df[COLS_TO_SELECT]
+
     # Remove duplicated cases
     n_rows_with_duplicates = df.shape[0]
-    df.drop_duplicates(subset=[CASE_ID_COL], keep=False, inplace=True)
+    df.drop_duplicates(subset=[NORM_CASE_ID_COL], keep=False, inplace=True)
     df.drop_duplicates(subset=VALIDATION_COLS, keep=False, inplace=True)
     n_rows_without_duplicates = df.shape[0]
     if n_rows_without_duplicates != n_rows_with_duplicates:
@@ -100,4 +99,7 @@ def normalize(fi: FileInfo,
 
     logger.success('Completed validation')
     return df
-    
+
+
+def remove_leading_zeros(s: str) -> str:
+    return s.lstrip("0")

@@ -1,4 +1,5 @@
-FROM jupyter/datascience-notebook:aarch64-lab-3.4.7
+# FROM jupyter/datascience-notebook:aarch64-lab-3.4.7
+FROM arm64v8/python:3.10.7
 
 RUN python3 -m pip install --upgrade pip
 

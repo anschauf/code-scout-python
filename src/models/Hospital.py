@@ -1,9 +1,14 @@
-from src.models.base import Base
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String
+from sqlalchemy import MetaData
+from sqlalchemy.orm import declarative_base
+
+metadata_obj = MetaData(schema="dimension")
+Base = declarative_base(metadata=metadata_obj)
 
 
 class Hospital(Base):
-    __tablename__ = 'hospitals'
+    __tablename__ = 'hospital'
+
     hospital_id = Column(Integer, primary_key=True)
     name = Column('name', String(100))
     bur_nr = Column('bur_nr', nullable=True)
