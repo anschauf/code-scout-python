@@ -109,8 +109,8 @@ def calculate_code_ranking_performance(*,
 
 if __name__ == '__main__':
     calculate_code_ranking_performance(
-        dir_rankings='s3://code-scout/performance-measuring/code_rankings/2022-09-14_first-filter-comparison_ksw/',
-        dir_output='s3://code-scout/performance-measuring/code_rankings/2022-09-14_first-filter-comparison_results_4-classes_ksw/',
+        dir_rankings='s3://code-scout/performance-measuring/code_rankings/2022-10-20_filter_comparison_without_targetDRG/',
+        dir_output='s3://code-scout/performance-measuring/code_rankings/2022-10-20_filter_comparison_without_targetDRG_results_4-classes/',
         filename_revised_cases='s3://code-scout/performance-measuring/CodeScout_GroundTruthforPerformanceMeasuring.csv',
         s3_bucket='code-scout'
     )

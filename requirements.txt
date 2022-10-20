@@ -5,7 +5,9 @@ awswrangler
 boto3
 numpy
 pandas
+scipy
 
 # Plotting
 matplotlib
 venn
+seaborn
