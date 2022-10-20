@@ -75,19 +75,22 @@ class Database:
     def execute(self, sql, params=None):
         self._session.execute(sql, params or ())
 
-    def query(self, sql_query):
+    def execute_sql_query(self, sql_query):
+        """
+        General caller function to execute the provided SQL query on the DB.
+        """
         return pd.read_sql(sql_query, self._session.bind)
 
 
 
-    def get_hospital_cases_df(self, hopsital_name) -> DataFrame:
+    def get_hospital_cases_df(self, hospital_name) -> DataFrame:
         """
+        Get all BfsCases joined with the Hospital-Info, filtered by the hospital name provided
+        @param hospital_name:
 
-        @param hopsital_name:
-
-        @return:
+        @return: a Dataframe with all filtered BfsCases.
         """
-        query = self._session.query(BfsCase).join(Hospital).filter(Hospital.name == hopsital_name)
+        query = self._session.query(BfsCase).join(Hospital).filter(Hospital.name == hospital_name)
         return pd.read_sql(query.statement, self._session.bind)
 
     def get_clinics(self):
@@ -96,7 +99,7 @@ class Database:
 
     def get_hospital_year_cases(self, hospital_name, year):
         """
-        Get the cases filtered by year and hospital name, joint together with all its ICD and CHOP codes.
+        Get the cases filtered by year and hospital name, joined together with all its ICD and CHOP codes.
         @param hospital_name:
         @param year:
         @return: a Dataframe with all matching cases.

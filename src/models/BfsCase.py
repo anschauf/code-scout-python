@@ -12,7 +12,7 @@ class BfsCase(Base):
     age_days = Column('age_days', Integer)
     gender = Column('gender', CHAR)
     duration_of_stay = Column('duration_of_stay', Integer)
-    clinic_id = Column('clinic_id', Integer, ForeignKey('chlinic.clinic_id'))
+    clinic_id = Column('clinic_id', Integer, ForeignKey('clinic.clinic_id'))
     ventilation_hours = Column('ventilation_hours', Integer)
     admission_weight = Column('admission_weight', Integer)
     gestation_age = Column('gestation_age', Integer)
