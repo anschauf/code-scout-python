@@ -10,8 +10,10 @@ from sqlalchemy.orm import sessionmaker
 from src.models.BfsCase import BfsCase
 from src.models.Clinic import Clinic
 from src.models.Hospital import Hospital
+from src.models.Revision import Revision
 from src.models.chop_code import ChopCode
 from src.models.icd_code import IcdCode
+from src.revised_case_normalization.py.global_configs import AIMEDIC_ID_COL
 
 # import envs
 BFS_CASES_DB_URL = config('BFS_CASES_DB_URL')
@@ -112,6 +114,36 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int) -> pd
         raise ValueError(f"There is no data for the hospital '{hospital_name}' in {year}")
     else:
         logger.info(f"Read {num_cases_in_db} rows from the DB, for the hospital '{hospital_name}' in {year}")
+
+    return df
+
+
+@beartype
+def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[int]) -> pd.DataFrame:
+    # SELECT
+    #     array_agg(revision_date) as revision_date,
+    #     array_agg(revision_id) as revision_id
+    # FROM coding_revision.revisions
+    # WHERE aimedic_id = 120078
+    # GROUP BY aimedic_id;
+
+    query_revisions = (
+        session
+        .query(
+            # func.first(Revision.aimedic_id).label(AIMEDIC_ID_COL),
+            func.array_agg(Revision.revision_date).label('revision_date'),
+            func.array_agg(Revision.revision_id).label('revision_id'),
+        )
+        .filter(Revision.aimedic_id.in_(aimedic_ids))
+        .group_by(Revision.aimedic_id)
+    )
+
+    df = pd.read_sql(query_revisions.statement, session.bind)
+
+    # TODO [P1]: Pull aimedic_id together with info above
+    # TODO [P2]: Pair / zip revision_date and revision_id per row, and select the revision_id for the earliest revision_date
+
+
 
     return df
 

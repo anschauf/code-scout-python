@@ -29,7 +29,7 @@ REMOVED_ICD_CODES = 'removed_icds'
 ADDED_CHOP_CODES = 'added_chops'
 REMOVED_CHOP_CODES = 'removed_chops'
 NEW_PRIMARY_DIAGNOSIS_COL = 'new_pd'
-AIMEDIC_ID = 'aimedic_id'
+AIMEDIC_ID_COL = 'aimedic_id'
 
 NORM_CASE_ID_COL = 'case_id_norm'
 
@@ -54,7 +54,7 @@ COLS_TO_SELECT = VALIDATION_COLS + [
 
 
 # These are the columns needed for exporting the revised cases for Grupper
-COLS_TO_OUTPUT = [AIMEDIC_ID] + COLS_TO_SELECT
+COLS_TO_OUTPUT = [AIMEDIC_ID_COL] + COLS_TO_SELECT
 
 
 # Define a common mapping from some column names to our normalized names. 
