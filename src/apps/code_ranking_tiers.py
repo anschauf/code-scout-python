@@ -79,7 +79,7 @@ def calculate_code_ranking_performance(*,
     # write results to file and get the categorical rankings
     code_categorical_ranks = list()
     for i, result in enumerate(code_ranks):
-        wr.s3.to_csv(result, os.path.join(dir_output, all_rankings[i][0] + '.csv'), index=False)
+        wr.s3.to_csv(result, os.path.join(dir_output, all_rankings[i][1] + '.csv'), index=False)
         # get categorical rank based on predefined RANKING_RANGES
         in_bins = np.digitize(result['rank'].tolist(), RANKING_RANGES, right=False)
         current_categorical_rank = np.bincount(in_bins)[1:]  # ignore smaller than 1 rankings
