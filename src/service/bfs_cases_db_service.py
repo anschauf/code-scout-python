@@ -11,9 +11,9 @@ from src.models.BfsCase import BfsCase
 from src.models.Clinic import Clinic
 from src.models.Hospital import Hospital
 from src.models.Revision import Revision
-from src.models.chop_code import ChopCode
-from src.models.icd_code import IcdCode
-from src.revised_case_normalization.py.global_configs import AIMEDIC_ID_COL
+from src.models.chop_code import Procedures
+from src.models.icd_code import Diagnoses
+from src.revised_case_normalization.py.global_configs import *
 
 # import envs
 BFS_CASES_DB_URL = config('BFS_CASES_DB_URL')
@@ -120,17 +120,10 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int) -> pd
 
 @beartype
 def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[int]) -> pd.DataFrame:
-    # SELECT
-    #     array_agg(revision_date) as revision_date,
-    #     array_agg(revision_id) as revision_id
-    # FROM coding_revision.revisions
-    # WHERE aimedic_id = 120078
-    # GROUP BY aimedic_id;
-
     query_revisions = (
         session
         .query(
-            # func.first(Revision.aimedic_id).label(AIMEDIC_ID_COL),
+            func.array_agg(Revision.aimedic_id).label(AIMEDIC_ID_COL),
             func.array_agg(Revision.revision_date).label('revision_date'),
             func.array_agg(Revision.revision_id).label('revision_id'),
         )
@@ -140,12 +133,162 @@ def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[int]) -> pd.DataFra
 
     df = pd.read_sql(query_revisions.statement, session.bind)
 
-    # TODO [P1]: Pull aimedic_id together with info above
-    # TODO [P2]: Pair / zip revision_date and revision_id per row, and select the revision_id for the earliest revision_date
+    def get_earliest_revision_id(row):
+        aimedic_id = row[AIMEDIC_ID_COL][0]  # pick only the first one as they are all the same (because of the group-by)
 
+        n_revisions = len(row['revision_date'])
+        if n_revisions == 1:
+            revision_id = row['revision_id'][0]
+        else:
+            raise NotImplementedError("Don't know what to do when there are mulitple revisions")
 
+        row[AIMEDIC_ID_COL] = aimedic_id
+        row['revision_id'] = revision_id
+        return row
 
+    df = df.apply(get_earliest_revision_id, axis=1)
+    df.drop(columns=['revision_date'], inplace=True)
     return df
+
+
+@beartype
+def get_diagnoses_codes(df_revision_ids: pd.DataFrame) -> pd.DataFrame:
+    all_aimedic_ids = set(df_revision_ids[AIMEDIC_ID_COL].values.tolist())
+    all_revision_ids = set(df_revision_ids['revision_id'].values.tolist())
+
+    query_diagnoses = (
+        session
+        .query(Diagnoses)
+        .with_entities(Diagnoses.aimedic_id, Diagnoses.revision_id, Diagnoses.code, Diagnoses.is_primary)
+        .filter(Diagnoses.aimedic_id.in_(all_aimedic_ids))
+        .filter(Diagnoses.revision_id.in_(all_revision_ids))
+    )
+
+    df = pd.read_sql(query_diagnoses.statement, session.bind)
+
+    # Select a subset of rows, which contain the primary diagnosis for each case
+    primary_diagnoses = df[df['is_primary']][['revision_id', 'code']]
+    primary_diagnoses.rename(columns={'code': PRIMARY_DIAGNOSIS_COL}, inplace=True)
+
+    # Aggregate the subset of rows, which contain the secondary diagnoses for each case
+    secondary_diagnoses = df[~df['is_primary']].groupby('revision_id', group_keys=True)['code'].apply(list)
+    secondary_diagnoses = secondary_diagnoses.to_frame(SECONDARY_DIAGNOSES_COL)
+    secondary_diagnoses.reset_index(drop=False, inplace=True)
+
+    codes_df = (df_revision_ids
+                .merge(primary_diagnoses, on='revision_id', how='left')
+                .merge(secondary_diagnoses, on='revision_id', how='left'))
+
+    n_cases_no_pd = codes_df[PRIMARY_DIAGNOSIS_COL].isna().sum()
+    if n_cases_no_pd > 0:
+        raise ValueError(f'There are {n_cases_no_pd} cases without a Primary Diagnosis')
+
+    # Replace NaNs with an empty list
+    codes_df[SECONDARY_DIAGNOSES_COL] = codes_df[SECONDARY_DIAGNOSES_COL].apply(lambda x: x if isinstance(x, list) else [])
+
+    return codes_df
+
+
+@beartype
+def get_procedures_codes(df_revision_ids: pd.DataFrame) -> pd.DataFrame:
+    all_aimedic_ids = set(df_revision_ids[AIMEDIC_ID_COL].values.tolist())
+    all_revision_ids = set(df_revision_ids['revision_id'].values.tolist())
+
+    query_procedures = (
+        session
+        .query(Procedures)
+        .with_entities(Procedures.aimedic_id, Procedures.revision_id, Procedures.code, Procedures.is_primary)
+        .filter(Procedures.aimedic_id.in_(all_aimedic_ids))
+        .filter(Procedures.revision_id.in_(all_revision_ids))
+    )
+
+    df = pd.read_sql(query_procedures.statement, session.bind)
+
+    # Select a subset of rows, which contain the primary diagnosis for each case
+    primary_procedures = df[df['is_primary']][['revision_id', 'code']]
+    primary_procedures.rename(columns={'code': PRIMARY_PROCEDURE_COL}, inplace=True)
+
+    # Aggregate the subset of rows, which contain the secondary diagnoses for each case
+    secondary_procedures = df[~df['is_primary']].groupby('revision_id', group_keys=True)['code'].apply(list)
+    secondary_procedures = secondary_procedures.to_frame(SECONDARY_PROCEDURES_COL)
+    secondary_procedures.reset_index(drop=False, inplace=True)
+
+    codes_df = (df_revision_ids
+                .merge(primary_procedures, on='revision_id', how='left')
+                .merge(secondary_procedures, on='revision_id', how='left'))
+
+    # Replace NaNs with an empty list
+    codes_df[SECONDARY_PROCEDURES_COL] = codes_df[SECONDARY_PROCEDURES_COL].apply(lambda x: x if isinstance(x, list) else [])
+    codes_df[PRIMARY_PROCEDURE_COL] = codes_df[PRIMARY_PROCEDURE_COL].fillna('')
+
+    return codes_df
+
+
+@beartype
+def get_codes(df_revision_ids: pd.DataFrame) -> pd.DataFrame:
+    diagnoses_df = get_diagnoses_codes(df_revision_ids)
+    procedures_df = get_procedures_codes(df_revision_ids)
+
+    # Drop the aimedic_id column to avoid adding it with a suffix and having to remove it later
+    codes_df = (df_revision_ids
+                .merge(diagnoses_df.drop(columns=AIMEDIC_ID_COL), on='revision_id', how='left')
+                .merge(procedures_df.drop(columns=AIMEDIC_ID_COL), on='revision_id', how='left'))
+
+    return codes_df
+
+
+@beartype
+def apply_revisions(cases_df: pd.DataFrame, revisions_df: pd.DataFrame) -> pd.DataFrame:
+    joined = pd.merge(cases_df, revisions_df, on=AIMEDIC_ID_COL, how='left')
+
+    # Notes:
+    # - revision_id is not needed
+    # - the old_pd is not needed, the new_pd is the new PD
+
+    # Add & remove ICD codes from the list of secondary diagnoses
+    def revise_diagnoses_codes(row):
+        revised_codes = list(row[SECONDARY_DIAGNOSES_COL])
+
+        for code_to_add in row[ADDED_ICD_CODES]:
+            revised_codes.append(code_to_add)
+
+        for code_to_remove in row[REMOVED_ICD_CODES]:
+            revised_codes.remove(code_to_remove)
+
+        row[SECONDARY_DIAGNOSES_COL] = revised_codes
+        return row
+
+    # Delete the primary procedure if it was removed
+    def revise_primary_procedure_code(row):
+        if row[PRIMARY_PROCEDURE_COL] in row[REMOVED_CHOP_CODES]:
+            row[PRIMARY_PROCEDURE_COL] = ''
+
+        return row
+
+    # Add & remove CHOP codes from the list of secondary procedures
+    def revise_secondary_procedure_codes(row):
+        revised_codes = list(row[SECONDARY_PROCEDURES_COL])
+
+        for code_to_add in row[ADDED_CHOP_CODES]:
+            revised_codes.append(code_to_add)
+
+        for code_to_remove in row[REMOVED_CHOP_CODES]:
+            # We need to check whether the code is present in this list, because it may appear as primary procedure
+            if code_to_remove in revised_codes:
+                revised_codes.remove(code_to_remove)
+
+        row[SECONDARY_PROCEDURES_COL] = revised_codes
+        return row
+
+    # Apply all the revisions
+    joined = joined.apply(revise_diagnoses_codes, axis=1)
+    joined = joined.apply(revise_primary_procedure_code, axis=1)
+    joined = joined.apply(revise_secondary_procedure_codes, axis=1)
+
+    # Select only the columns of interest
+    revised_cases = joined[[AIMEDIC_ID_COL, NEW_PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL, PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL]]
+
+    return revised_cases
 
 
 # TODO Remove this function after merging pull request #4
@@ -170,20 +313,20 @@ def get_hospital_year_cases(hospital_name: str, year: int) -> pd.DataFrame:
 
     print("")
 
-    subquery_icds = session.query(IcdCode.aimedic_id,
-                                  func.array_agg(IcdCode.code).label('icds'),
-                                  func.array_agg(IcdCode.ccl).label('icds_ccl'),
-                                  func.array_agg(IcdCode.is_primary).label('icds_is_primary'),
-                                  func.array_agg(IcdCode.is_grouper_relevant).label('icds_is_grouper_relevant')
-                                  ).group_by(IcdCode.aimedic_id).subquery()
+    subquery_icds = session.query(Diagnoses.aimedic_id,
+                                  func.array_agg(Diagnoses.code).label('icds'),
+                                  func.array_agg(Diagnoses.ccl).label('icds_ccl'),
+                                  func.array_agg(Diagnoses.is_primary).label('icds_is_primary'),
+                                  func.array_agg(Diagnoses.is_grouper_relevant).label('icds_is_grouper_relevant')
+                                  ).group_by(Diagnoses.aimedic_id).subquery()
 
-    subquery_chops = session.query(ChopCode.aimedic_id,
-                                   func.array_agg(ChopCode.code).label('chops'),
-                                   func.array_agg(ChopCode.side).label('chops_side'),
-                                   func.array_agg(ChopCode.date).label('chops_date'),
-                                   func.array_agg(ChopCode.is_grouper_relevant).label('chops_is_grouper_relevant'),
-                                   func.array_agg(ChopCode.is_primary).label('chops_is_primary'),
-                                   ).group_by(ChopCode.aimedic_id).subquery()
+    subquery_chops = session.query(Procedures.aimedic_id,
+                                   func.array_agg(Procedures.code).label('chops'),
+                                   func.array_agg(Procedures.side).label('chops_side'),
+                                   func.array_agg(Procedures.date).label('chops_date'),
+                                   func.array_agg(Procedures.is_grouper_relevant).label('chops_is_grouper_relevant'),
+                                   func.array_agg(Procedures.is_primary).label('chops_is_primary'),
+                                   ).group_by(Procedures.aimedic_id).subquery()
 
     subquery_bfs_icds = session.query(subquery_sociodemo,
                                       subquery_icds.c.icds,

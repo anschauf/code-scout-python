@@ -28,8 +28,12 @@ ADDED_ICD_CODES = 'added_icds'
 REMOVED_ICD_CODES = 'removed_icds'
 ADDED_CHOP_CODES = 'added_chops'
 REMOVED_CHOP_CODES = 'removed_chops'
-NEW_PRIMARY_DIAGNOSIS_COL = 'new_pd'
+NEW_PRIMARY_DIAGNOSIS_COL = 'primary_diagnosis'
 AIMEDIC_ID_COL = 'aimedic_id'
+
+SECONDARY_DIAGNOSES_COL = 'secondary_diagnoses'
+PRIMARY_PROCEDURE_COL = 'primary_procedure'
+SECONDARY_PROCEDURES_COL = 'secondary_procedures'
 
 NORM_CASE_ID_COL = 'case_id_norm'
 
