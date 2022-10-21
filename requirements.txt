@@ -8,4 +8,10 @@ pandas
 
 # Plotting
 matplotlib
-venn
+
+# database
+psycopg2-binary
+sqlalchemy
+
+# environment variable
+python-decouple

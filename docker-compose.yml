@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  code_scout_jupyter:
+    image: jupyter/datascience-notebook:aarch64-lab-3.4.7
+    volumes:
+      - type: bind
+        source: "${PWD}"
+        target: /home/jovyan/work
+    ports:
+      - "8888:8888"
+    working_dir: "/home/jovyan/work"
+    command: >
+       sh -c "python3 -m pip install --upgrade pip &&
+             export PIP_CONSTRAINT=constraints.txt &&
+             pip3 install -r requirements.txt &&
+             '/usr/local/bin/start.sh' jupyter lab"
