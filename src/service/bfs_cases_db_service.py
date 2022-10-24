@@ -348,3 +348,43 @@ def get_hospital_year_cases(hospital_name: str, year: int) -> pd.DataFrame:
                                  subquery_bfs_icds.c.aimedic_id == subquery_chops.c.aimedic_id, isouter=True)
 
     return pd.read_sql(query.statement, session.bind)
+
+
+@beartype
+def insert_revised_case_into_revisions(revised_case: pd.DataFrame) -> pd.DataFrame:
+    """
+    Insert revised cases into table code_revision.revisions
+    @param revised_case: a Dataframe of revised case after Grupper.
+
+    @return: a Dataframe of revised_case after adding revision_id.
+    """
+    # columns for table revision
+    # revision_id: auto increment
+    # aimedic_id, drg, adrg, drg_cost_weight, effective_cost_weight, pccl
+    # revision_date: not available yet
+    insert_col = ['aimedic_id', 'drg', 'adrg', 'drg_cost_weight', 'effective_cost_weight', 'pccl', 'revision_date']
+    revision_df = revised_case[insert_col]
+    revision_list = revision_df.to_dict(orient='records')
+    revision_ids = list()
+    for revision in revision_list:
+        revision_obj = Revision(revision)
+        session.add(revision_obj)
+        session.flush()
+        # session.refresh() might need to be refreshed first
+        revision_id = revision_obj.id
+        revision_ids.append(revision_id)
+
+    revised_case['revision_id'] = revision_ids
+
+    return revised_case
+
+
+
+
+
+
+
+
+
+
+
