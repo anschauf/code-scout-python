@@ -23,6 +23,17 @@ PCCL_COL = 'pccl'
 PRIMARY_DIAGNOSIS_COL = 'old_pd'  # After joining `bfs_cases` to `icd_codes`, the primary diagnosis is renamed from `code` to `PD`
 DRG_COL = 'drg'
 
+# List of Sociodemographic columns necessary to retrieve SwissDRG Batchgrouper Format 2017
+
+AGE_DAYS_COL = 'age_days'
+ADMISSION_WEIGHT_COL = 'admission_weight'
+GESTATION_AGE_COL = 'gestation_age'
+ADMISSION_DATE_COL = 'admission_date'
+ADMISSION_TYPE_COL = 'grouper_admission_type'
+DISCHARGE_DATE_COL = 'discharge_date'
+DISCHARGE_TYPE_COL = 'grouper_discharge_type'
+VENTILATION_HOURS_COL = 'ventilation_hours'
+
 # List the columns which need to be imported in the DB
 ADDED_ICD_CODES = 'added_icds'
 REMOVED_ICD_CODES = 'removed_icds'
@@ -36,6 +47,11 @@ PRIMARY_PROCEDURE_COL = 'primary_procedure'
 SECONDARY_PROCEDURES_COL = 'secondary_procedures'
 
 NORM_CASE_ID_COL = 'case_id_norm'
+
+# List of variables of the revised cases from DtoD for the SwissDRG Batchgrouper
+
+GROUPER_PROCEDURES_COL = 'grouper_procedures'
+GROUPER_DIAGNOSIS_COL = 'grouper_diagnoses'
 
 # Select the columns used to validate / match the case in the DB
 VALIDATION_COLS = [
@@ -57,8 +73,13 @@ COLS_TO_SELECT = VALIDATION_COLS + [
 ]
 
 
-# These are the columns needed for exporting the revised cases for Grupper
-COLS_TO_OUTPUT = [AIMEDIC_ID_COL] + COLS_TO_SELECT
+# These are the columns needed for exporting the revised cases for the Grouper (SwissDRG Batchgrouper Format 2017)
+GROUPER_INPUT_BFS = [AIMEDIC_ID_COL, AGE_COL, AGE_DAYS_COL, ADMISSION_WEIGHT_COL, GESTATION_AGE_COL, GENDER_COL,
+                      ADMISSION_DATE_COL, ADMISSION_TYPE_COL, DISCHARGE_DATE_COL, DISCHARGE_TYPE_COL,
+                      DURATION_OF_STAY_COL, VENTILATION_HOURS_COL]
+
+GROUPER_INPUT_REVISED_CASES = [AIMEDIC_ID_COL, GROUPER_PROCEDURES_COL, GROUPER_DIAGNOSIS_COL]
+
 
 
 # Define a common mapping from some column names to our normalized names. 

@@ -98,9 +98,17 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int) -> pd
         .with_entities(BfsCase.aimedic_id,
                        BfsCase.case_id,
                        BfsCase.patient_id,
-                       BfsCase.gender,
                        BfsCase.age_years,
-                       BfsCase.duration_of_stay)
+                       BfsCase.age_days,
+                       BfsCase.admission_weight,
+                       BfsCase.gestation_age,
+                       BfsCase.gender,
+                       BfsCase.admission_date,
+                       BfsCase.grouper_admission_type,
+                       BfsCase.discharge_date,
+                       BfsCase.grouper_discharge_type,
+                       BfsCase.duration_of_stay,
+                       BfsCase.ventilation_hours)
         .join(Hospital, BfsCase.hospital_id == Hospital.hospital_id)
         .filter(Hospital.name == hospital_name)
         .filter(BfsCase.discharge_year == year)
