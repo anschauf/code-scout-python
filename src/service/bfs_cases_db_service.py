@@ -405,26 +405,27 @@ def insert_revised_case_into_diagonoses(revised_case_with_revision_id: pd.DataFr
 
 
 @beartype
-def insert_revised_case_into_p(revised_case_with_revision_id: pd.DataFrame) -> None:
+def insert_revised_case_into_procedures(revised_case_with_revision_id: pd.DataFrame) -> None:
     """
-    Insert revised cases into table code_revision.diagonoses
+    Insert revised cases into table code_revision.procedures
     @param revised_case_with_revision_id: a Dataframe of revised case with added revision_id after insert into revision.
 
     @return: None
     """
 
     # columns for table revision
-    # diagnoses_pk:  auto-increment
+    # procedures_pk:  auto-increment
     # aimedic_id, revision_id, code, is_primary,
     # ccl, is_grouper_relevant: from Grupper
-    # prepare the format for diagonoses table
-    insert_col = ['aimedic_id', 'revision_id', 'code', 'ccl', 'is_primary', 'is_grouper_relevant']
-    revision_diagonoses = revised_case_with_revision_id[insert_col]
+    # side, date,
+    # is_grouper_relevant: from Grupper
+    insert_col = ['aimedic_id', 'revision_id', 'code', 'side','date',  'is_grouper_relevant', 'is_primary'] # check the sequence
+    revision_procedures = revised_case_with_revision_id[insert_col]
 
-    revision_diagonoses_list = revision_diagonoses.to_dict(orient='records')
-    revision_diagonoses_obj = [Diagnoses(revision) for revision in revision_diagonoses_list]
-    # if we do not need to save diagnoses_id, all records can be added using add_all
-    session.add_all(revision_diagonoses_obj)
+    revision_procedures_list = revision_procedures.to_dict(orient='records')
+    revision_procedures_obj = [Diagnoses(revision) for revision in revision_procedures_list]
+    # if we do not need to save procedures_id, all records can be added using add_all
+    session.add_all(revision_procedures_obj)
     session.commit()
 
 
