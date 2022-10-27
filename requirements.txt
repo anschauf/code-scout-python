@@ -11,3 +11,10 @@ scipy
 matplotlib
 venn
 seaborn
+
+# database
+psycopg2-binary
+sqlalchemy
+
+# environment variable
+python-decouple

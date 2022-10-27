@@ -1,8 +1,6 @@
 # This python file makes venn diagram with 2-6 sets, the code is from the following repository:
 # https://github.com/tctianchi/pyvenn
 
-
-
 # coding: utf-8
 from itertools import chain
 try:
