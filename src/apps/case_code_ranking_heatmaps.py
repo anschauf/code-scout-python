@@ -15,7 +15,7 @@ def plot_heatmap_comparing_all_case_code_rankings(*,
                                                   ):
 
     all_files = wr.s3.list_objects(dir_results)
-    all_files = [x for x in all_files if x.endswith(".csv")]
+    all_files = [x for x in all_files if x.endswith(".csv") and not x.endswith('all_ranks.csv')]
 
     all_results = list()
     for file in all_files:
@@ -45,6 +45,18 @@ def plot_heatmap_comparing_all_case_code_rankings(*,
     plt.figure()
     sns.clustermap(pd.DataFrame(np.log(ranking_comparison), columns=col_name, index=unique_caseId_added_ICD_pairs), yticklabels=False, col_cluster=True)
     save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_results, 'clustermap_code-ranks_log.pdf'))
+    plt.close()
+
+    ranking_comparison[ranking_comparison>10] = max_rank
+
+    plt.figure()
+    sns.clustermap(pd.DataFrame(ranking_comparison, columns=col_name, index=unique_caseId_added_ICD_pairs), yticklabels=False, col_cluster=True)
+    save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_results, 'clustermap_code-ranks_threshold_rank10.pdf'))
+    plt.close()
+
+    plt.figure()
+    sns.clustermap(pd.DataFrame(np.log(ranking_comparison), columns=col_name, index=unique_caseId_added_ICD_pairs), yticklabels=False, col_cluster=True)
+    save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_results, 'clustermap_code-ranks_threshold_rank10_log.pdf'))
     plt.close()
 
 
