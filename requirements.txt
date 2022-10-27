@@ -9,7 +9,6 @@ scipy
 
 # Plotting
 matplotlib
-venn
 seaborn
 
 # database
