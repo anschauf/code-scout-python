@@ -400,7 +400,7 @@ def insert_revised_case_into_diagonoses(revised_case_with_revision_id: pd.DataFr
     # aimedic_id, revision_id, code, is_primary,
     # ccl, is_grouper_relevant: from Grupper
     # prepare the format for diagonoses table
-    insert_col = ['aimedic_id', 'revision_id', 'code', 'ccl', 'is_primary', 'is_grouper_relevant']
+    insert_col = ['aimedic_id', 'revision_id', 'code', 'ccl', 'is_primary', 'is_grouper_relevant'] # TODO: check the sequence and name in the DB again
     revision_diagonoses = revised_case_with_revision_id[insert_col]
 
     revision_diagonoses_list = revision_diagonoses.to_dict(orient='records')
@@ -425,7 +425,7 @@ def insert_revised_case_into_procedures(revised_case_with_revision_id: pd.DataFr
     # ccl, is_grouper_relevant: from Grupper
     # side, date,
     # is_grouper_relevant: from Grupper
-    insert_col = ['aimedic_id', 'revision_id', 'code', 'side','date',  'is_grouper_relevant', 'is_primary'] # check the sequence
+    insert_col = ['aimedic_id', 'revision_id', 'code', 'side','date',  'is_grouper_relevant', 'is_primary'] # TODO: check the sequence and name in the DB again
     revision_procedures = revised_case_with_revision_id[insert_col]
 
     revision_procedures_list = revision_procedures.to_dict(orient='records')
