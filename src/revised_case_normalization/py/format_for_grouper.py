@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from src.revised_case_normalization.py.global_configs import *
 from src.service.bfs_cases_db_service import get_earliest_revisions_for_aimedic_ids, get_codes, apply_revisions
 from loguru import logger
@@ -11,7 +12,18 @@ def format_for_grouper(df_joined: pd.DataFrame) -> pd.DataFrame:
         """
     joined = df_joined.copy()
 
+    # Select cases in which the aimedic_id is not an NA
+    joined = joined[joined['aimedic_id'].notna()]
+    joined = joined.replace(np.nan, "")
+    joined['aimedic_id'] = joined['aimedic_id'].astype(int)
+
+    # set type of age_days, admission_weight and gestation_age to integer (to avoid float format)
+    joined['age_days'] = joined['age_days'].astype(int)
+    joined['admission_weight'] = joined['admission_weight'].astype(int)
+    joined['gestation_age'] = joined['gestation_age'].astype(int)
+
     # Formatting baby data
+
     joined["baby_data"] = joined['admission_weight'].map(str) + "|" + joined['gestation_age'].map(str)
     joined["baby_data"] = joined["baby_data"].replace("0|0", "")
 
