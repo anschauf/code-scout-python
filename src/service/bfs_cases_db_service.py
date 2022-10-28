@@ -354,7 +354,11 @@ def get_hospital_year_cases(hospital_name: str, year: int) -> pd.DataFrame:
 def insert_revised_case_into_revisions(revised_case: pd.DataFrame) -> pd.DataFrame:
     """
     Insert revised cases into table code_revision.revisions
-    @param revised_case: a Dataframe of revised case after Grupper.
+    @param revised_case: a Dataframe of revised case after Grupper
+    Columns needed in the revised_case DataFrame:
+    aimedic_id, drg, drg_cost_weight, effective_cost_weight, pccl, revision_date,
+    diagnoses_code/code, ccl, is_primary, is_grouper_relevant
+    procedure_code/code, side,date,  is_grouper_relevant, is_primary
 
     @return: a Dataframe of revised_case after adding revision_id.
     """
@@ -362,11 +366,12 @@ def insert_revised_case_into_revisions(revised_case: pd.DataFrame) -> pd.DataFra
     # revision_id: auto increment
     # aimedic_id, drg, adrg, drg_cost_weight, effective_cost_weight, pccl
     # revision_date: not available yet
-    insert_col = ['aimedic_id', 'drg', 'adrg', 'drg_cost_weight', 'effective_cost_weight', 'pccl', 'revision_date']
+    insert_col = ['aimedic_id', 'drg', 'drg_cost_weight', 'effective_cost_weight', 'pccl', 'revision_date']
 
     revision_df = revised_case[insert_col]
     #
-    revision_df['adrg'] = revision_df['drg'].apply(lambda x: x[:3])
+    # revision_df['adrg'] = revision_df['drg'].apply(lambda x: x[:3])
+
     revision_list = revision_df.to_dict(orient='records')
     revision_ids = list()
     for revision in revision_list:
@@ -377,9 +382,10 @@ def insert_revised_case_into_revisions(revised_case: pd.DataFrame) -> pd.DataFra
         revision_id = revision_obj.id # get the created primary key
         revision_ids.append(revision_id)
     session.commit() # save change to DB
-    revised_case['revision_id'] = revision_ids
+    revised_case_with_revision_id = revised_case
+    revised_case_with_revision_id['revision_id'] = revision_ids
 
-    return revised_case
+    return revised_case_with_revision_id
 
 @beartype
 def insert_revised_case_into_diagonoses(revised_case_with_revision_id: pd.DataFrame) -> None:
