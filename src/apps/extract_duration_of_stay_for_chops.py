@@ -30,11 +30,12 @@ for filename, year, encoding in systematic_indexes:
 
     chops_dictionary = wr.s3.read_csv(filename, dtype='string', sep=';', on_bad_lines='skip', encoding=encoding)
 
+    max_limit = 365*100
     def till_upper_limit(u): return  DurationOfStayLimit(0, u)
     def less_than_upper_limit(u): return  DurationOfStayLimit(0, u-1)
     def within_range_of_days(l, u): return  DurationOfStayLimit(l, u)
-    def from_lower_limit(l): return DurationOfStayLimit(l, 9999999999)
-    def more_than_lower_limit(l): return DurationOfStayLimit(l+1, 9999999999)
+    def from_lower_limit(l): return DurationOfStayLimit(l, max_limit)
+    def more_than_lower_limit(l): return DurationOfStayLimit(l+1, max_limit)
     regex_translation = [
         ("bis \d+ Behandlungstage", till_upper_limit),
         ("mindestens \d+ bis \d+ Behandlungstage", within_range_of_days),
@@ -78,6 +79,7 @@ for filename, year, encoding in systematic_indexes:
     chops_dictionary_duration_of_stay_limits["DoS_lower_limit"] = [x.lower for x in limits]
     chops_dictionary_duration_of_stay_limits["DoS_upper_limit"] = [x.upper for x in limits]
     wr.s3.to_csv(df=chops_dictionary_duration_of_stay_limits, path=filename.replace('.csv', '_DurationOfStayLimits.csv'), index=False)
+    wr.s3.to_csv(df=chops_dictionary_duration_of_stay_limits[['zcode', 'DoS_lower_limit', 'DoS_upper_limit']], path=filename.replace('.csv', '_DurationOfStayLimits_scala.csv'), index=False)
 
     plt.figure()
     plt.bar(x=range(len(regex_distribution)), height=regex_distribution)
@@ -89,37 +91,46 @@ for filename, year, encoding in systematic_indexes:
     plt.close()
 
 
-    # import os
-    # current_dir = os.path.dirname(os.path.abspath(__file__))
-    # ksw2019 = pd.read_csv(os.path.join(current_dir ,'KSW_2019__FAB_Geschlecht_Alter_DtoD_CHOPs.csv')).dropna(subset=['suggested_codes'])
-    # ksw2019 = ksw2019.astype({'suggested_codes': 'string'})
-    # ksw2019['suggested_codes_split'] = ksw2019['suggested_codes'].apply(lambda x: x.split("""|"""))
-    # all_chops_with_limits = [x[1:].replace('.', '') for x in chops_dictionary_duration_of_stay_limits['zcode']]
-    #
-    # index = list()
-    # ranks = list()
-    # for i, case in enumerate(ksw2019.itertuples()):
-    #     if len(np.intersect1d(case.suggested_codes_split, all_chops_with_limits)) > 0:
-    #         index.append(i)
-    #         ranks.append([index for index in range(len(case.suggested_codes_split)) if case.suggested_codes_split[index] in all_chops_with_limits])
-    #
-    # plt.figure()
-    # concatenated_ranks = np.concatenate(ranks)
-    # plt.hist(concatenated_ranks, bins=np.linspace(np.min(concatenated_ranks), np.max(concatenated_ranks), 100))
-    # plt.xlabel('Ranks codes with DoS limits')
-    # plt.ylabel('Frequency')
-    # plt.tight_layout()
-    # plt.savefig(os.path.join(current_dir, f'hist_ranks_codes_with_limits_{year}.pdf'), bbox_inches='tight')
-    #
-    #
-    # plt.figure()
-    # concatenated_ranks = np.concatenate(ranks)
-    # plt.hist(concatenated_ranks, bins=1000)
-    # plt.xlabel('Ranks codes with DoS limits')
-    # plt.ylabel('Frequency')
-    # plt.tight_layout()
-    # plt.xlim([0, 10])
-    # plt.savefig(os.path.join(current_dir, f'hist_ranks_codes_with_limits_zoom`{year}.pdf'), bbox_inches='tight')
-    # plt.close()
-    #
-    # print('')
+    import os
+    import pandas as pd
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    filename_chop_suggestions = os.path.join(current_dir, 'HirslandenZurichEncrypted_2019__FAB__DtoD__CHOPs__ranked.csv')
+    ksw2019 = pd.read_csv(filename_chop_suggestions).dropna(subset=['suggested_codes'])
+    ksw2019 = ksw2019.astype({'suggested_codes': 'string'})
+    ksw2019['suggested_codes_split'] = ksw2019['suggested_codes'].apply(lambda x: x.split("""|"""))
+    all_chops_with_limits = [x[1:].replace('.', '') for x in chops_dictionary_duration_of_stay_limits['zcode']]
+
+    index = list()
+    case_id = list()
+    ranks = list()
+    for i, case in enumerate(ksw2019.itertuples()):
+        if len(np.intersect1d(case.suggested_codes_split, all_chops_with_limits)) > 0:
+            index.append(i)
+            case_id.append(case.case_id)
+            ranks.append([rank for rank in range(len(case.suggested_codes_split)) if case.suggested_codes_split[rank] in all_chops_with_limits])
+    pd.DataFrame({
+        'case_id': case_id,
+        'case_rank': index,
+        'index_chops_with_dos_limits': ['|'.join([str(x) for x in ranks[i]]) for i in range(len(ranks))]
+    }).to_csv(os.path.join(current_dir, f'chops_with_dos_limits_{os.path.basename(filename_chop_suggestions).replace(".csv", "")}_{year}.csv'), index=False)
+
+    plt.figure()
+    concatenated_ranks = np.concatenate(ranks)
+    plt.hist(concatenated_ranks, bins=np.linspace(np.min(concatenated_ranks), np.max(concatenated_ranks), 100))
+    plt.xlabel('Ranks codes with DoS limits')
+    plt.ylabel('Frequency')
+    plt.tight_layout()
+    plt.savefig(os.path.join(current_dir, f'hist_ranks_codes_with_limits_{os.path.basename(filename_chop_suggestions).replace(".csv", "")}_{year}.pdf'), bbox_inches='tight')
+
+
+    plt.figure()
+    concatenated_ranks = np.concatenate(ranks)
+    plt.hist(concatenated_ranks, bins=1000)
+    plt.xlabel('Ranks codes with DoS limits')
+    plt.ylabel('Frequency')
+    plt.tight_layout()
+    plt.xlim([0, 10])
+    plt.savefig(os.path.join(current_dir, f'hist_ranks_codes_with_limits_zoom_{os.path.basename(filename_chop_suggestions).replace(".csv", "")}_{year}.pdf'), bbox_inches='tight')
+    plt.close()
+
+    print('')
