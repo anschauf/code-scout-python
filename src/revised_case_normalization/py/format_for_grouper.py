@@ -44,17 +44,20 @@ def format_for_grouper(df_joined: pd.DataFrame) -> pd.DataFrame:
     # Formatting primary_procedure and secondary_procedures to fit SwissDRG Batchgrouper Format 2017
     # NOTE: Sideness and procedure date are not taken into account
 
-    # Formatting primary procedure column
+    # Formatting primary procedure column (condition: add "::" only if the chop code is available)
     revised_cases["primary_procedure"] = [procedure + "::" for procedure in revised_cases["primary_procedure"]]
+    revised_cases['primary_procedure'] = revised_cases.primary_procedure.apply(lambda case: case + "::" if len(case) <= 6 else case)
 
-    # Formatting secondary procedure column
+    # Formatting secondary procedure column (condition: add "::" only if the chop code is available)
     revised_cases["secondary_procedures"] = revised_cases['secondary_procedures'].map(str).str.strip("[]")
+    revised_cases['secondary_procedures'] = revised_cases.secondary_procedures.apply(lambda case: case + "::" if len(case) <= 6 else case)
     revised_cases["secondary_procedures"] = revised_cases["secondary_procedures"].str.replace("'", "").str.replace(",","::|").str.replace(" ", "")
 
     # Formatting grouper procedures column
     revised_cases["grouper_procedures"] = revised_cases['primary_procedure'].map(str) + "|" + revised_cases[
         'secondary_procedures'].map(str)
-    revised_cases["grouper_procedures"] = revised_cases["grouper_procedures"].str.rstrip("::|") + "::"
+
+    revised_cases["grouper_procedures"] = revised_cases["grouper_procedures"].str.rstrip("::|")
 
     # Formatting primary_diagnosis and secondary_diagnosis to fit SwissDRG Batchgrouper Format 2017
 

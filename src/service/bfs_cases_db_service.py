@@ -205,18 +205,18 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame) -> pd.DataFrame:
     query_procedures = (
         session
         .query(Procedures)
-        .with_entities(Procedures.aimedic_id, Procedures.revision_id, Procedures.code, Procedures.is_primary)
+        .with_entities(Procedures.aimedic_id, Procedures.revision_id, Procedures.code, Procedures.side, Procedures.date, Procedures.is_primary)
         .filter(Procedures.aimedic_id.in_(all_aimedic_ids))
         .filter(Procedures.revision_id.in_(all_revision_ids))
     )
 
     df = pd.read_sql(query_procedures.statement, session.bind)
 
-    # Select a subset of rows, which contain the primary diagnosis for each case
+    # Select a subset of rows, which contain the primary procedures for each case
     primary_procedures = df[df['is_primary']][['revision_id', 'code']]
     primary_procedures.rename(columns={'code': PRIMARY_PROCEDURE_COL}, inplace=True)
 
-    # Aggregate the subset of rows, which contain the secondary diagnoses for each case
+    # Aggregate the subset of rows, which contain the secondary procedures for each case
     secondary_procedures = df[~df['is_primary']].groupby('revision_id', group_keys=True)['code'].apply(list)
     secondary_procedures = secondary_procedures.to_frame(SECONDARY_PROCEDURES_COL)
     secondary_procedures.reset_index(drop=False, inplace=True)
