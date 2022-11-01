@@ -1,5 +1,6 @@
 import boto3
 import pandas as pd
+import numpy as np
 from beartype import beartype
 from decouple import config
 from loguru import logger
@@ -213,12 +214,13 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame) -> pd.DataFrame:
     df = pd.read_sql(query_procedures.statement, session.bind)
 
     # Select a subset of rows, which contain the primary procedures for each case
-    primary_procedures = df[df['is_primary']][['revision_id', 'code']]
+    primary_procedures = df[df['is_primary']][['revision_id', 'code', 'side', 'date']]
     primary_procedures.rename(columns={'code': PRIMARY_PROCEDURE_COL}, inplace=True)
 
     # Aggregate the subset of rows, which contain the secondary procedures for each case
     secondary_procedures = df[~df['is_primary']].groupby('revision_id', group_keys=True)['code'].apply(list)
     secondary_procedures = secondary_procedures.to_frame(SECONDARY_PROCEDURES_COL)
+
     secondary_procedures.reset_index(drop=False, inplace=True)
 
     codes_df = (df_revision_ids
@@ -231,6 +233,128 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame) -> pd.DataFrame:
 
     return codes_df
 
+def get_primary_procedures_codes(df_revision_ids: pd.DataFrame) -> pd.DataFrame:
+
+    all_aimedic_ids = set(df_revision_ids[AIMEDIC_ID_COL].values.tolist())
+    all_revision_ids = set(df_revision_ids['revision_id'].values.tolist())
+
+    query_procedures = (
+        session
+        .query(Procedures)
+        .with_entities(Procedures.aimedic_id, Procedures.revision_id, Procedures.code, Procedures.side, Procedures.date,
+                       Procedures.is_primary)
+        .filter(Procedures.aimedic_id.in_(all_aimedic_ids))
+        .filter(Procedures.revision_id.in_(all_revision_ids))
+    )
+
+    df = pd.read_sql(query_procedures.statement, session.bind)
+
+    # Select a subset of rows, which contain the primary procedures for each case
+    df_primary_procedures = df[df['is_primary']][['aimedic_id','revision_id', 'code', 'side', 'date']]
+    df_primary_procedures.rename(columns={'code': PRIMARY_PROCEDURE_COL}, inplace=True)
+
+    return df_primary_procedures
+
+def get_primary_procedures_codes_side_date(df_original_cases_primary_procedures: pd.DataFrame,
+                                           df_revised_cases: pd.DataFrame) -> pd.DataFrame:
+    # Formatting Date
+    df_original_cases_primary_procedures['date'] = df_original_cases_primary_procedures['date'].astype(str).str.replace("-",
+                                                                                                                  "")
+
+    # Merge columns to grouper format
+    df_original_cases_primary_procedures['primary_procedure_grouper_bfs'] = df_original_cases_primary_procedures[
+                                                                             'primary_procedure'].map(str) + ":" + \
+                                                                         df_original_cases_primary_procedures['side'].map(
+                                                                             str) + ":" + \
+                                                                         df_original_cases_primary_procedures['date'].map(
+                                                                             str)
+
+    primary_procedures_revised = df_revised_cases[["aimedic_id", "primary_procedure"]]
+    primary_procedures_revised = pd.merge(primary_procedures_revised, df_original_cases_primary_procedures, on=["aimedic_id","primary_procedure"], how="left", suffixes=("","_original"))
+    primary_procedures_revised['primary_procedure_grouper_bfs'].fillna(primary_procedures_revised['primary_procedure'], inplace=True)
+    primary_procedures_revised['primary_procedure_grouper_bfs'] = primary_procedures_revised['primary_procedure_grouper_bfs'].astype(str).str.replace(" ", "")
+
+    return primary_procedures_revised
+
+def get_secondary_procedures_codes(df_revision_ids: pd.DataFrame) -> pd.DataFrame:
+
+    all_aimedic_ids = set(df_revision_ids[AIMEDIC_ID_COL].values.tolist())
+    all_revision_ids = set(df_revision_ids['revision_id'].values.tolist())
+
+    query_procedures = (
+        session
+        .query(Procedures)
+        .with_entities(Procedures.aimedic_id, Procedures.revision_id, Procedures.code, Procedures.side, Procedures.date,
+                       Procedures.is_primary)
+        .filter(Procedures.aimedic_id.in_(all_aimedic_ids))
+        .filter(Procedures.revision_id.in_(all_revision_ids))
+    )
+
+    df = pd.read_sql(query_procedures.statement, session.bind)
+
+    # Select a subset of rows, which are not primary procedures for each case
+
+    df_secondary_procedures = df[~df['is_primary']][['aimedic_id','revision_id', 'code', 'side', 'date']]
+    df_secondary_procedures.rename(columns={'code': SECONDARY_PROCEDURES_COL}, inplace=True)
+
+    return df_secondary_procedures
+
+
+def get_secondary_procedures_codes_side_date(df_original_cases_secondary_procedures: pd.DataFrame,
+                                              df_revised_cases: pd.DataFrame) -> pd.DataFrame:
+
+    # Prepare secondary procedures of original data
+
+    df_original_cases_secondary_procedures['date'] = df_original_cases_secondary_procedures['date'].astype(str).str.replace(
+        "-", "")
+
+    df_original_cases_secondary_procedures['secondary_procedures_grouper_bfs'] = df_original_cases_secondary_procedures[
+                                                                                  'secondary_procedures'].map(
+        str) + ":" + \
+                                                                              df_original_cases_secondary_procedures[
+                                                                                  'side'].map(str) + ":" + \
+                                                                              df_original_cases_secondary_procedures[
+                                                                                  'date'].map(str)
+
+    df_original_cases_secondary_procedures = df_original_cases_secondary_procedures.explode('secondary_procedures')
+    # Group by to list
+    df_original_cases_secondary_procedures = pd.DataFrame(
+        df_original_cases_secondary_procedures.groupby(['aimedic_id', 'secondary_procedures'], group_keys=True)[
+            'secondary_procedures_grouper_bfs'].apply(list))
+
+    # Formatting secondary procedures to grouper format
+    df_original_cases_secondary_procedures['secondary_procedures_grouper_bfs'] = df_original_cases_secondary_procedures[
+        'secondary_procedures_grouper_bfs'].astype(str).str.replace(" ", "").str.replace(",", "|")
+    df_original_cases_secondary_procedures['secondary_procedures_grouper_bfs'] = df_original_cases_secondary_procedures[
+        'secondary_procedures_grouper_bfs'].astype(str).str.replace("'", "")
+    df_original_cases_secondary_procedures['secondary_procedures_grouper_bfs'] = df_original_cases_secondary_procedures[
+        'secondary_procedures_grouper_bfs'].str.strip("[]")
+
+    secondary_procedures_revised = df_revised_cases[["aimedic_id", "secondary_procedures"]]
+    secondary_procedures_revised = secondary_procedures_revised.explode('secondary_procedures')
+
+    # merge information on sideness and date with secondary procedures of revised cases (left join to still keep what doesn't get merged)
+
+    secondary_procedures_revised = pd.merge(secondary_procedures_revised, df_original_cases_secondary_procedures, on=["aimedic_id","secondary_procedures"], how="left", suffixes=("","_original"))
+    secondary_procedures_revised['secondary_procedures_grouper_bfs'].fillna(secondary_procedures_revised['secondary_procedures'], inplace=True)
+
+    secondary_procedures_revised = pd.DataFrame(secondary_procedures_revised.groupby(['aimedic_id'], group_keys=True)['secondary_procedures_grouper_bfs'].apply(list))
+
+    # Format secondary Procedures for Grouper
+
+    secondary_procedures_revised['secondary_procedures_grouper_bfs'] = secondary_procedures_revised[
+        'secondary_procedures_grouper_bfs'].astype(str).str.replace("nan", "")
+
+    secondary_procedures_revised['secondary_procedures_grouper_bfs'] = secondary_procedures_revised[
+        'secondary_procedures_grouper_bfs'].astype(str).str.replace(" ", "").str.replace(",", "|")
+
+    secondary_procedures_revised['secondary_procedures_grouper_bfs'] = secondary_procedures_revised[
+        'secondary_procedures_grouper_bfs'].astype(str).str.replace("'", "")
+
+    secondary_procedures_revised['secondary_procedures_grouper_bfs'] = secondary_procedures_revised[
+        'secondary_procedures_grouper_bfs'].str.strip("[]")
+
+    return secondary_procedures_revised
 
 @beartype
 def get_codes(df_revision_ids: pd.DataFrame) -> pd.DataFrame:
@@ -255,6 +379,10 @@ def apply_revisions(cases_df: pd.DataFrame, revisions_df: pd.DataFrame) -> pd.Da
 
     # Add & remove ICD codes from the list of secondary diagnoses
     def revise_diagnoses_codes(row):
+
+        if isinstance(row[SECONDARY_DIAGNOSES_COL], float):
+            row[SECONDARY_DIAGNOSES_COL] = list()
+
         revised_codes = list(row[SECONDARY_DIAGNOSES_COL])
 
         for code_to_add in row[ADDED_ICD_CODES]:
