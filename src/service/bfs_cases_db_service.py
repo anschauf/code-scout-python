@@ -55,11 +55,23 @@ print(db_list)
 
 for schema in db_list:
     print("schema: %s" % schema)
+    schema = 'coding_revision'
     for table_name in insp.get_table_names(schema=schema):
         for column in insp.get_columns(table_name, schema=schema):
             print("Column: %s" % column)
 
+from sqlalchemy.schema import Table
+from sqlalchemy import MetaData
 
+metadata_obj = MetaData(bind=engine).reflect()
+
+metadata_obj = MetaData(schema="coding_revision")
+
+revision_table = Table("revisions", metadata_obj,
+            autoload_with=engine)
+
+
+revision_obj = session.add(aimedic_id=1, drg='G07Z', drg_cost_weight=0.984, effective_cost_weight=0.65, pccl=0, revision_date='2024-12-31')
 
 def get_by_sql_query(sql_query) -> DataFrame:
     """
