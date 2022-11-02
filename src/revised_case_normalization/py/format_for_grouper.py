@@ -6,11 +6,11 @@ from src.service.bfs_cases_db_service import get_earliest_revisions_for_aimedic_
 from loguru import logger
 
 
-def format_for_grouper(df_joined: pd.DataFrame) -> pd.DataFrame:
+def format_for_grouper(joined: pd.DataFrame) -> pd.DataFrame:
     """ Given the previously generated dataframes, this function formats the datasets for the SwissDRG grouper.
 
-        @return: A string of the revised cases in the SwissDRG Batchgrouper format 2017
-        """
+    @return: A string of the revised cases in the SwissDRG Batchgrouper format 2017
+    """
     # Select cases in which the aimedic_id is not an NA
     joined = joined[joined['aimedic_id'].notna()]
     joined = joined.replace(np.nan, "")
