@@ -1,0 +1,19 @@
+clone:
+  depth: full    # SonarCloud scanner needs the full history to assign issues properly
+options:
+  max-time: 60
+  docker: true
+
+image: docker:stable
+
+definitions:
+  steps:
+    - step: &sonar
+        name: Sonar
+        script:
+          - pipe: sonarsource/sonarcloud-scan:1.2.2
+            variables:
+              SONAR_TOKEN: ${SONAR_TOKEN}
+pipelines:
+  default:
+    - step: *sonar
