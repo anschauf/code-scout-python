@@ -5,13 +5,13 @@ from beartype import beartype
 from decouple import config
 from loguru import logger
 from pandas import DataFrame
-from sqlalchemy import create_engine, event, func, MetaData
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, event, func, MetaData, Table
+from sqlalchemy.orm import sessionmaker, declarative_base
 
 from src.models.BfsCase import BfsCase
 from src.models.Clinic import Clinic
 from src.models.Hospital import Hospital
-from src.models.Revision import Revision, RevisionSchema
+# from src.models.Revision import Revision
 from src.models.chop_code import Procedures
 from src.models.icd_code import Diagnoses
 from src.revised_case_normalization.py.global_configs import *
@@ -49,29 +49,31 @@ Session = sessionmaker(bind=engine)
 # create a Session
 session = Session()
 
-insp = sqlalchemy.inspect(engine)
-db_list = insp.get_schema_names()
-print(db_list)
 
-for schema in db_list:
-    print("schema: %s" % schema)
-    schema = 'coding_revision'
-    for table_name in insp.get_table_names(schema=schema):
-        for column in insp.get_columns(table_name, schema=schema):
-            print("Column: %s" % column)
-
-from sqlalchemy.schema import Table
-from sqlalchemy import MetaData
-
-metadata_obj = MetaData(bind=engine).reflect()
-
+# Create a Revision class for table revision from Database
 metadata_obj = MetaData(schema="coding_revision")
+Base = declarative_base()
+class Revision(Base):
+    __table__ = Table(
+        "revisions",
+        metadata_obj,
+        autoload_with=engine
+    )
 
-revision_table = Table("revisions", metadata_obj,
-            autoload_with=engine)
-
-
-revision_obj = session.add(aimedic_id=1, drg='G07Z', drg_cost_weight=0.984, effective_cost_weight=0.65, pccl=0, revision_date='2024-12-31')
+# Create a Diagnoses class for table diagnoses from Database
+class Diagnoses(Base):
+    __table__ = Table(
+        "diagnoses",
+        metadata_obj,
+        autoload_with=engine
+    )
+# Create a Procedures class for table procedures from Database
+class Procedures(Base):
+    __table__ = Table(
+        "procedures",
+        metadata_obj,
+        autoload_with=engine
+    )
 
 def get_by_sql_query(sql_query) -> DataFrame:
     """
@@ -398,17 +400,13 @@ def insert_revised_case_into_revisions(revised_case_revision_df: pd.DataFrame) -
         drg_cost_weight = revision['drg_cost_weight']
         effective_cost_weight = revision['effective_cost_weight']
         pccl = revision['pccl']
-        revision_date = revision['pccl']
-        # https://stackoverflow.com/questions/41222412/sqlalchemy-init-takes-1-positional-argument-but-2-were-given-many-to-man
-
+        revision_date = revision['revision_date']
         revision_obj = Revision(aimedic_id=aimedic_id, drg=drg, drg_cost_weight=drg_cost_weight, effective_cost_weight=effective_cost_weight, pccl=pccl, revision_date=revision_date) #change data to Revision object
-        revision_schema = RevisionSchema()
-        new_revision = revision_schema.load(revision_obj, session=session)
-        session.add(new_revision)
+        session.add(revision_obj)
         session.flush() # push the insert data into DB
-        # session.refresh() might need to be refreshed first
-        revision_id = revision_obj.id # get the created primary key
-        aimedic_id_with_revision_id[aimedic_id]= revision_id
+        # session.refresh(revision_obj) might need to be refreshed first
+        revision_id = revision_obj.revision_id # get the created primary key: revision_id
+        aimedic_id_with_revision_id[aimedic_id] = revision_id
     session.commit() # save change to DB
 
     return aimedic_id_with_revision_id
@@ -432,6 +430,7 @@ def insert_revised_case_into_diagonoses(revised_case_diagonoses:pd.DataFrame, ai
     revised_case_diagonoses['revision_id'] = revised_case_diagonoses['aimedic_id'].map(aimedic_id_with_revision_id)
 
     revision_diagonoses_list = revised_case_diagonoses.to_dict(orient='records')
+
     revision_diagonoses_obj = [Diagnoses(revision) for revision in revision_diagonoses_list]
     # if we do not need to save diagnoses_id, all records can be added using add_all
     session.add_all(revision_diagonoses_obj)

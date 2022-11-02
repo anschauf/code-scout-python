@@ -46,10 +46,9 @@ class TestDbAccess(TestCase):
     def test_insert_revised_case_into_revisions(self):
 
         revision_df = pd.DataFrame([[1, 'G07Z', 0.984, 0.65, 0, '2024-12-31'],
-                                 [2, 'F59B', 2.549,	1.495, 4, '2024-12-31']],
+                                    [2, 'F59B', 2.549,	1.495, 4, '2024-12-31']],
                                 columns=['aimedic_id', 'drg', 'drg_cost_weight', 'effective_cost_weight', 'pccl', 'revision_date'])
-
         aimiedic_id_revision_id = insert_revised_case_into_revisions(revision_df)
-        print(aimiedic_id_revision_id.values())
 
-        self.assertTrue(aimiedic_id_revision_id.values())
+        self.assertEqual(len(aimiedic_id_revision_id), revision_df.shape[0])
+        self.assertIsInstance(aimiedic_id_revision_id, dict)
