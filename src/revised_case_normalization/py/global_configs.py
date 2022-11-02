@@ -43,7 +43,7 @@ PRIMARY_DIAGNOSIS_GROUPER_COL = 'primary_diagnoses'
 SECONDARY_DIAGNOSES_COL = 'secondary_diagnoses'
 PRIMARY_PROCEDURE_COL = 'primary_procedure'
 SECONDARY_PROCEDURES_COL = 'secondary_procedures'
-
+SECONDARY_PROCEDURES_SIDE_COL =''
 
 # List the columns which need to be imported in the DB
 ADDED_ICD_CODES = 'added_icds'
