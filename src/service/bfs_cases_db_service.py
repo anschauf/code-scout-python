@@ -17,6 +17,8 @@ from src.models.chop_code import Procedures
 from src.models.icd_code import Diagnoses
 from src.revised_case_normalization.py.global_configs import *
 
+from src.utils.chop_validation import split_chop_codes
+
 # import envs
 BFS_CASES_DB_URL = config('BFS_CASES_DB_URL')
 BFS_CASES_DB_USER = config('BFS_CASES_DB_USER')
@@ -277,6 +279,7 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame) -> pd.DataFrame:
 
     return codes_df
 
+
 @beartype
 def get_codes(df_revision_ids: pd.DataFrame) -> pd.DataFrame:
     diagnoses_df = get_diagnoses_codes(df_revision_ids)
@@ -300,7 +303,11 @@ def apply_revisions(cases_df: pd.DataFrame, revisions_df: pd.DataFrame) -> pd.Da
 
     # Add & remove ICD codes from the list of secondary diagnoses
     def revise_diagnoses_codes(row):
+        """
 
+        @param row:
+        @return:
+        """
         if isinstance(row[SECONDARY_DIAGNOSES_COL], float):
             row[SECONDARY_DIAGNOSES_COL] = list()
 
@@ -317,24 +324,46 @@ def apply_revisions(cases_df: pd.DataFrame, revisions_df: pd.DataFrame) -> pd.Da
 
     # Delete the primary procedure if it was removed
     def revise_primary_procedure_code(row):
-        if row[PRIMARY_PROCEDURE_COL] in row[REMOVED_CHOP_CODES]:
+        """
+
+        @param row:
+        @return:
+        """
+        primary_chop = split_chop_codes([row[PRIMARY_PROCEDURE_COL]])[0][0]
+
+        if primary_chop in row[REMOVED_CHOP_CODES]:
             row[PRIMARY_PROCEDURE_COL] = ''
 
         return row
 
     # Add & remove CHOP codes from the list of secondary procedures
     def revise_secondary_procedure_codes(row):
+        """
+
+        @param row:
+        @return:
+        """
+        # Copy the secondary procedures into a new list
         revised_codes = list(row[SECONDARY_PROCEDURES_COL])
 
+        # Add the new codes
         for code_to_add in row[ADDED_CHOP_CODES]:
             revised_codes.append(code_to_add)
 
-        for code_to_remove in row[REMOVED_CHOP_CODES]:
-            # We need to check whether the code is present in this list, because it may appear as primary procedure
-            if code_to_remove in revised_codes:
-                revised_codes.remove(code_to_remove)
+        # Split all the codes from their side and date
+        revised_codes = split_chop_codes(revised_codes)
 
-        row[SECONDARY_PROCEDURES_COL] = revised_codes
+        for code_to_remove in row[REMOVED_CHOP_CODES]:
+            # Rebuild the list of `revised_codes` discarding the codes which equal the `code_to_remove`
+            updated_codes = list()
+            for code_info in revised_codes:
+                if code_info[0] != code_to_remove:
+                    updated_codes.append(code_info)
+
+            revised_codes = updated_codes
+
+        # Join the info on each code by `:` once more, and store back into the DataFrame row
+        row[SECONDARY_PROCEDURES_COL] = [':'.join(code_info) for code_info in revised_codes]
         return row
 
     # Apply all the revisions

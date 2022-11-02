@@ -34,20 +34,32 @@ class TestDbAccess(TestCase):
         self.assertTrue(df.shape[0] > 0)
 
     def test_apply_revisions(self):
-        cases_df = pd.DataFrame([[1, 1, 'I7024', ['I7020', 'Z9588', 'J4483'], '395014', ['395011']]],
+        # Test whether we can add and remove codes, according to some revisions.
+        # This test will check:
+        #   1. Remove a CHOP code which appears twice in the case
+        #   2. Handle the grouper format correctly
+        #   3. Add ICDs and CHOPs
+
+        cases_df = pd.DataFrame([[1, 1, 'I7024', ['I7020', 'Z9588', 'J4483'], '395014:L:20000101', ['395010:R:20000202', '395011:R:20000202', '395011:R:20000203']]],
                                 columns=['aimedic_id', 'revision_id', 'old_pd', 'secondary_diagnoses', 'primary_procedure', 'secondary_procedures'])
 
-        revisions_df = pd.DataFrame([[1, 'I7024', ['J4481'], ['J4483'], [], []]],
+        revisions_df = pd.DataFrame([[1, 'I7024', ['J4481'], ['J4483'], ['395024'], ['395011']]],
                                     columns=['aimedic_id', 'primary_diagnosis', 'added_icds', 'removed_icds', 'added_chops', 'removed_chops'])
 
         revised_cases = apply_revisions(cases_df, revisions_df)
-        self.assertTrue(revised_cases.shape[0] > 0)
+
+        # Extract the first row and test the output
+        row = revised_cases.loc[0]
+
+        self.assertListEqual(row['secondary_diagnoses'], ['I7020', 'Z9588', 'J4481'])
+        self.assertEqual(row['primary_procedure'], '395014:L:20000101')
+        self.assertListEqual(row['secondary_procedures'], ['395010:R:20000202', '395024'])
 
     def test_insert_revised_case_into_revisions(self):
 
         revision_df = pd.DataFrame([[1, 'G07Z', 0.984, 0.65, 0, '2024-12-31'],
                                     [2, 'F59B', 2.549,	1.495, 4, '2024-12-31']],
-                                columns=['aimedic_id', 'drg', 'drg_cost_weight', 'effective_cost_weight', 'pccl', 'revision_date'])
+                                   columns=['aimedic_id', 'drg', 'drg_cost_weight', 'effective_cost_weight', 'pccl', 'revision_date'])
         aimiedic_id_revision_id = insert_revised_case_into_revisions(revision_df)
 
         self.assertEqual(len(aimiedic_id_revision_id), revision_df.shape[0])

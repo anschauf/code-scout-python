@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from src.revised_case_normalization.py.global_configs import *
-from src.service.bfs_cases_db_service import get_earliest_revisions_for_aimedic_ids, get_codes, apply_revisions, get_primary_procedures_codes, get_primary_procedures_codes_side_date,  get_secondary_procedures_codes, get_secondary_procedures_codes_side_date
+from src.service.bfs_cases_db_service import get_earliest_revisions_for_aimedic_ids, get_codes, apply_revisions
 
 from loguru import logger
 

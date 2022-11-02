@@ -10,11 +10,11 @@ def validate_chop_codes_list(chop_codes: list[str]) -> list[str]:
     @param chop_codes: The list of codes.
     @return: A list of valid codes only.
     """
-    split_chop_codes = _split_chop_codes(chop_codes)
+    chop_codes_split = split_chop_codes(chop_codes)
 
     valid_chop_codes = list()
 
-    for chop_info in split_chop_codes:
+    for chop_info in chop_codes_split:
         chop = chop_info[0]
 
         # Remove the optional dots
@@ -37,7 +37,7 @@ def validate_chop_codes_list(chop_codes: list[str]) -> list[str]:
     return valid_chop_codes
 
 
-def _split_chop_codes(codes_list: list[str]) -> list[list[str]]:
+def split_chop_codes(codes_list: list[str]) -> list[list[str]]:
     """From a list of CHOP codes, which are formatted as '<code>:<side>:<date>', split them into their components.
 
     @param codes_list: The list of CHOP codes.

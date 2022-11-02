@@ -2,7 +2,7 @@ import pandas as pd
 from beartype import beartype
 from loguru import logger
 
-from src.utils.chop_validation import validate_chop_codes_list, _split_chop_codes
+from src.utils.chop_validation import validate_chop_codes_list, split_chop_codes
 from src.utils.icd_validation import validate_icd_codes_list
 
 
@@ -173,8 +173,8 @@ def _remove_duplicates_case_insensitive(codes_list1: list[str], codes_list2: lis
 
     @note: If the intersection is empty, the original lists are returned, without being copied.
     """
-    codes_list1_split = _split_chop_codes(codes_list1)
-    codes_list2_split = _split_chop_codes(codes_list2)
+    codes_list1_split = split_chop_codes(codes_list1)
+    codes_list2_split = split_chop_codes(codes_list2)
 
     # Make a set out of the codes in each list, and convert them all to upper-case
     code_set1 = {codes_info[0].upper() for codes_info in codes_list1_split}
