@@ -63,9 +63,8 @@ def group_batch_group_cases(batch_group_cases: list[str]):
     # Prepare Dataframe for the procedure table
     procedures_df = pd.json_normalize(grouped_cases_dicts, record_path=['procedures'], meta=['aimedicId']).drop(
         ['dateValid', 'sideValid', ], axis=1)
-    procedures_df.rename(columns={'aimedicId': 'aimedic_id', 'isUsed': 'is_grouper_relevant'}, inplace=True)
+    procedures_df.rename(columns={'aimedicId': 'aimedic_id', 'isUsed': 'is_grouper_relevant', 'isPrimary': 'is_primary'}, inplace=True)
     procedures_df['date'] = pd.to_datetime(procedures_df['date'])
-    # TODO from where do I get the information about the primary procedure?
-    procedures_df = procedures_df.reindex(columns=['aimedic_id', 'code', 'code', 'side', 'date', 'is_grouper_relevant'])
+    procedures_df = procedures_df.reindex(columns=['aimedic_id', 'code', 'code', 'side', 'date', 'is_grouper_relevant', 'is_primary'])
 
     return revision_df, diagnoses_df, procedures_df
