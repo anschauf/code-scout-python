@@ -1,4 +1,5 @@
 .idea
 .ipynb_checkpoints
+resources/jars
 src/revised_case_normalization/raw_data
 .env
