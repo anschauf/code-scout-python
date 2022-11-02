@@ -329,7 +329,7 @@ def apply_revisions(cases_df: pd.DataFrame, revisions_df: pd.DataFrame) -> pd.Da
         @param row:
         @return:
         """
-        primary_chop = split_chop_codes([row[PRIMARY_PROCEDURE_COL]])[0][0]
+        primary_chop = split_chop_codes([row[PRIMARY_PROCEDURE_COL]])[0][0]  # [0] because there is only one code, [0] to take only the CHOP code itself
 
         if primary_chop in row[REMOVED_CHOP_CODES]:
             row[PRIMARY_PROCEDURE_COL] = ''
@@ -353,17 +353,18 @@ def apply_revisions(cases_df: pd.DataFrame, revisions_df: pd.DataFrame) -> pd.Da
         # Split all the codes from their side and date
         revised_codes = split_chop_codes(revised_codes)
 
-        for code_to_remove in row[REMOVED_CHOP_CODES]:
-            # Rebuild the list of `revised_codes` discarding the codes which equal the `code_to_remove`
-            updated_codes = list()
-            for code_info in revised_codes:
-                if code_info[0] != code_to_remove:
-                    updated_codes.append(code_info)
+        # Get the set of codes to remove
+        codes_to_remove = split_chop_codes(row[REMOVED_CHOP_CODES])  # This also takes care of revised codes in the grouper format
+        codes_to_remove = {code_info[0] for code_info in codes_to_remove}
 
-            revised_codes = updated_codes
+        # Discard the codes which appear in the set `codes_to_remove`
+        updated_codes = list()
+        for code_info in revised_codes:
+            if code_info[0] not in codes_to_remove:
+                updated_codes.append(code_info)
 
         # Join the info on each code by `:` once more, and store back into the DataFrame row
-        row[SECONDARY_PROCEDURES_COL] = [':'.join(code_info) for code_info in revised_codes]
+        row[SECONDARY_PROCEDURES_COL] = [':'.join(code_info) for code_info in updated_codes]
         return row
 
     # Apply all the revisions
