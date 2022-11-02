@@ -1,6 +1,5 @@
 import boto3
 import pandas as pd
-import sqlalchemy
 from beartype import beartype
 from decouple import config
 from loguru import logger
@@ -12,8 +11,8 @@ from src.models.BfsCase import BfsCase
 from src.models.Clinic import Clinic
 from src.models.Hospital import Hospital
 # from src.models.Revision import Revision
-from src.models.chop_code import Procedures
-from src.models.icd_code import Diagnoses
+# from src.models.chop_code import Procedures
+# from src.models.icd_code import Diagnoses
 from src.revised_case_normalization.py.global_configs import *
 
 # import envs
@@ -388,10 +387,6 @@ def insert_revised_case_into_revisions(revised_case_revision_df: pd.DataFrame) -
 
     @return: a dictionary with aimedic_id as keys and revision_id as values created after insert into DB.
     """
-    # columns for table revision
-    # revision_id: auto increment
-    # aimedic_id, drg, adrg, drg_cost_weight, effective_cost_weight, pccl
-    # revision_date: not available yet
     revision_list = revised_case_revision_df.to_dict(orient='records')
     aimedic_id_with_revision_id = dict()
     for revision in revision_list:
@@ -412,54 +407,75 @@ def insert_revised_case_into_revisions(revised_case_revision_df: pd.DataFrame) -
     return aimedic_id_with_revision_id
 
 @beartype
-def insert_revised_case_into_diagonoses(revised_case_diagonoses:pd.DataFrame, aimedic_id_with_revision_id: dict) -> None:
+def insert_revised_case_into_diagonoses(revised_case_diagonoses:pd.DataFrame, aimedic_id_with_revision_id: dict) -> list:
     """
     Insert revised cases into table code_revision.diagonoses
     @param
     revised_case_diagonoses: a Dataframe of revised case for diagonoses after Grupper.
-    aimedic_id_with_revision_id: a dictionary with aimedic_id as keys and revision_id as values created after insert into DB.
+    Columns needed in the revised_case DataFrame:
+    aimedic_id, revision_id, code, ccl,is_primary, is_grouper_relevant
 
-    @return: None
+    aimedic_id_with_revision_id: a dictionary with aimedic_id as keys and revision_id as values which are created after insert into DB
+
+    @return: a list of diagonoses_pk after inserting into DB
     """
-    # columns for table revision
-    # diagnoses_pk:  auto-increment
-    # aimedic_id, revision_id, code, is_primary,
-    # ccl, is_grouper_relevant: from Grupper
-    # prepare the format for diagonoses table
-    insert_col = ['aimedic_id', 'revision_id', 'code', 'ccl', 'is_primary', 'is_grouper_relevant']
+
     revised_case_diagonoses['revision_id'] = revised_case_diagonoses['aimedic_id'].map(aimedic_id_with_revision_id)
-
     revision_diagonoses_list = revised_case_diagonoses.to_dict(orient='records')
-
-    revision_diagonoses_obj = [Diagnoses(revision) for revision in revision_diagonoses_list]
-    # if we do not need to save diagnoses_id, all records can be added using add_all
-    session.add_all(revision_diagonoses_obj)
+    diagnoses_pk_list = list()
+    for diagonoses in revision_diagonoses_list:
+        aimedic_id = diagonoses['aimedic_id']
+        revision_id = diagonoses['revision_id']
+        icd_code = diagonoses['code']
+        is_primary = diagonoses['is_primary']
+        ccl = diagonoses['ccl']
+        is_grouper_relevant = diagonoses['is_grouper_relevant']
+        diagonoses_obj = Diagnoses(aimedic_id=aimedic_id, revision_id=revision_id, code=icd_code, is_primary=is_primary, ccl=ccl, is_grouper_relevant=is_grouper_relevant)
+        session.add(diagonoses_obj)
+        session.add(diagonoses_obj)
+        session.flush()  # push the insert data into DB
+        session.refresh(diagonoses_obj)
+        diagnoses_pk = diagonoses_obj.diagnoses_pk
+        diagnoses_pk_list.append(diagnoses_pk)
     session.commit()
-
+    return diagnoses_pk_list
 
 @beartype
-def insert_revised_case_into_procedures(revised_case_with_revision_id: pd.DataFrame) -> None:
+@beartype
+def insert_revised_case_into_procedures(revised_case_procedures:pd.DataFrame, aimedic_id_with_revision_id: dict) -> list:
     """
     Insert revised cases into table code_revision.procedures
-    @param revised_case_with_revision_id: a Dataframe of revised case with added revision_id after insert into revision.
+    @param
+    revised_case_procedures: a Dataframe of revised case for procedures after Grupper.
+    Columns needed in the revised_case DataFrame:
+    aimedic_id, revision_id, code, ccl,is_primary, is_grouper_relevant
 
-    @return: None
+    aimedic_id_with_revision_id: a dictionary with aimedic_id as keys and revision_id as values which are created after insert into DB
+
+    @return: a list of procedures_pk after inserting into DB
     """
 
-    # columns for table revision
-    # procedures_pk:  auto-increment
-    # aimedic_id, revision_id, code, is_primary,
-    # ccl, is_grouper_relevant: from Grupper
-    # side, date,
-    # is_grouper_relevant: from Grupper
-    insert_col = ['aimedic_id', 'revision_id', 'code', 'side','date',  'is_grouper_relevant', 'is_primary'] # TODO: check the sequence and name in the DB again
-    revision_procedures = revised_case_with_revision_id[insert_col]
-
-    revision_procedures_list = revision_procedures.to_dict(orient='records')
-    revision_procedures_obj = [Diagnoses(revision) for revision in revision_procedures_list]
-    # if we do not need to save procedures_id, all records can be added using add_all
-    session.add_all(revision_procedures_obj)
+    revised_case_procedures['revision_id'] = revised_case_procedures['aimedic_id'].map(aimedic_id_with_revision_id)
+    revision_procedures_list = revised_case_procedures.to_dict(orient='records')
+    procedures_pk_list = list()
+    for procedures in revision_procedures_list:
+        aimedic_id = procedures['aimedic_id']
+        revision_id = procedures['revision_id']
+        code = procedures['code']
+        date = procedures['date']
+        is_primary = procedures['is_primary']
+        side = procedures['side']
+        is_grouper_relevant = procedures['is_grouper_relevant']
+        procedures_obj = Procedures(aimedic_id=aimedic_id,revision_id=revision_id,code=code,side=side,date=date,is_grouper_relevant=is_grouper_relevant,is_primary=is_primary)
+        session.add(procedures_obj)
+        session.add(procedures_obj)
+        session.flush()  # push the insert data into DB
+        session.refresh(procedures_obj)
+        procedures_pk = procedures_obj.procedures_pk
+        procedures_pk_list.append(procedures_pk)
     session.commit()
+    return procedures_pk_list
+
 
 
 
