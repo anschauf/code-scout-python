@@ -61,7 +61,12 @@ def group_batch_group_cases(batch_group_cases: list[str]) -> tuple[pd.DataFrame,
     procedures_df = pd.json_normalize(grouped_cases_dicts, record_path=['procedures'], meta=['aimedicId']).drop(
         ['dateValid', 'sideValid', ], axis=1)
     procedures_df.rename(columns={'aimedicId': 'aimedic_id', 'isUsed': 'is_grouper_relevant', 'isPrimary': 'is_primary'}, inplace=True)
-    procedures_df['date'] = pd.to_datetime(procedures_df['date'])
-    procedures_df = procedures_df.reindex(columns=['aimedic_id', 'code', 'code', 'side', 'date', 'is_grouper_relevant', 'is_primary'])
+    procedures_df['date'] = pd.to_datetime(procedures_df['date']).dt.date
+    # procedures_df[procedures_df['date'].apply(lambda x: x != "")]["date"] = pd.to_datetime(procedures_df[procedures_df['date'].apply(lambda x: x != "")]["date"]).dt.date
+    # procedures_df[procedures_df['date'].apply(lambda x: x == "")]["date"] = None
+    # procedures_df['date'] = procedures_df['date'].apply(lambda x: pd.to_datetime(x).date if x != "" else "")
+    procedures_df = procedures_df.reindex(columns=['aimedic_id', 'code', 'side', 'date', 'is_grouper_relevant', 'is_primary'])
+    # procedures_df.fillna(None, inplace=True)
+
 
     return revision_df, diagnoses_df, procedures_df

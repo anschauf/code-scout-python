@@ -48,7 +48,7 @@ def format_for_grouper_one_case(row: pd.Series) -> pd.Series:
 
     medications = ''
 
-    row[GROUPER_FORMAT_COL] = ';'.join([str(case_id), str(aimedic_id), str(age_years), str(age_days), baby_data, gender,
+    row[GROUPER_FORMAT_COL] = ';'.join([str(aimedic_id), str(case_id), str(age_years), str(age_days), baby_data, gender,
                                         admission_date, admission_type, discharge_date, discharge_type,
                                         str(duration_of_stay), str(ventilation_hours),
                                         diagnoses, procedures, medications])
