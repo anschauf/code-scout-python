@@ -79,7 +79,10 @@ def apply_revisions(cases_df: pd.DataFrame, revisions_df: pd.DataFrame) -> pd.Da
             revised_codes.append(code_to_add)
 
         for code_to_remove in row[REMOVED_ICD_CODES]:
-            revised_codes.remove(code_to_remove)
+            try:
+                revised_codes.remove(code_to_remove)
+            except:
+                print(f'{row[AIMEDIC_ID_COL]=}: {revised_codes=} - {code_to_remove=}')
 
         row[SECONDARY_DIAGNOSES_COL] = revised_codes
         return row

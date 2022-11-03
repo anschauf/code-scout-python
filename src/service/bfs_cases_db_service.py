@@ -143,16 +143,10 @@ def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[int]) -> pd.DataFra
     df = pd.read_sql(query_revisions.statement, session.bind)
 
     def get_earliest_revision_id(row):
-        aimedic_id = row[AIMEDIC_ID_COL][0]  # pick only the first one as they are all the same (because of the group-by)
+        row[AIMEDIC_ID_COL] = row[AIMEDIC_ID_COL][0]  # pick only the first one as they are all the same (because of the group-by)
 
         revision_dates = row[REVISION_DATE_COL]
-        n_revisions = len(revision_dates)
-        if n_revisions == 1:
-            min_idx = 0  # the only item
-        else:
-            min_idx = np.argmin(revision_dates)
-
-        row[AIMEDIC_ID_COL] = aimedic_id
+        min_idx = np.argmin(revision_dates)
         row[REVISION_ID_COL] = row[REVISION_ID_COL][min_idx]
         return row
 
@@ -214,42 +208,32 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame) -> pd.DataFrame:
 
     df = pd.read_sql(query_procedures.statement, session.bind)
 
-    # Select a subset of rows, which contain the primary procedures for each case in grouper format
+    # Concatenate procedure codes, side and date, as it is a standard used by the SwissDRG grouper
+    def concatenate_code_info(row):
+        side = row[PROCEDURE_SIDE_COL]
+        if side == ' ' or side is None:
+            side = ''
+        info = (row[CODE_COL], side, str(row[PROCEDURE_DATE_COL]).replace('-', ''))
+        row[CODE_COL] = ':'.join(info)
+        return row
 
-    primary_procedure = df[df['is_primary']][['revision_id', 'code', 'side', 'date']].apply(list)
-    primary_procedure['date'] = primary_procedure['date'].astype(str)
-    primary_procedure['date'] = primary_procedure['date'].str.replace("-","")
+    df = df.apply(concatenate_code_info, axis=1)
 
-    primary_procedure['primary_procedure'] = primary_procedure['code'].map(str)+":" + primary_procedure['side'].map(str) + ":" + primary_procedure['date'].map(str)
+    primary_procedure = df[df[IS_PRIMARY_COL]][[REVISION_ID_COL, CODE_COL]]
+    primary_procedure.rename(columns={CODE_COL: PRIMARY_PROCEDURE_COL}, inplace=True)
 
-    primary_procedure = primary_procedure.drop(columns=['code','side', 'date'])
+    secondary_procedures = df[~df[IS_PRIMARY_COL]][[REVISION_ID_COL, CODE_COL]]
+    secondary_procedures.rename(columns={CODE_COL: SECONDARY_PROCEDURES_COL}, inplace=True)
 
-    primary_procedure['primary_procedure'] = primary_procedure['primary_procedure'].str.replace(" ", "")
-
-    # Select a subset of rows, which contain the secondary procedures for each case in grouper format
-
-    secondary_procedures = df[~df['is_primary']][['revision_id', 'code', 'side', 'date']]
-
-    # Format date of secondary procedures
-    secondary_procedures['date'] = secondary_procedures['date'].astype(str)
-    secondary_procedures['date'] = secondary_procedures['date'].str.replace("-", "")
-
-    # Concatinating columns of secondary procedures to match goruper format
-    secondary_procedures[SECONDARY_PROCEDURES_COL] = secondary_procedures['code'].map(str) + ":" + \
-                                                             secondary_procedures['side'].map(str) + ":" + \
-                                                             secondary_procedures['date'].map(str)
-
-    secondary_procedures[SECONDARY_PROCEDURES_COL] = secondary_procedures[SECONDARY_PROCEDURES_COL].str.replace(" ","")
-    secondary_procedures = secondary_procedures.drop(columns=['code', 'side', 'date'])
-    secondary_procedures = secondary_procedures.groupby('revision_id', group_keys=True)[SECONDARY_PROCEDURES_COL].apply(list)
+    secondary_procedures = secondary_procedures.groupby(REVISION_ID_COL, group_keys=True)[SECONDARY_PROCEDURES_COL].apply(list)
 
     codes_df = (df_revision_ids
-                .merge(primary_procedure, on='revision_id', how='left')
-                .merge(secondary_procedures, on='revision_id', how='left'))
+                .merge(primary_procedure, on=REVISION_ID_COL, how='left')
+                .merge(secondary_procedures, on=REVISION_ID_COL, how='left'))
 
-    # Replace NaNs with an empty list
-    codes_df[SECONDARY_PROCEDURES_COL] = codes_df[SECONDARY_PROCEDURES_COL].apply(lambda x: x if isinstance(x, list) else [])
+    # Fill NaNs
     codes_df[PRIMARY_PROCEDURE_COL] = codes_df[PRIMARY_PROCEDURE_COL].fillna('')
+    codes_df[SECONDARY_PROCEDURES_COL] = codes_df[SECONDARY_PROCEDURES_COL].apply(lambda x: x if isinstance(x, list) else [])
 
     return codes_df
 

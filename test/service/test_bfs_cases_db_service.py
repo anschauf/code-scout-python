@@ -18,7 +18,7 @@ class TestDbAccess(TestCase):
         self.assertTrue(df.shape[0] > 0)
 
     def test_get_earliest_revisions_for_aimedic_ids(self):
-        df = get_earliest_revisions_for_aimedic_ids([1])
+        df = get_earliest_revisions_for_aimedic_ids([115875])
         self.assertTrue(df.shape[0] > 0)
         self.assertListEqual(list(df.columns), [AIMEDIC_ID_COL, 'revision_id'])
 
@@ -28,7 +28,7 @@ class TestDbAccess(TestCase):
         self.assertTrue(df.shape[0] > 0)
 
     def test_get_procedures_codes(self):
-        df_revision_ids = get_earliest_revisions_for_aimedic_ids([120078, 119991])
+        df_revision_ids = get_earliest_revisions_for_aimedic_ids([1, 2])
         df = get_procedures_codes(df_revision_ids)
         self.assertTrue(df.shape[0] > 0)
 
