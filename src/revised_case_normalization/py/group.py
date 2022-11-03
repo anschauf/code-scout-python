@@ -9,9 +9,8 @@ from src.service.aimedic_grouper import group_batch_group_cases
 
 @beartype
 def group(revised_cases: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    grouper_format = format_for_grouper(revised_cases)
-    revision_df, diagnoses_df, procedures_df = group_batch_group_cases(grouper_format.tolist())
-
+    formatted_revised_cases = format_for_grouper(revised_cases)
+    revision_df, diagnoses_df, procedures_df = group_batch_group_cases(formatted_revised_cases[GROUPER_FORMAT_COL].tolist())
     return revision_df, diagnoses_df, procedures_df
 
 
