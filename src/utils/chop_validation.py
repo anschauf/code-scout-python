@@ -1,6 +1,7 @@
 import re
 
 
+"""The pattern of a valid CHOP: a digit followed by 1-5 digits or letters."""
 VALID_CHOP_REGEX = re.compile(r"^\d[A-Z0-9]{1,5}$")
 
 
@@ -22,8 +23,10 @@ def validate_chop_codes_list(chop_codes: list[str]) -> list[str]:
 
         matches = list(re.finditer(VALID_CHOP_REGEX, chop_without_dots))
 
-        assert(len(matches) <= 1)
-        if len(matches) == 1:
+        if len(matches) == 0:
+            continue
+
+        elif len(matches) == 1:
             valid_chop_code = matches[0].group()
 
             if len(chop_info) > 1:
@@ -33,6 +36,9 @@ def validate_chop_codes_list(chop_codes: list[str]) -> list[str]:
 
             valid_chop_code_info = ':'.join(chop_info_to_concatenate)
             valid_chop_codes.append(valid_chop_code_info)
+
+        else:
+            raise ValueError(f'Expected one match. Got >= 1')
 
     return valid_chop_codes
 

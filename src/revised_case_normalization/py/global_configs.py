@@ -9,7 +9,7 @@ class FileInfo:
     path: str
     hospital_name_db: str
     year: str
-    sheets: list = field(default_factory=list)
+    sheet: str
     
 
 # List the columns to match in the DB
@@ -24,7 +24,6 @@ PRIMARY_DIAGNOSIS_COL = 'old_pd'  # After joining `bfs_cases` to `icd_codes`, th
 DRG_COL = 'drg'
 
 # List of Sociodemographic columns necessary to retrieve SwissDRG Batchgrouper Format 2017
-
 AGE_DAYS_COL = 'age_days'
 ADMISSION_WEIGHT_COL = 'admission_weight'
 GESTATION_AGE_COL = 'gestation_age'
@@ -35,15 +34,9 @@ DISCHARGE_TYPE_COL = 'grouper_discharge_type'
 VENTILATION_HOURS_COL = 'ventilation_hours'
 
 # List of variables of the revised cases from DtoD for the SwissDRG Batchgrouper
-
-GROUPER_PROCEDURES_COL = 'grouper_procedures'
-GROUPER_DIAGNOSES_COL = 'grouper_diagnoses'
-BABY_DATA_COL = 'baby_data'
-PRIMARY_DIAGNOSIS_GROUPER_COL = 'primary_diagnoses'
 SECONDARY_DIAGNOSES_COL = 'secondary_diagnoses'
 PRIMARY_PROCEDURE_COL = 'primary_procedure'
 SECONDARY_PROCEDURES_COL = 'secondary_procedures'
-SECONDARY_PROCEDURES_SIDE_COL =''
 
 # List the columns which need to be imported in the DB
 ADDED_ICD_CODES = 'added_icds'
@@ -75,15 +68,7 @@ COLS_TO_SELECT = VALIDATION_COLS + [
     ADDED_ICD_CODES, REMOVED_ICD_CODES, ADDED_CHOP_CODES, REMOVED_CHOP_CODES
 ]
 
-
-# These are the columns needed for exporting the revised cases for the Grouper (SwissDRG Batchgrouper Format 2017)
-GROUPER_INPUT_BFS = [AIMEDIC_ID_COL, AGE_COL, AGE_DAYS_COL, BABY_DATA_COL, GENDER_COL,
-                      ADMISSION_DATE_COL, ADMISSION_TYPE_COL, DISCHARGE_DATE_COL, DISCHARGE_TYPE_COL,
-                      DURATION_OF_STAY_COL, VENTILATION_HOURS_COL]
-
-GROUPER_INPUT_REVISED_CASES = [AIMEDIC_ID_COL, GROUPER_DIAGNOSES_COL, GROUPER_PROCEDURES_COL]
-
-
+GROUPER_FORMAT_COL = 'batchgrouper_format'
 
 # Define a common mapping from some column names to our normalized names. 
 # Mind that columns are converted to lower case when read from the file.

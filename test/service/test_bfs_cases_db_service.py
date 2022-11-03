@@ -2,10 +2,11 @@ from unittest import TestCase
 
 import pandas as pd
 
-from src.service.bfs_cases_db_service import get_sociodemographics_for_hospital_year, get_earliest_revisions_for_aimedic_ids, \
-    get_diagnoses_codes, get_procedures_codes, get_codes, apply_revisions, insert_revised_case_into_revisions, \
-    insert_revised_case_into_diagonoses, insert_revised_case_into_procedures
 from src.revised_case_normalization.py.global_configs import AIMEDIC_ID_COL
+from src.revised_case_normalization.py.revise import apply_revisions
+from src.service.bfs_cases_db_service import get_sociodemographics_for_hospital_year, \
+    get_earliest_revisions_for_aimedic_ids, \
+    get_diagnoses_codes, get_procedures_codes, get_codes, insert_revised_case_into_revisions
 
 
 class TestDbAccess(TestCase):
@@ -53,7 +54,7 @@ class TestDbAccess(TestCase):
 
         self.assertListEqual(row['secondary_diagnoses'], ['I7020', 'Z9588', 'J4481'])
         self.assertEqual(row['primary_procedure'], '395014:L:20000101')
-        self.assertListEqual(row['secondary_procedures'], ['395010:R:20000202', '395024'])
+        self.assertListEqual(row['secondary_procedures'], ['395010:R:20000202', '395024::'])
 
     def test_insert_revised_case_into_revisions(self):
 

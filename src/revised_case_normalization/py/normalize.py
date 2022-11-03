@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from beartype import beartype
 from loguru import logger
 
 from src.revised_case_normalization.py.global_configs import *
@@ -7,8 +8,8 @@ from src.utils.dataframe_utils import validate_icd_codes, validate_chop_codes, r
     validate_pd_revised_sd
 
 
+@beartype
 def normalize(fi: FileInfo,
-              excel_sheet_idx: int,
               *,
               columns_mapper: dict = COLUMNS_TO_RENAME,
               columns_to_lstrip: set = COLUMNS_TO_LSTRIP,
@@ -19,7 +20,6 @@ def normalize(fi: FileInfo,
     DB.
 
     @param fi: An instance of FileInfo, which contains the filename and the sheet name to analyze.
-    @param excel_sheet_idx: The index of the sheet to analyze in the `fi` object.
     @param columns_mapper: A dictionary of columns to rename. All column names are lower-cased before being mapped. A
         default is provided.
     @param columns_to_lstrip: A set of columns on which to apply `.lstrip("'")`, which removes the leading apostrophe
@@ -30,7 +30,7 @@ def normalize(fi: FileInfo,
     """
     # Read the Excel file and sheet. Cast all columns to strings, so we can format / cast the columns ourselves later on.
     # `string[pyarrow]` is an efficient way of storing strings in a DataFrame
-    df = pd.read_excel(fi.path, sheet_name=fi.sheets[excel_sheet_idx], dtype='string[pyarrow]')
+    df = pd.read_excel(fi.path, sheet_name=fi.sheet, dtype='string[pyarrow]')
     n_all_rows = df.shape[0]
     logger.info(f'Read {n_all_rows} cases for {fi.hospital_name_db} {fi.year}')
 
@@ -38,7 +38,9 @@ def normalize(fi: FileInfo,
     df.columns = [c.lower() for c in df.columns]
 
     # Renaming columns that don't exist is a no-op. Make sure that all names actually exist
-    assert(len(set(columns_mapper.keys()).difference(df.columns)) == 0)
+    non_existing_columns_to_rename = set(columns_mapper.keys()).difference(df.columns)
+    if len(non_existing_columns_to_rename) > 0:
+        raise ValueError(f'The following columns to rename did not exist: {sorted(list(non_existing_columns_to_rename))}')
     df.rename(columns=columns_mapper, inplace=True)
 
     # Fix unavailable duration of stay
@@ -57,7 +59,9 @@ def normalize(fi: FileInfo,
     logger.info(f'TYPES:\n{df.dtypes}')
 
     # Discard rows where any value on any validation col is empty
-    assert(len(set(VALIDATION_COLS).difference(df.columns)) == 0)
+    non_existing_validation_cols = set(VALIDATION_COLS).difference(df.columns)
+    if len(non_existing_validation_cols) > 0:
+        raise ValueError(f'The following columns to validate did not exist: {sorted(list(non_existing_validation_cols))}')
     df.dropna(subset=VALIDATION_COLS, inplace=True)
     n_valid_rows = df.shape[0]
     if n_valid_rows < n_all_rows:
@@ -86,7 +90,9 @@ def normalize(fi: FileInfo,
                                 removed_icd_col=REMOVED_ICD_CODES)
 
     # Select columns
-    assert(len(set(COLS_TO_SELECT).difference(df.columns)) == 0)
+    non_existing_columns_to_select = set(COLS_TO_SELECT).difference(df.columns)
+    if len(non_existing_columns_to_select) > 0:
+        raise ValueError(f'The following columns to select did not exist: {sorted(list(non_existing_columns_to_select))}')
     df = df[COLS_TO_SELECT]
 
     # Remove duplicated cases
@@ -102,4 +108,4 @@ def normalize(fi: FileInfo,
 
 
 def remove_leading_zeros(s: str) -> str:
-    return s.lstrip("0")
+    return s.lstrip('0')

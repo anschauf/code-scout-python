@@ -3,15 +3,15 @@ from pathlib import Path
 import json
 import pandas as pd
 
-jar_file_path = "/home/jovyan/work/resources/jars/aimedic-grouper-assembly.jar"
-separator_char = "#"
-delimiter_char = ";"
+JAR_FILE_PATH = "/home/jovyan/work/resources/jars/aimedic-grouper-assembly.jar"
+SEPARATOR_CHAR = "#"
+DELIMITER_CHAR = ";"
 
 
-def group_batch_group_cases(batch_group_cases: list[str]):
+def group_batch_group_cases(batch_group_cases: list[str]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Groups patient cases provided in the SwissDRG Batchgrouper Format 2017 (https://grouper-docs.swissdrg.org/batchgrouper2017-format.html)
-    It uses our aimedic-grouper as FAT Jar written in Scala to groupe the cases.
+    It uses our aimedic-grouper as FAT Jar written in Scala to group the cases.
 
     Parameters:
     batch_group_cases (list[str]): patient cases info in SwissDrg Batchgrouper Format 2017.
@@ -22,27 +22,24 @@ def group_batch_group_cases(batch_group_cases: list[str]):
         - diagnoses_df: diagnoses info to enter into the Database (without revision_id).
         - procedures_df: procedures info to enter into the Database (without revision_id).
     """
+    # Check for unique aimedic IDs
+    aimedic_ids = [bgc.split(DELIMITER_CHAR)[0] for bgc in batch_group_cases]
+    if not len(set(aimedic_ids)) == (len(aimedic_ids)):
+        raise ValueError('Provided cases have not unique aimedic IDs. Make sure you pass only one revision case for one patient case.')
 
-    if not Path(jar_file_path).is_file():
-        raise Exception('Aimedic grouper cannot be found in location: ' + jar_file_path)
-
-    # Check for unique aimedic id's
-    aimedicIds = [bgc.split(delimiter_char)[0] for bgc in batch_group_cases]
-    if not len(set(aimedicIds)) == (len(aimedicIds)):
-        raise Exception(
-            'Provided cases have not unique aimedic-ids. Make sure you pass only one revision case for one patient case.')
-
-    cases_string = separator_char.join(batch_group_cases)
+    # Send the data to the grouper
+    cases_string = SEPARATOR_CHAR.join(batch_group_cases)
     grouped_cases_json = subprocess.check_output([
-        "java",
-        "-cp",
-        jar_file_path,
-        "ch.aimedic.grouper.BatchGroupMany",
+        'java',
+        '-cp',
+        JAR_FILE_PATH,
+        'ch.aimedic.grouper.BatchGroupMany',
         cases_string,
-        separator_char,
-        delimiter_char,
-        "filterValid"]).decode("utf-8")
+        SEPARATOR_CHAR,
+        DELIMITER_CHAR,
+        'filterValid']).decode('utf-8')
 
+    # Deserialize the output into a DataFrame
     grouped_cases_dicts = json.loads(grouped_cases_json)
     complete_df = pd.DataFrame.from_dict(grouped_cases_dicts)
 
