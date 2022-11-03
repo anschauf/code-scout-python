@@ -2,6 +2,9 @@ from unittest import TestCase
 
 import pandas as pd
 
+from src.service.bfs_cases_db_service import get_sociodemographics_for_hospital_year, get_earliest_revisions_for_aimedic_ids, \
+    get_diagnoses_codes, get_procedures_codes, get_codes, apply_revisions, insert_revised_case_into_revisions, \
+    insert_revised_case_into_procedures, insert_revised_case_into_procedures
 from src.revised_case_normalization.py.global_configs import AIMEDIC_ID_COL
 from src.revised_case_normalization.py.revise import apply_revisions
 from src.service.bfs_cases_db_service import get_sociodemographics_for_hospital_year, \
@@ -65,3 +68,24 @@ class TestDbAccess(TestCase):
 
         self.assertEqual(len(aimiedic_id_revision_id), revision_df.shape[0])
         self.assertIsInstance(aimiedic_id_revision_id, dict)
+
+    def test_insert_revised_case_into_diagonoses(self):
+
+        diagnoses_df = pd.DataFrame([[1, 'Z432', 0, False, False],
+                      [1, 'I440', 0, False, False]],
+                      #[1, 'C20', ' ', 'TRUE', ' '],
+                      #[2, 'I7024', ' ', 'TRUE', '']],
+                     columns=['aimedic_id', 'code', 'ccl', 'is_primary', 'is_grouper_relevant'])
+        aimiedic_id_revision_id = {1: 578865, 2: 578866}
+        diagnoses_pk_list = insert_revised_case_into_procedures(diagnoses_df, aimiedic_id_revision_id)
+        self.assertEqual(len(diagnoses_pk_list), diagnoses_df.shape[0])
+
+    def test_insert_revised_case_into_procedures(self):
+
+        procedures_df = pd.DataFrame([[1, 893909, '', '2024-12-31', False, True],
+                                     [1, 887910, 'B', '2024-12-31', False, False]],
+                                     columns=['aimedic_id', 'code', 'side', 'date', 'is_grouper_relevant', 'is_primary'])
+        aimiedic_id_revision_id = {1: 578865, 2: 578866}
+        procedures_pk_list = insert_revised_case_into_procedures(procedures_df, aimiedic_id_revision_id)
+        self.assertEqual(len(procedures_pk_list), procedures_df.shape[0])
+
