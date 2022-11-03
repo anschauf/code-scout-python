@@ -3,7 +3,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
 from sqlalchemy import MetaData
 from sqlalchemy.orm import declarative_base
 
-metadata_obj = MetaData(schema="coding_revision")
+metadata_obj = MetaData(schema='coding_revision')
 Base = declarative_base(metadata=metadata_obj)
 
 
@@ -11,8 +11,8 @@ class Procedures(Base):
     __tablename__ = 'procedures'
 
     procedures_pk = Column(Integer, primary_key=True)
-    aimedic_id = Column(Integer, ForeignKey('sociodemographics.aimedic_id'))
-    revision_id = Column(Integer, ForeignKey('coding_revision.revisions'))
+    aimedic_id = Column(Integer, ForeignKey('case_data.sociodemographics.aimedic_id'))
+    revision_id = Column(Integer, ForeignKey('coding_revision.revisions.revision_id'))
 
     code = Column('code', String(10))
     side = Column('side', CHAR)

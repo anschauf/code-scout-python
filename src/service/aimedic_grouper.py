@@ -2,6 +2,8 @@ import subprocess
 from pathlib import Path
 import json
 import pandas as pd
+from sqlalchemy.sql import null
+from src.revised_case_normalization.py.global_configs import *
 
 JAR_FILE_PATH = "/home/jovyan/work/resources/jars/aimedic-grouper-assembly.jar"
 SEPARATOR_CHAR = "#"
@@ -45,28 +47,40 @@ def group_batch_group_cases(batch_group_cases: list[str]) -> tuple[pd.DataFrame,
 
     # Prepare DataFrame for the revision table
     revision_df = complete_df.drop(['diagnoses', 'procedures', 'grouperResult'], axis=1)
-    revision_df.rename(columns={'aimedicId': 'aimedic_id', 'drgCostWeight': 'drg_cost_weight',
-                                'effectiveCostWeight': 'effective_cost_weight', 'revisionDate': 'revision_date'},
-                       inplace=True)
-    revision_df['revision_date'] = pd.to_datetime(revision_df['revision_date'], unit='ms')
+    revision_df.rename(columns={'aimedicId': AIMEDIC_ID_COL,
+                                'drgCostWeight': DRG_COST_WEIGHT_COL,
+                                'effectiveCostWeight': EFFECTIVE_COST_WEIGHT_COL,
+                                'revisionDate': REVISION_DATE_COL
+                                }, inplace=True)
+
+    revision_df[REVISION_DATE_COL] = pd.to_datetime(revision_df[REVISION_DATE_COL], unit='ms')
 
     # Prepare DataFrame for the diagnoses table
-    diagnoses_df = pd.json_normalize(grouped_cases_dicts, record_path=['diagnoses'], meta=['aimedicId']).drop(
-        ['status'], axis=1)
-    diagnoses_df.rename(columns={'aimedicId': 'aimedic_id', 'used': 'is_grouper_relevant', 'isPrimary': 'is_primary'},
-                        inplace=True)
-    diagnoses_df = diagnoses_df.reindex(columns=['aimedic_id', 'code', 'ccl', 'is_primary', 'is_grouper_relevant'])
+    diagnoses_df = pd.json_normalize(grouped_cases_dicts, record_path=['diagnoses'], meta=['aimedicId']) \
+        .drop(['status'], axis=1)
+
+    diagnoses_df.rename(columns={'aimedicId': AIMEDIC_ID_COL,
+                                 'used': IS_GROUPER_RELEVANT_COL,
+                                 'isPrimary': IS_PRIMARY_COL
+                                 }, inplace=True)
+
+    diagnoses_df = diagnoses_df.reindex(columns=[AIMEDIC_ID_COL, CODE_COL, CCL_COL, IS_PRIMARY_COL, IS_GROUPER_RELEVANT_COL])
 
     # Prepare Dataframe for the procedure table
-    procedures_df = pd.json_normalize(grouped_cases_dicts, record_path=['procedures'], meta=['aimedicId']).drop(
-        ['dateValid', 'sideValid', ], axis=1)
-    procedures_df.rename(columns={'aimedicId': 'aimedic_id', 'isUsed': 'is_grouper_relevant', 'isPrimary': 'is_primary'}, inplace=True)
-    procedures_df['date'] = pd.to_datetime(procedures_df['date']).dt.date
-    # procedures_df[procedures_df['date'].apply(lambda x: x != "")]["date"] = pd.to_datetime(procedures_df[procedures_df['date'].apply(lambda x: x != "")]["date"]).dt.date
-    # procedures_df[procedures_df['date'].apply(lambda x: x == "")]["date"] = None
-    # procedures_df['date'] = procedures_df['date'].apply(lambda x: pd.to_datetime(x).date if x != "" else "")
-    procedures_df = procedures_df.reindex(columns=['aimedic_id', 'code', 'side', 'date', 'is_grouper_relevant', 'is_primary'])
-    # procedures_df.fillna(None, inplace=True)
+    procedures_df = pd.json_normalize(grouped_cases_dicts, record_path=['procedures'], meta=['aimedicId']) \
+        .drop(['dateValid', 'sideValid', ], axis=1)
 
+    procedures_df.rename(columns={'aimedicId': AIMEDIC_ID_COL,
+                                  'isUsed': IS_GROUPER_RELEVANT_COL,
+                                  'isPrimary': IS_PRIMARY_COL
+                                  }, inplace=True)
+    procedures_df[PROCEDURE_DATE_COL] = pd.to_datetime(procedures_df[PROCEDURE_DATE_COL]).dt.date
+    procedures_df[PROCEDURE_SIDE_COL] = procedures_df[PROCEDURE_SIDE_COL].str.replace('\x00', '')  # replace empty byte string with an empty string
+
+    # Replace NaT with NULL.
+    # REFs: https://stackoverflow.com/a/42818550, https://stackoverflow.com/a/48765738
+    procedures_df[PROCEDURE_DATE_COL] = procedures_df[PROCEDURE_DATE_COL].astype(object).where(procedures_df[PROCEDURE_DATE_COL].notnull(), null())
+
+    procedures_df = procedures_df.reindex(columns=[AIMEDIC_ID_COL, CODE_COL, PROCEDURE_SIDE_COL, PROCEDURE_DATE_COL, IS_GROUPER_RELEVANT_COL, IS_PRIMARY_COL])
 
     return revision_df, diagnoses_df, procedures_df

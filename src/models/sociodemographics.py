@@ -6,7 +6,7 @@ metadata_obj = MetaData(schema="case_data")
 Base = declarative_base(metadata=metadata_obj)
 
 
-class BfsCase(Base):
+class Sociodemographics(Base):
     __tablename__ = 'sociodemographics'
 
     aimedic_id = Column(Integer, primary_key=True)

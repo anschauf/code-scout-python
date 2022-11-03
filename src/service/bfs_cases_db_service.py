@@ -1,22 +1,21 @@
 import boto3
+import numpy as np
 import pandas as pd
-import sqlalchemy
 from beartype import beartype
 from decouple import config
 from loguru import logger
 from pandas import DataFrame
-from sqlalchemy import create_engine, event, func, MetaData, Table
-from sqlalchemy.orm import sessionmaker, declarative_base
-
-from src.models.BfsCase import BfsCase
-from src.models.Clinic import Clinic
-from src.models.Hospital import Hospital
-# from src.models.Revision import Revision
-# from src.models.chop_code import Procedures
-# from src.models.icd_code import Diagnoses
+from sqlalchemy import create_engine, event, func
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.sql.elements import Null
+from sqlalchemy import tuple_
+from src.models.clinic import Clinic
+from src.models.procedures import Procedures
+from src.models.diagnoses import Diagnoses
+from src.models.hospital import Hospital
+from src.models.revisions import Revisions
+from src.models.sociodemographics import Sociodemographics
 from src.revised_case_normalization.py.global_configs import *
-
-from src.utils.chop_validation import split_chop_codes
 
 # import envs
 BFS_CASES_DB_URL = config('BFS_CASES_DB_URL')
@@ -31,10 +30,7 @@ AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
 client = boto3.client('rds', region_name=AWS_REGION, aws_access_key_id=AWS_ACCESS_KEY_ID,
                       aws_secret_access_key=AWS_SECRET_ACCESS_KEY)
 
-engine = create_engine(
-    f'postgresql://{BFS_CASES_DB_USER}@{BFS_CASES_DB_URL}:{BFS_CASES_DB_PORT}/{BFS_CASES_DB_NAME}')
-
-
+engine = create_engine(f'postgresql://{BFS_CASES_DB_USER}@{BFS_CASES_DB_URL}:{BFS_CASES_DB_PORT}/{BFS_CASES_DB_NAME}')
 
 
 @event.listens_for(engine, "do_connect")
@@ -42,8 +38,6 @@ def receive_do_connect(dialect, conn_rec, cargs, cparams):
     token = client.generate_db_auth_token(DBHostname=BFS_CASES_DB_URL, Port=BFS_CASES_DB_PORT,
                                           DBUsername=BFS_CASES_DB_USER, Region=AWS_REGION)
     cparams["password"] = token
-    # return psycopg2.connect(host=BFS_CASES_DB_URL, port=BFS_CASES_DB_PORT, database=BFS_CASES_DB_NAME,
-    #                         user=BFS_CASES_DB_USER, password=token)
 
 
 # create a configured "Session" class
@@ -51,31 +45,6 @@ Session = sessionmaker(bind=engine)
 # create a Session
 session = Session()
 
-
-# Create a Revision class for table revision from Database
-metadata_obj = MetaData(schema="coding_revision")
-Base = declarative_base()
-class Revision(Base):
-    __table__ = Table(
-        "revisions",
-        metadata_obj,
-        autoload_with=engine
-    )
-
-# Create a Diagnoses class for table diagnoses from Database
-class Diagnoses(Base):
-    __table__ = Table(
-        "diagnoses",
-        metadata_obj,
-        autoload_with=engine
-    )
-# Create a Procedures class for table procedures from Database
-class Procedures(Base):
-    __table__ = Table(
-        "procedures",
-        metadata_obj,
-        autoload_with=engine
-    )
 
 def get_by_sql_query(sql_query) -> DataFrame:
     """
@@ -93,7 +62,7 @@ def get_bfs_cases_by_ids(case_ids: list) -> DataFrame:
     @return:
     """
 
-    query = session.query(BfsCase).filter(BfsCase.case_id.in_(case_ids))
+    query = session.query(Sociodemographics).filter(Sociodemographics.case_id.in_(case_ids))
 
     return pd.read_sql(query.statement, session.bind)
 
@@ -105,7 +74,9 @@ def get_hospital_cases_df(hopsital_name) -> DataFrame:
 
     @return:
     """
-    query = session.query(BfsCase).join(Hospital).filter(Hospital.name == hopsital_name)
+    query = (session.query(Sociodemographics)
+             .join(Hospital)
+             .filter(Hospital.name == hopsital_name))
     return pd.read_sql(query.statement, session.bind)
 
 
@@ -123,26 +94,26 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int) -> pd
     """
     query_sociodemo = (
         session
-        .query(BfsCase)
+        .query(Sociodemographics)
         # TODO: Get the list of entities to select from a list of strings, which is in the VALIDATION_COLS list
-        .with_entities(BfsCase.aimedic_id,
-                       BfsCase.case_id,
-                       BfsCase.patient_id,
-                       BfsCase.age_years,
-                       BfsCase.age_days,
-                       BfsCase.admission_weight,
-                       BfsCase.gestation_age,
-                       BfsCase.gender,
-                       BfsCase.admission_date,
-                       BfsCase.grouper_admission_type,
-                       BfsCase.discharge_date,
-                       BfsCase.grouper_discharge_type,
-                       BfsCase.duration_of_stay,
-                       BfsCase.ventilation_hours)
-        .join(Hospital, BfsCase.hospital_id == Hospital.hospital_id)
+        .with_entities(Sociodemographics.aimedic_id,
+                       Sociodemographics.case_id,
+                       Sociodemographics.patient_id,
+                       Sociodemographics.age_years,
+                       Sociodemographics.age_days,
+                       Sociodemographics.admission_weight,
+                       Sociodemographics.gestation_age,
+                       Sociodemographics.gender,
+                       Sociodemographics.admission_date,
+                       Sociodemographics.grouper_admission_type,
+                       Sociodemographics.discharge_date,
+                       Sociodemographics.grouper_discharge_type,
+                       Sociodemographics.duration_of_stay,
+                       Sociodemographics.ventilation_hours)
+        .join(Hospital, Sociodemographics.hospital_id == Hospital.hospital_id)
         .filter(Hospital.name == hospital_name)
-        .filter(BfsCase.discharge_year == year)
-        .filter(BfsCase.case_id != '')
+        .filter(Sociodemographics.discharge_year == year)
+        .filter(Sociodemographics.case_id != '')
     )
 
     df = pd.read_sql(query_sociodemo.statement, session.bind)
@@ -161,12 +132,12 @@ def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[int]) -> pd.DataFra
     query_revisions = (
         session
         .query(
-            func.array_agg(Revision.aimedic_id).label(AIMEDIC_ID_COL),
-            func.array_agg(Revision.revision_date).label('revision_date'),
-            func.array_agg(Revision.revision_id).label('revision_id'),
+            func.array_agg(Revisions.aimedic_id).label(AIMEDIC_ID_COL),
+            func.array_agg(Revisions.revision_date).label(REVISION_DATE_COL),
+            func.array_agg(Revisions.revision_id).label(REVISION_ID_COL),
         )
-        .filter(Revision.aimedic_id.in_(aimedic_ids))
-        .group_by(Revision.aimedic_id)
+        .filter(Revisions.aimedic_id.in_(aimedic_ids))
+        .group_by(Revisions.aimedic_id)
     )
 
     df = pd.read_sql(query_revisions.statement, session.bind)
@@ -174,18 +145,19 @@ def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[int]) -> pd.DataFra
     def get_earliest_revision_id(row):
         aimedic_id = row[AIMEDIC_ID_COL][0]  # pick only the first one as they are all the same (because of the group-by)
 
-        n_revisions = len(row['revision_date'])
+        revision_dates = row[REVISION_DATE_COL]
+        n_revisions = len(revision_dates)
         if n_revisions == 1:
-            revision_id = row['revision_id'][0]
+            min_idx = 0  # the only item
         else:
-            raise NotImplementedError("Don't know what to do when there are mulitple revisions")
+            min_idx = np.argmin(revision_dates)
 
         row[AIMEDIC_ID_COL] = aimedic_id
-        row['revision_id'] = revision_id
+        row[REVISION_ID_COL] = row[REVISION_ID_COL][min_idx]
         return row
 
     df = df.apply(get_earliest_revision_id, axis=1)
-    df.drop(columns=['revision_date'], inplace=True)
+    df.drop(columns=[REVISION_DATE_COL], inplace=True)
     return df
 
 
@@ -310,10 +282,10 @@ def get_hospital_year_cases(hospital_name: str, year: int) -> pd.DataFrame:
     """
     subquery_sociodemo = (
         session
-        .query(BfsCase)
-        .join(Hospital, BfsCase.hospital_id == Hospital.hospital_id)
+        .query(Sociodemographics)
+        .join(Hospital, Sociodemographics.hospital_id == Hospital.hospital_id)
         .filter(Hospital.name == hospital_name)
-        .filter(BfsCase.discharge_year == year)
+        .filter(Sociodemographics.discharge_year == year)
         .subquery()
     )
 
@@ -359,106 +331,152 @@ def get_hospital_year_cases(hospital_name: str, year: int) -> pd.DataFrame:
 
 
 @beartype
-def insert_revised_case_into_revisions(revised_case_revision_df: pd.DataFrame) -> dict:
-    """
-    Insert revised cases into table code_revision.revisions
-    @param revised_case_revision_df: a Dataframe of revised case after Grupper
-    Columns needed in the revised_case DataFrame:
-    aimedic_id, drg, drg_cost_weight, effective_cost_weight, pccl, revision_date,
-
+def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame) -> dict:
+    """Insert revised cases into table coding_revision.revisions.
+    @param revised_case_revision_df: a Dataframe of revised case after grouping
     @return: a dictionary with aimedic_id as keys and revision_id as values created after insert into DB.
     """
+    logger.info(f"Trying to insert {revised_case_revision_df.shape[0]} cases into the 'Revisions' table ...")
     revision_list = revised_case_revision_df.to_dict(orient='records')
-    aimedic_id_with_revision_id = dict()
-    for revision in revision_list:
-        aimedic_id = revision['aimedic_id']
-        drg = revision['drg']
-        drg_cost_weight = revision['drg_cost_weight']
-        effective_cost_weight = revision['effective_cost_weight']
-        pccl = revision['pccl']
-        revision_date = revision['revision_date']
-        revision_obj = Revision(aimedic_id=aimedic_id, drg=drg, drg_cost_weight=drg_cost_weight, effective_cost_weight=effective_cost_weight, pccl=pccl, revision_date=revision_date) #change data to Revision object
-        session.add(revision_obj)
-        session.flush() # push the insert data into DB
-        # session.refresh(revision_obj) might need to be refreshed first
-        revision_id = revision_obj.revision_id # get the created primary key: revision_id
-        aimedic_id_with_revision_id[aimedic_id] = revision_id
-    session.commit() # save change to DB
 
+    values_to_insert = list()
+
+    for revision in revision_list:
+        values_to_insert.append({
+            "aimedic_id": int(revision[AIMEDIC_ID_COL]),
+            "drg": str(revision[DRG_COL]),
+            "drg_cost_weight": float(revision[DRG_COST_WEIGHT_COL]),
+            "effective_cost_weight": float(revision[EFFECTIVE_COST_WEIGHT_COL]),
+            "pccl": int(revision[PCCL_COL]),
+            "revision_date": str(revision[REVISION_DATE_COL])
+        })
+
+    values_info = [(values_dict["aimedic_id"], values_dict['revision_date']) for values_dict in values_to_insert]
+
+    num_rows_before = session.query(Revisions).count()
+    delete_statement = (Revisions.__table__
+                        .delete()
+                        .where(tuple_(Revisions.aimedic_id, Revisions.revision_date).in_(values_info)))
+    session.execute(delete_statement)
+    session.commit()
+
+    num_rows_after = session.query(Revisions).count()
+    if num_rows_after != num_rows_before:
+        logger.info(f'Deleted {num_rows_before - num_rows_after} rows from the "Revisions" table, which is about to be updated')
+
+    insert_statement = (Revisions.__table__
+                        .insert()
+                        .values(values_to_insert)
+                        .returning(Revisions.aimedic_id, Revisions.revision_id))
+
+    result = session.execute(insert_statement).fetchall()
+    session.commit()
+
+    aimedic_id_with_revision_id = {aimedic_id: revision_id for aimedic_id, revision_id in result}
+    logger.success(f"Inserted {len(result)} cases into the 'Revisions' table")
     return aimedic_id_with_revision_id
 
-@beartype
-def insert_revised_case_into_diagonoses(revised_case_diagonoses:pd.DataFrame, aimedic_id_with_revision_id: dict) -> list:
-    """
-    Insert revised cases into table code_revision.diagonoses
-    @param
-    revised_case_diagonoses: a Dataframe of revised case for diagonoses after Grupper.
-    Columns needed in the revised_case DataFrame:
-    aimedic_id, revision_id, code, ccl,is_primary, is_grouper_relevant
-
-    aimedic_id_with_revision_id: a dictionary with aimedic_id as keys and revision_id as values which are created after insert into DB
-
-    @return: a list of diagonoses_pk after inserting into DB
-    """
-
-    revised_case_diagonoses['revision_id'] = revised_case_diagonoses['aimedic_id'].map(aimedic_id_with_revision_id)
-    revision_diagonoses_list = revised_case_diagonoses.to_dict(orient='records')
-    diagnoses_pk_list = list()
-    for diagonoses in revision_diagonoses_list:
-        aimedic_id = diagonoses['aimedic_id']
-        revision_id = diagonoses['revision_id']
-        icd_code = diagonoses['code']
-        is_primary = diagonoses['is_primary']
-        ccl = diagonoses['ccl']
-        is_grouper_relevant = diagonoses['is_grouper_relevant']
-        diagonoses_obj = Diagnoses(aimedic_id=aimedic_id, revision_id=revision_id, code=icd_code, is_primary=is_primary, ccl=ccl, is_grouper_relevant=is_grouper_relevant)
-        session.add(diagonoses_obj)
-        session.add(diagonoses_obj)
-        session.flush()  # push the insert data into DB
-        session.refresh(diagonoses_obj)
-        diagnoses_pk = diagonoses_obj.diagnoses_pk
-        diagnoses_pk_list.append(diagnoses_pk)
-    session.commit()
-    return diagnoses_pk_list
 
 @beartype
-def insert_revised_case_into_procedures(revised_case_procedures:pd.DataFrame, aimedic_id_with_revision_id: dict) -> list:
+def insert_revised_cases_into_diagnoses(revised_case_diagnoses: pd.DataFrame, aimedic_id_with_revision_id: dict):
     """
-    Insert revised cases into table code_revision.procedures
-    @param
-    revised_case_procedures: a Dataframe of revised case for procedures after Grupper.
-    Columns needed in the revised_case DataFrame:
-    aimedic_id, revision_id, code, ccl,is_primary, is_grouper_relevant
-
-    aimedic_id_with_revision_id: a dictionary with aimedic_id as keys and revision_id as values which are created after insert into DB
-
-    @return: a list of procedures_pk after inserting into DB
+    Insert revised cases into table coding_revision.diagnoses.
+    @param revised_case_diagnoses: a Dataframe of revised case for diagnoses after grouping.
+    @param aimedic_id_with_revision_id: a dictionary with aimedic_id as keys and revision_id as values which are created
+        after insert into DB.
     """
+    logger.info(f"Trying to insert {revised_case_diagnoses.shape[0]} rows into the 'Diagnoses' table ...")
 
-    revised_case_procedures['revision_id'] = revised_case_procedures['aimedic_id'].map(aimedic_id_with_revision_id)
-    revision_procedures_list = revised_case_procedures.to_dict(orient='records')
-    procedures_pk_list = list()
-    for procedures in revision_procedures_list:
-        aimedic_id = procedures['aimedic_id']
-        revision_id = procedures['revision_id']
-        code = procedures['code']
-        date = procedures['date']
-        is_primary = procedures['is_primary']
-        side = procedures['side']
-        is_grouper_relevant = procedures['is_grouper_relevant']
-        procedures_obj = Procedures(aimedic_id=aimedic_id,revision_id=revision_id,code=code,side=side,date=date,is_grouper_relevant=is_grouper_relevant,is_primary=is_primary)
-        session.add(procedures_obj)
-        session.add(procedures_obj)
-        session.flush()  # push the insert data into DB
-        session.refresh(procedures_obj)
-        procedures_pk = procedures_obj.procedures_pk
-        procedures_pk_list.append(procedures_pk)
+    diagnosis_list = revised_case_diagnoses.to_dict(orient='records')
+
+    values_to_insert = list()
+
+    for diagnoses in diagnosis_list:
+        aimedic_id = int(diagnoses[AIMEDIC_ID_COL])
+
+        values_to_insert.append({
+            "aimedic_id": aimedic_id,
+            "revision_id": int(aimedic_id_with_revision_id[aimedic_id]),
+            "code": str(diagnoses[CODE_COL]),
+            "ccl": int(diagnoses[CCL_COL]),
+            "is_primary": bool(diagnoses[IS_PRIMARY_COL]),
+            "is_grouper_relevant": bool(diagnoses[IS_GROUPER_RELEVANT_COL])
+        })
+
+    values_info = [(values_dict["aimedic_id"], values_dict['revision_id']) for values_dict in values_to_insert]
+
+    num_rows_before = session.query(Diagnoses).count()
+    delete_statement = (Diagnoses.__table__
+                        .delete()
+                        .where(tuple_(Diagnoses.aimedic_id, Diagnoses.revision_id).in_(values_info)))
+    session.execute(delete_statement)
     session.commit()
-    return procedures_pk_list
+
+    num_rows_after = session.query(Diagnoses).count()
+    if num_rows_after != num_rows_before:
+        logger.info(f'Deleted {num_rows_before - num_rows_after} rows from the "Diagnoses" table, which is about to be updated')
+
+    insert_statement = (Diagnoses.__table__
+                        .insert()
+                        .values(values_to_insert))
+
+    session.execute(insert_statement)
+    session.commit()
+
+    logger.success(f"Inserted {len(values_to_insert)} rows into the 'Diagnoses' table")
 
 
+@beartype
+def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame, aimedic_id_with_revision_id: dict):
+    """Insert revised cases into table coding_revision.procedures.
 
+    @param revised_case_procedures: a Dataframe of revised case for procedures after grouping.
+    @param aimedic_id_with_revision_id: a dictionary with aimedic_id as keys and revision_id as values which are created after insert into DB
+    """
+    logger.info(f"Trying to insert {revised_case_procedures.shape[0]} rows into the 'Procedures' table ...")
 
+    procedure_list = revised_case_procedures.to_dict(orient='records')
 
+    values_to_insert = list()
 
+    for procedure in procedure_list:
+        aimedic_id = int(procedure[AIMEDIC_ID_COL])
 
+        # Get the procedure date as None or as a string
+        procedure_date = procedure[PROCEDURE_DATE_COL]
+        if procedure_date is None or isinstance(procedure_date, Null):
+            procedure_date = None
+        else:
+            procedure_date = str(procedure_date)
+
+        values_to_insert.append({
+            "aimedic_id": aimedic_id,
+            "revision_id": int(aimedic_id_with_revision_id[aimedic_id]),
+            "code": str(procedure[CODE_COL]),
+            "side": str(procedure[PROCEDURE_SIDE_COL]),
+            "date": procedure_date,
+            "is_primary": bool(procedure[IS_PRIMARY_COL]),
+            "is_grouper_relevant": bool(procedure[IS_GROUPER_RELEVANT_COL])
+        })
+
+    values_info = [(values_dict["aimedic_id"], values_dict['revision_id']) for values_dict in values_to_insert]
+
+    num_rows_before = session.query(Procedures).count()
+    delete_statement = (Procedures.__table__
+                        .delete()
+                        .where(tuple_(Procedures.aimedic_id, Procedures.revision_id).in_(values_info)))
+    session.execute(delete_statement)
+    session.commit()
+
+    num_rows_after = session.query(Procedures).count()
+    if num_rows_after != num_rows_before:
+        logger.info(f"Deleted {num_rows_before - num_rows_after} rows from the 'Procedures' table, which is about to be updated")
+
+    insert_statement = (Procedures.__table__
+                        .insert()
+                        .values(values_to_insert))
+
+    session.execute(insert_statement)
+    session.commit()
+
+    logger.success(f"Inserted {len(values_to_insert)} rows into the 'Procedures' table")

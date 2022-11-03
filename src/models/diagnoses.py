@@ -10,8 +10,8 @@ class Diagnoses(Base):
     __tablename__ = 'diagnoses'
 
     diagnoses_pk = Column(Integer, primary_key=True)
-    aimedic_id = Column(Integer, ForeignKey('sociodemographics.aimedic_id'))
-    revision_id = Column(Integer, ForeignKey('coding_revision.revisions'))
+    aimedic_id = Column(Integer, ForeignKey('case_data.sociodemographics.aimedic_id'))
+    revision_id = Column(Integer, ForeignKey('coding_revision.revisions.revision_id'))
 
     code = Column('code', String(10))
     ccl = Column('ccl', Integer)
