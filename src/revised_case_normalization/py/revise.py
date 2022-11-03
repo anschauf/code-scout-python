@@ -44,6 +44,7 @@ def revise(file_info: FileInfo,
     # Select only the columns of interest
     revised_cases = revised_cases[[
         AIMEDIC_ID_COL,
+        CASE_ID_COL,
         # codes
         NEW_PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL, PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL,
         # sociodemographics

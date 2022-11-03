@@ -16,6 +16,7 @@ def group(revised_cases: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.D
 
 def format_for_grouper_one_case(row: pd.Series) -> pd.Series:
     aimedic_id = int(row[AIMEDIC_ID_COL])
+    case_id = int(row[CASE_ID_COL])
 
     age_years = int(row[AGE_COL])
     age_days = int(row[AGE_DAYS_COL])
@@ -47,7 +48,7 @@ def format_for_grouper_one_case(row: pd.Series) -> pd.Series:
 
     medications = ''
 
-    row[GROUPER_FORMAT_COL] = ';'.join([str(aimedic_id), str(age_years), str(age_days), baby_data, gender,
+    row[GROUPER_FORMAT_COL] = ';'.join([str(case_id), str(aimedic_id), str(age_years), str(age_days), baby_data, gender,
                                         admission_date, admission_type, discharge_date, discharge_type,
                                         str(duration_of_stay), str(ventilation_hours),
                                         diagnoses, procedures, medications])
