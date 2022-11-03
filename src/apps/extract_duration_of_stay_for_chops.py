@@ -16,6 +16,7 @@ class DurationOfStayLimit:
     def __str__(self):
         return f"Duration of stay from {self.lower} till {self.upper} days."
 
+
 systematic_indexes = [
     # ('s3://swiss-drg/chop/2016/dz-d-14.04.01-chop2016-multilang-01/CHOP 2016 Multilang CSV.csv', 2016),
     ('s3://swiss-drg/chop/2017/dz-d-14.04.01-chop17-sys-01/CHOP2017_Systematisches_Verzeichnis_DE_2016.07.19.csv', 2017, "ISO-8859-1"),
@@ -31,21 +32,21 @@ for filename, year, encoding in systematic_indexes:
     chops_dictionary = wr.s3.read_csv(filename, dtype='string', sep=';', on_bad_lines='skip', encoding=encoding)
 
     max_limit = 365*100
-    def till_upper_limit(u): return  DurationOfStayLimit(0, u)
-    def less_than_upper_limit(u): return  DurationOfStayLimit(0, u-1)
-    def within_range_of_days(l, u): return  DurationOfStayLimit(l, u)
+    def till_upper_limit(u): return DurationOfStayLimit(0, u)
+    def less_than_upper_limit(u): return DurationOfStayLimit(0, u-1)
+    def within_range_of_days(l, u): return DurationOfStayLimit(l, u)
     def from_lower_limit(l): return DurationOfStayLimit(l, max_limit)
-    def more_than_lower_limit(l): return DurationOfStayLimit(l+1, max_limit)
+    def more_than_lower_limit(l): return DurationOfStayLimit(l + 1, max_limit)
     regex_translation = [
-        ("bis \d+ Behandlungstage", till_upper_limit),
-        ("mindestens \d+ bis \d+ Behandlungstage", within_range_of_days),
-        ("weniger als \d+ Behandlungstage", less_than_upper_limit),
-        ("\d+ und mehr Behandlungstage", from_lower_limit),
-        ("\d+ bis \d+ Tage", within_range_of_days),
-        ("bis zu \d+ Tagen", till_upper_limit),
-        ("\d+ Tage und mehr", from_lower_limit),
-        ("innerhalb von \d+ Tagen", till_upper_limit),
-        ("über mehr als \d+ Tage", more_than_lower_limit)
+        (r"bis \d+ Behandlungstage", till_upper_limit),
+        (r"mindestens \d+ bis \d+ Behandlungstage", within_range_of_days),
+        (r"weniger als \d+ Behandlungstage", less_than_upper_limit),
+        (r"\d+ und mehr Behandlungstage", from_lower_limit),
+        (r"\d+ bis \d+ Tage", within_range_of_days),
+        (r"bis zu \d+ Tagen", till_upper_limit),
+        (r"\d+ Tage und mehr", from_lower_limit),
+        (r"innerhalb von \d+ Tagen", till_upper_limit),
+        (r"über mehr als \d+ Tage", more_than_lower_limit)
     ]
     regexes_compiled = re.compile( '|'.join([r[0] for r in regex_translation]) )
 
@@ -89,7 +90,6 @@ for filename, year, encoding in systematic_indexes:
     plt.tight_layout()
     save_figure_to_pdf_on_s3(plt, 'swiss-drg', __remove_prefix_and_bucket_if_exists(filename).replace('.csv', '_DurationOfStayLimits_distribution.pdf'))
     plt.close()
-
 
     import os
     import pandas as pd
