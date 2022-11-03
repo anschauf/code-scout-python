@@ -76,7 +76,7 @@ def get_hospital_cases_df(hopsital_name) -> DataFrame:
     """
     query = (session.query(Sociodemographics)
              .join(Hospital)
-             .filter(Hospital.name == hopsital_name))
+             .filter(Hospital.hospital_name == hopsital_name))
     return pd.read_sql(query.statement, session.bind)
 
 
@@ -111,7 +111,7 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int) -> pd
                        Sociodemographics.duration_of_stay,
                        Sociodemographics.ventilation_hours)
         .join(Hospital, Sociodemographics.hospital_id == Hospital.hospital_id)
-        .filter(Hospital.name == hospital_name)
+        .filter(Hospital.hospital_name == hospital_name)
         .filter(Sociodemographics.discharge_year == year)
         .filter(Sociodemographics.case_id != '')
     )
@@ -284,7 +284,7 @@ def get_hospital_year_cases(hospital_name: str, year: int) -> pd.DataFrame:
         session
         .query(Sociodemographics)
         .join(Hospital, Sociodemographics.hospital_id == Hospital.hospital_id)
-        .filter(Hospital.name == hospital_name)
+        .filter(Hospital.hospital_name == hospital_name)
         .filter(Sociodemographics.discharge_year == year)
         .subquery()
     )

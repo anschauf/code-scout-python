@@ -10,7 +10,7 @@ class Hospital(Base):
     __tablename__ = 'hospital'
 
     hospital_id = Column(Integer, primary_key=True)
-    name = Column('name', String(100))
+    hospital_name = Column('hospital_name', String(100))
     bur_nr = Column('bur_nr', nullable=True)
     company_name = Column('company_name', nullable=True)
     corporation = Column('corporation', nullable=True)
