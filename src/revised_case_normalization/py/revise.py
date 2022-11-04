@@ -7,6 +7,7 @@ from src.revised_case_normalization.py.normalize import remove_leading_zeros
 from src.service.bfs_cases_db_service import get_sociodemographics_for_hospital_year, \
     get_earliest_revisions_for_aimedic_ids, get_codes
 from src.utils.chop_validation import split_chop_codes
+from src.service.database import Database
 
 
 @beartype
@@ -15,44 +16,46 @@ def revise(file_info: FileInfo,
            *,
            validation_cols: list[str] = VALIDATION_COLS
            ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    # Read the sociodemographics from the DB, and normalize the case ID by removing leading zeros
-    cases_in_db = get_sociodemographics_for_hospital_year(file_info.hospital_name_db, int(file_info.year))
-    cases_in_db[NORM_CASE_ID_COL] = cases_in_db[CASE_ID_COL].apply(remove_leading_zeros)
 
-    # Merge cases in DB with the revised cases
-    joined = pd.merge(revised_cases_df, cases_in_db,
-                      how='left',
-                      on=validation_cols,
-                      suffixes=('', '_db'))
+    with Database() as db:
+        # Read the sociodemographics from the DB, and normalize the case ID by removing leading zeros
+        cases_in_db = get_sociodemographics_for_hospital_year(file_info.hospital_name_db, int(file_info.year), db.session)
+        cases_in_db[NORM_CASE_ID_COL] = cases_in_db[CASE_ID_COL].apply(remove_leading_zeros)
 
-    # Split matched from unmatched cases
-    matched_cases = joined[~joined[AIMEDIC_ID_COL].isna()].copy()
-    unmatched_cases = joined[joined[AIMEDIC_ID_COL].isna()].copy()
+        # Merge cases in DB with the revised cases
+        joined = pd.merge(revised_cases_df, cases_in_db,
+                          how='left',
+                          on=validation_cols,
+                          suffixes=('', '_db'))
 
-    # Print out how many rows could not be matched
-    num_unmatched = unmatched_cases.shape[0]
-    if num_unmatched > 0:
-        logger.warning(f'{num_unmatched} rows could not be matched, given {sorted(validation_cols)}')
+        # Split matched from unmatched cases
+        matched_cases = joined[~joined[AIMEDIC_ID_COL].isna()].copy()
+        unmatched_cases = joined[joined[AIMEDIC_ID_COL].isna()].copy()
 
-    # Retrieve the codes from the DB
-    original_revision_ids = get_earliest_revisions_for_aimedic_ids(matched_cases[AIMEDIC_ID_COL].values.tolist())
-    original_cases = get_codes(original_revision_ids)
+        # Print out how many rows could not be matched
+        num_unmatched = unmatched_cases.shape[0]
+        if num_unmatched > 0:
+            logger.warning(f'{num_unmatched} rows could not be matched, given {sorted(validation_cols)}')
 
-    # Apply the revisions to the cases from the DB
-    revised_cases = apply_revisions(original_cases, matched_cases)
+        # Retrieve the codes from the DB
+        original_revision_ids = get_earliest_revisions_for_aimedic_ids(matched_cases[AIMEDIC_ID_COL].values.tolist(), db.session)
+        original_cases = get_codes(original_revision_ids, db.session)
 
-    # Select only the columns of interest
-    revised_cases = revised_cases[[
-        AIMEDIC_ID_COL,
-        CASE_ID_COL,
-        # codes
-        NEW_PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL, PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL,
-        # sociodemographics
-        GENDER_COL, AGE_COL, AGE_DAYS_COL, GESTATION_AGE_COL, DURATION_OF_STAY_COL, VENTILATION_HOURS_COL,
-        ADMISSION_TYPE_COL, ADMISSION_DATE_COL, ADMISSION_WEIGHT_COL, DISCHARGE_TYPE_COL, DISCHARGE_DATE_COL
-    ]]
+        # Apply the revisions to the cases from the DB
+        revised_cases = apply_revisions(original_cases, matched_cases)
 
-    return revised_cases, unmatched_cases
+        # Select only the columns of interest
+        revised_cases = revised_cases[[
+            AIMEDIC_ID_COL,
+            CASE_ID_COL,
+            # codes
+            NEW_PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL, PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL,
+            # sociodemographics
+            GENDER_COL, AGE_COL, AGE_DAYS_COL, GESTATION_AGE_COL, DURATION_OF_STAY_COL, VENTILATION_HOURS_COL,
+            ADMISSION_TYPE_COL, ADMISSION_DATE_COL, ADMISSION_WEIGHT_COL, DISCHARGE_TYPE_COL, DISCHARGE_DATE_COL
+        ]]
+
+        return revised_cases, unmatched_cases
 
 
 @beartype

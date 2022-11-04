@@ -4,15 +4,26 @@ import pandas as pd
 
 from src.service.bfs_cases_db_service import get_sociodemographics_for_hospital_year, get_earliest_revisions_for_aimedic_ids, \
     get_diagnoses_codes, get_procedures_codes, get_codes, insert_revised_cases_into_revisions, \
-    insert_revised_cases_into_procedures
+    insert_revised_cases_into_procedures, get_bfs_cases_by_ids
 from src.revised_case_normalization.py.global_configs import AIMEDIC_ID_COL
 from src.revised_case_normalization.py.revise import apply_revisions
 from src.service.bfs_cases_db_service import get_sociodemographics_for_hospital_year, \
     get_earliest_revisions_for_aimedic_ids, insert_revised_cases_into_diagnoses, \
     get_diagnoses_codes, get_procedures_codes, get_codes, insert_revised_cases_into_revisions
+from src.service.database import Database
+
+
+# TODO: This instance should be the test DB
+database = Database()
 
 
 class TestDbAccess(TestCase):
+    def test_get_bfs_cases_by_ids(self):
+        with database as db:
+            data = get_bfs_cases_by_ids(['40985494'], db.session)
+            
+        self.assertIsInstance(data, pd.DataFrame)
+
     def test_get_sociodemographics_for_hospital_year(self):
         df = get_sociodemographics_for_hospital_year('Hirslanden Aarau', 2018)
         self.assertTrue(df.shape[0] > 0)
