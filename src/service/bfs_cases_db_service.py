@@ -1,73 +1,37 @@
-import boto3
 import numpy as np
 import pandas as pd
 from beartype import beartype
-from decouple import config
 from loguru import logger
 from pandas import DataFrame
-from sqlalchemy import create_engine, event, func
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.sql.elements import Null
+from sqlalchemy import func
 from sqlalchemy import tuple_
+from sqlalchemy.sql.elements import Null
+
 from src.models.clinic import Clinic
-from src.models.procedures import Procedures
 from src.models.diagnoses import Diagnoses
 from src.models.hospital import Hospital
+from src.models.procedures import Procedures
 from src.models.revisions import Revisions
 from src.models.sociodemographics import Sociodemographics
 from src.revised_case_normalization.py.global_configs import *
-
-# import envs
-BFS_CASES_DB_URL = config('BFS_CASES_DB_URL')
-BFS_CASES_DB_USER = config('BFS_CASES_DB_USER')
-BFS_CASES_DB_NAME = config('BFS_CASES_DB_NAME')
-BFS_CASES_DB_PORT = config('BFS_CASES_DB_PORT')
-AWS_REGION = config('AWS_REGION')
-AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
-
-# gets the credentials from .aws/credentials
-client = boto3.client('rds', region_name=AWS_REGION, aws_access_key_id=AWS_ACCESS_KEY_ID,
-                      aws_secret_access_key=AWS_SECRET_ACCESS_KEY)
-
-engine = create_engine(f'postgresql://{BFS_CASES_DB_USER}@{BFS_CASES_DB_URL}:{BFS_CASES_DB_PORT}/{BFS_CASES_DB_NAME}')
+from sqlalchemy.orm.session import Session
 
 
-@event.listens_for(engine, "do_connect")
-def receive_do_connect(dialect, conn_rec, cargs, cparams):
-    token = client.generate_db_auth_token(DBHostname=BFS_CASES_DB_URL, Port=BFS_CASES_DB_PORT,
-                                          DBUsername=BFS_CASES_DB_USER, Region=AWS_REGION)
-    cparams["password"] = token
-
-
-# create a configured "Session" class
-Session = sessionmaker(bind=engine)
-# create a Session
-session = Session()
-
-
-def get_by_sql_query(sql_query) -> DataFrame:
-    """
-    Make any SQL request for the BFS-cases DB.
-    @param sql_query: the sql query as String
-    @return: matches as DataFrame.
-    """
-    return pd.read_sql(sql_query, session.bind)
-
-
-def get_bfs_cases_by_ids(case_ids: list) -> DataFrame:
+def get_bfs_cases_by_ids(case_ids: list, session: Session) -> DataFrame:
     """
 
     @param case_ids:
+    @param session:
     @return:
     """
-
-    query = session.query(Sociodemographics).filter(Sociodemographics.case_id.in_(case_ids))
+    query = (session
+             .query(Sociodemographics)
+             .filter(Sociodemographics.case_id.in_(case_ids)))
 
     return pd.read_sql(query.statement, session.bind)
 
 
-def get_hospital_cases_df(hospital_name) -> DataFrame:
+def get_hospital_cases_df(hospital_name, session: Session) -> DataFrame:
     """
 
     @param hospital_name:
@@ -80,12 +44,12 @@ def get_hospital_cases_df(hospital_name) -> DataFrame:
     return pd.read_sql(query.statement, session.bind)
 
 
-def get_clinics():
+def get_clinics(session: Session):
     return session.query(Clinic).all()
 
 
 @beartype
-def get_sociodemographics_for_hospital_year(hospital_name: str, year: int) -> pd.DataFrame:
+def get_sociodemographics_for_hospital_year(hospital_name: str, year: int, session: Session) -> pd.DataFrame:
     """
     Get the cases filtered by year and hospital name, joint together with all its ICD and CHOP codes.
     @param hospital_name:
@@ -128,7 +92,7 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int) -> pd
 
 
 @beartype
-def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[int]) -> pd.DataFrame:
+def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[int], session: Session) -> pd.DataFrame:
     query_revisions = (
         session
         .query(
@@ -156,7 +120,7 @@ def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[int]) -> pd.DataFra
 
 
 @beartype
-def get_diagnoses_codes(df_revision_ids: pd.DataFrame) -> pd.DataFrame:
+def get_diagnoses_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
     all_aimedic_ids = set(df_revision_ids[AIMEDIC_ID_COL].values.tolist())
     all_revision_ids = set(df_revision_ids['revision_id'].values.tolist())
 
@@ -194,7 +158,7 @@ def get_diagnoses_codes(df_revision_ids: pd.DataFrame) -> pd.DataFrame:
 
 
 @beartype
-def get_procedures_codes(df_revision_ids: pd.DataFrame) -> pd.DataFrame:
+def get_procedures_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
     all_aimedic_ids = set(df_revision_ids[AIMEDIC_ID_COL].values.tolist())
     all_revision_ids = set(df_revision_ids['revision_id'].values.tolist())
 
@@ -239,9 +203,9 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame) -> pd.DataFrame:
 
 
 @beartype
-def get_codes(df_revision_ids: pd.DataFrame) -> pd.DataFrame:
-    diagnoses_df = get_diagnoses_codes(df_revision_ids)
-    procedures_df = get_procedures_codes(df_revision_ids)
+def get_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
+    diagnoses_df = get_diagnoses_codes(df_revision_ids, session)
+    procedures_df = get_procedures_codes(df_revision_ids, session)
 
     # Drop the aimedic_id column to avoid adding it with a suffix and having to remove it later
     codes_df = (df_revision_ids
@@ -252,7 +216,7 @@ def get_codes(df_revision_ids: pd.DataFrame) -> pd.DataFrame:
 
 
 @beartype
-def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame) -> dict:
+def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, session: Session) -> dict:
     """Insert revised cases into table coding_revision.revisions.
     @param revised_case_revision_df: a Dataframe of revised case after grouping
     @return: a dictionary with aimedic_id as keys and revision_id as values created after insert into DB.
@@ -299,7 +263,7 @@ def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame) 
 
 
 @beartype
-def insert_revised_cases_into_diagnoses(revised_case_diagnoses: pd.DataFrame, aimedic_id_with_revision_id: dict):
+def insert_revised_cases_into_diagnoses(revised_case_diagnoses: pd.DataFrame, aimedic_id_with_revision_id: dict, session: Session):
     """
     Insert revised cases into table coding_revision.diagnoses.
     @param revised_case_diagnoses: a Dataframe of revised case for diagnoses after grouping.
@@ -348,7 +312,7 @@ def insert_revised_cases_into_diagnoses(revised_case_diagnoses: pd.DataFrame, ai
 
 
 @beartype
-def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame, aimedic_id_with_revision_id: dict):
+def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame, aimedic_id_with_revision_id: dict, session: Session):
     """Insert revised cases into table coding_revision.procedures.
 
     @param revised_case_procedures: a Dataframe of revised case for procedures after grouping.
