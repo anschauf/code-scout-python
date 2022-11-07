@@ -11,7 +11,7 @@ class Sociodemographics(Base):
 
     aimedic_id = Column(Integer, primary_key=True)
     hospital_id = Column(Integer, ForeignKey('hospitals.hospital_id'))
-    clinic_id = Column('clinic_id', Integer, ForeignKey('chlinic.clinic_id'))
+    clinic_id = Column('clinic_id', Integer, ForeignKey('clinic.clinic_id'))
     patient_id = Column('patient_id', String(16))
     case_id = Column('case_id', String(16))
     age_years = Column('age_years', Integer)

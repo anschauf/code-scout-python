@@ -22,22 +22,26 @@ class TestDbAccess(TestCase):
         self.assertIsInstance(data, pd.DataFrame)
 
     def test_get_sociodemographics_for_hospital_year(self):
-        df = get_sociodemographics_for_hospital_year('Hirslanden Aarau', 2018)
+        with database as db:
+            df = get_sociodemographics_for_hospital_year('Hirslanden Aarau', 2018, db.session)
         self.assertTrue(df.shape[0] > 0)
 
     def test_get_earliest_revisions_for_aimedic_ids(self):
-        df = get_earliest_revisions_for_aimedic_ids([115875])
+        with database as db:
+            df = get_earliest_revisions_for_aimedic_ids([115875], db.session)
         self.assertTrue(df.shape[0] > 0)
         self.assertListEqual(list(df.columns), [AIMEDIC_ID_COL, 'revision_id'])
 
     def test_get_diagnoses_codes(self):
-        df_revision_ids = get_earliest_revisions_for_aimedic_ids([120078, 119991])
-        df = get_diagnoses_codes(df_revision_ids)
+        with database as db:
+            df_revision_ids = get_earliest_revisions_for_aimedic_ids([120078, 119991])
+            df = get_diagnoses_codes(df_revision_ids)
         self.assertTrue(df.shape[0] > 0)
 
     def test_get_procedures_codes(self):
-        df_revision_ids = get_earliest_revisions_for_aimedic_ids([1, 2])
-        df = get_procedures_codes(df_revision_ids)
+        with database as db:
+            df_revision_ids = get_earliest_revisions_for_aimedic_ids([1, 2])
+            df = get_procedures_codes(df_revision_ids)
         self.assertTrue(df.shape[0] > 0)
 
     def test_get_codes(self):
