@@ -17,6 +17,7 @@ definitions:
     - step: &test
         name: Unit Tests
         script:
+          - docker-compose up
           - docker-compose run coverage run -m unittest discover test/ --verbose
 pipelines:
   default:
