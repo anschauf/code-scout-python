@@ -7,7 +7,7 @@ metadata_obj = MetaData(schema="coding_revision")
 Base = declarative_base(metadata=metadata_obj)
 
 
-class Revisions(Base):
+class Revision(Base):
     __tablename__ = 'revisions'
 
     revision_id = Column(Integer, primary_key=True)

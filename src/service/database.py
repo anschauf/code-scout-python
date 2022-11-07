@@ -15,11 +15,11 @@ AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
 class Database:
     """
     Bfs cases connection class.
-    Based on model found here: https://stackoverflow.com/a/38078544
+    Based on a databebase connection model found here: https://stackoverflow.com/a/38078544
 
-    Example usage:
+    Example usage: Inject the session to a Database function, which makes use of it.
         with Database() as db:
-            df = db.get_hospital_year_cases('USZ', 2019)
+            insert_revised_cases_into_diagnoses(diagnoses_df, aimedic_id_with_revision_id, db.session)
     """
 
     def __init__(self,

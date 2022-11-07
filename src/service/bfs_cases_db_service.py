@@ -8,10 +8,10 @@ from sqlalchemy import tuple_
 from sqlalchemy.sql.elements import Null
 
 from src.models.clinic import Clinic
-from src.models.diagnoses import Diagnoses
+from src.models.diagnosis import Diagnosis
 from src.models.hospital import Hospital
-from src.models.procedures import Procedures
-from src.models.revisions import Revisions
+from src.models.procedure import Procedure
+from src.models.revision import Revision
 from src.models.sociodemographics import Sociodemographics
 from src.revised_case_normalization.py.global_configs import *
 from sqlalchemy.orm.session import Session
@@ -96,12 +96,12 @@ def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[int], session: Sess
     query_revisions = (
         session
         .query(
-            func.array_agg(Revisions.aimedic_id).label(AIMEDIC_ID_COL),
-            func.array_agg(Revisions.revision_date).label(REVISION_DATE_COL),
-            func.array_agg(Revisions.revision_id).label(REVISION_ID_COL),
+            func.array_agg(Revision.aimedic_id).label(AIMEDIC_ID_COL),
+            func.array_agg(Revision.revision_date).label(REVISION_DATE_COL),
+            func.array_agg(Revision.revision_id).label(REVISION_ID_COL),
         )
-        .filter(Revisions.aimedic_id.in_(aimedic_ids))
-        .group_by(Revisions.aimedic_id)
+        .filter(Revision.aimedic_id.in_(aimedic_ids))
+        .group_by(Revision.aimedic_id)
     )
 
     df = pd.read_sql(query_revisions.statement, session.bind)
@@ -126,10 +126,10 @@ def get_diagnoses_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.D
 
     query_diagnoses = (
         session
-        .query(Diagnoses)
-        .with_entities(Diagnoses.aimedic_id, Diagnoses.revision_id, Diagnoses.code, Diagnoses.is_primary)
-        .filter(Diagnoses.aimedic_id.in_(all_aimedic_ids))
-        .filter(Diagnoses.revision_id.in_(all_revision_ids))
+        .query(Diagnosis)
+        .with_entities(Diagnosis.aimedic_id, Diagnosis.revision_id, Diagnosis.code, Diagnosis.is_primary)
+        .filter(Diagnosis.aimedic_id.in_(all_aimedic_ids))
+        .filter(Diagnosis.revision_id.in_(all_revision_ids))
     )
 
     df = pd.read_sql(query_diagnoses.statement, session.bind)
@@ -164,10 +164,10 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.
 
     query_procedures = (
         session
-        .query(Procedures)
-        .with_entities(Procedures.aimedic_id, Procedures.revision_id, Procedures.code, Procedures.side, Procedures.date, Procedures.is_primary)
-        .filter(Procedures.aimedic_id.in_(all_aimedic_ids))
-        .filter(Procedures.revision_id.in_(all_revision_ids))
+        .query(Procedure)
+        .with_entities(Procedure.aimedic_id, Procedure.revision_id, Procedure.code, Procedure.side, Procedure.date, Procedure.is_primary)
+        .filter(Procedure.aimedic_id.in_(all_aimedic_ids))
+        .filter(Procedure.revision_id.in_(all_revision_ids))
     )
 
     df = pd.read_sql(query_procedures.statement, session.bind)
@@ -238,21 +238,21 @@ def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, 
 
     values_info = [(values_dict["aimedic_id"], values_dict['revision_date']) for values_dict in values_to_insert]
 
-    num_rows_before = session.query(Revisions).count()
-    delete_statement = (Revisions.__table__
+    num_rows_before = session.query(Revision).count()
+    delete_statement = (Revision.__table__
                         .delete()
-                        .where(tuple_(Revisions.aimedic_id, Revisions.revision_date).in_(values_info)))
+                        .where(tuple_(Revision.aimedic_id, Revision.revision_date).in_(values_info)))
     session.execute(delete_statement)
     session.commit()
 
-    num_rows_after = session.query(Revisions).count()
+    num_rows_after = session.query(Revision).count()
     if num_rows_after != num_rows_before:
         logger.info(f'Deleted {num_rows_before - num_rows_after} rows from the "Revisions" table, which is about to be updated')
 
-    insert_statement = (Revisions.__table__
+    insert_statement = (Revision.__table__
                         .insert()
                         .values(values_to_insert)
-                        .returning(Revisions.aimedic_id, Revisions.revision_id))
+                        .returning(Revision.aimedic_id, Revision.revision_id))
 
     result = session.execute(insert_statement).fetchall()
     session.commit()
@@ -290,18 +290,18 @@ def insert_revised_cases_into_diagnoses(revised_case_diagnoses: pd.DataFrame, ai
 
     values_info = [(values_dict["aimedic_id"], values_dict['revision_id']) for values_dict in values_to_insert]
 
-    num_rows_before = session.query(Diagnoses).count()
-    delete_statement = (Diagnoses.__table__
+    num_rows_before = session.query(Diagnosis).count()
+    delete_statement = (Diagnosis.__table__
                         .delete()
-                        .where(tuple_(Diagnoses.aimedic_id, Diagnoses.revision_id).in_(values_info)))
+                        .where(tuple_(Diagnosis.aimedic_id, Diagnosis.revision_id).in_(values_info)))
     session.execute(delete_statement)
     session.commit()
 
-    num_rows_after = session.query(Diagnoses).count()
+    num_rows_after = session.query(Diagnosis).count()
     if num_rows_after != num_rows_before:
         logger.info(f'Deleted {num_rows_before - num_rows_after} rows from the "Diagnoses" table, which is about to be updated')
 
-    insert_statement = (Diagnoses.__table__
+    insert_statement = (Diagnosis.__table__
                         .insert()
                         .values(values_to_insert))
 
@@ -346,18 +346,18 @@ def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame, 
 
     values_info = [(values_dict["aimedic_id"], values_dict['revision_id']) for values_dict in values_to_insert]
 
-    num_rows_before = session.query(Procedures).count()
-    delete_statement = (Procedures.__table__
+    num_rows_before = session.query(Procedure).count()
+    delete_statement = (Procedure.__table__
                         .delete()
-                        .where(tuple_(Procedures.aimedic_id, Procedures.revision_id).in_(values_info)))
+                        .where(tuple_(Procedure.aimedic_id, Procedure.revision_id).in_(values_info)))
     session.execute(delete_statement)
     session.commit()
 
-    num_rows_after = session.query(Procedures).count()
+    num_rows_after = session.query(Procedure).count()
     if num_rows_after != num_rows_before:
         logger.info(f"Deleted {num_rows_before - num_rows_after} rows from the 'Procedures' table, which is about to be updated")
 
-    insert_statement = (Procedures.__table__
+    insert_statement = (Procedure.__table__
                         .insert()
                         .values(values_to_insert))
 
