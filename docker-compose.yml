@@ -18,7 +18,7 @@ services:
 
     ports:
       - "8888:8888"
-
+    platform: linux/amd64
     command: >
        sh -c "
         mv /tmp/jars/aimedic-grouper-assembly.jar /home/jovyan/work/resources/jars &&
