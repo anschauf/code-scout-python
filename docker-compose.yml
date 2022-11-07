@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-  code_scout_jupyter:
+  code_scout_python:
     image: jupyter/datascience-notebook:aarch64-lab-3.4.7
     volumes:
       - type: bind
