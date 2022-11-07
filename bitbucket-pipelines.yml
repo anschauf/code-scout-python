@@ -17,7 +17,7 @@ definitions:
     - step: &test
         name: Unit Tests
         script:
-          - docker-compose -v
+          - docker-compose up
 pipelines:
   default:
     - step: *test

@@ -1,17 +1,25 @@
 version: "3.8"
 
 services:
-  code_scout_jupyter:
-    image: jupyter/datascience-notebook:aarch64-lab-3.4.7
+  aws-cli:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+        AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+        AWS_REGION: $AWS_REGION
+        AIMEDIC_GROUPER_VERSION: $AIMEDIC_GROUPER_VERSION
+
     volumes:
       - type: bind
         source: "${PWD}"
         target: /home/jovyan/work
+
     ports:
       - "8888:8888"
-    working_dir: "/home/jovyan/work"
+
     command: >
-       sh -c "python3 -m pip install --upgrade pip &&
-             export PIP_CONSTRAINT=constraints.txt &&
-             pip3 install -r requirements.txt &&
-             '/usr/local/bin/start.sh' jupyter lab"
+       sh -c "
+        mv /tmp/jars/aimedic-grouper-assembly.jar /home/jovyan/work/resources/jars &&
+        '/usr/local/bin/start.sh' jupyter lab --ServerApp.token=''"
