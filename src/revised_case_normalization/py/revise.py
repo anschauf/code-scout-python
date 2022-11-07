@@ -16,6 +16,15 @@ def revise(file_info: FileInfo,
            *,
            validation_cols: list[str] = VALIDATION_COLS
            ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Match revised cases with Database and return revised cases with aimedic_id and other columns of interests after matching.
+
+    @param file_info: An instance of FileInfo, which contains the name and path of filename, hospital name and year and
+                    the sheet name to analyze.
+    @param revised_cases_df: a dataframe of revised cases after normalization
+    @param validation_cols: List of column's names used to validate the revised cases with database cases.
+    @return: Two pandas DataFrame: one contains matched revised cases with DB, one contains unmatched revises cases;
+
+    """
 
     with Database() as db:
         # Read the sociodemographics from the DB, and normalize the case ID by removing leading zeros
@@ -60,6 +69,14 @@ def revise(file_info: FileInfo,
 
 @beartype
 def apply_revisions(cases_df: pd.DataFrame, revisions_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Apply revision to matched cases from DB and update diagonoses and procedure codes based on revision.
+    @param cases_df: A pandas Dataframe contains codes from DB before revision.
+    @param revisions_df: A pandas DataFrame contains codes to be revised, i.e. added and removed diagonoses and procedure codes
+    @return: a pandas DataFrame: contains revised cases after updating diagonoses and procedure codes
+    """
+
+
     revised_cases = pd.merge(cases_df, revisions_df, on=AIMEDIC_ID_COL, how='left')
 
     # Notes:
@@ -69,10 +86,9 @@ def apply_revisions(cases_df: pd.DataFrame, revisions_df: pd.DataFrame) -> pd.Da
     # Add & remove ICD codes from the list of secondary diagnoses
     def revise_diagnoses_codes(row):
         """
-
-        @param row:
-        @return:
+        Update diagnoses codes for a revised case
         """
+
         if isinstance(row[SECONDARY_DIAGNOSES_COL], float):
             row[SECONDARY_DIAGNOSES_COL] = list()
 
@@ -93,10 +109,9 @@ def apply_revisions(cases_df: pd.DataFrame, revisions_df: pd.DataFrame) -> pd.Da
     # Delete the primary procedure if it was removed
     def revise_primary_procedure_code(row):
         """
-
-        @param row:
-        @return:
+        Update primary procedure for a revised case
         """
+
         primary_chop = split_chop_codes([row[PRIMARY_PROCEDURE_COL]])[0][0]  # [0] because there is only one code, [0] to take only the CHOP code itself
 
         if primary_chop in row[REMOVED_CHOP_CODES]:
@@ -107,10 +122,9 @@ def apply_revisions(cases_df: pd.DataFrame, revisions_df: pd.DataFrame) -> pd.Da
     # Add & remove CHOP codes from the list of secondary procedures
     def revise_secondary_procedure_codes(row):
         """
-
-        @param row:
-        @return:
+        Update secondary procedure for a revised case
         """
+
         # Copy the secondary procedures into a new list
         revised_codes = list(row[SECONDARY_PROCEDURES_COL])
 
@@ -145,3 +159,4 @@ def apply_revisions(cases_df: pd.DataFrame, revisions_df: pd.DataFrame) -> pd.Da
     revised_cases = revised_cases.apply(revise_secondary_procedure_codes, axis=1)
 
     return revised_cases
+
