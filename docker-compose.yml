@@ -1,25 +1,25 @@
 version: "3.8"
 
 services:
-  code_scout_python:
-    image: jupyter/datascience-notebook:aarch64-lab-3.4.7
+  aws-cli:
+    build:
+      context: .
+      dockerfile: Dockerfile_PAOLO
+      args:
+        AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+        AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+        AWS_REGION: $AWS_REGION
+        AIMEDIC_GROUPER_VERSION: $AIMEDIC_GROUPER_VERSION
+
     volumes:
       - type: bind
         source: "${PWD}"
         target: /home/jovyan/work
+
     ports:
       - "8888:8888"
-    working_dir: "/home/jovyan/work"
-    user: root
+
     command: >
        sh -c "
-          sudo apt-get update &&
-          sudo apt-get --yes install openjdk-8-jdk &&
-          python3 -m pip install --upgrade pip && pip3 install -r requirements.txt -c constraints.txt &&
-          python3 -m pip install awscli --force-reinstall --upgrade
-          aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID && 
-          aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY && 
-          aws configure set default.region $AWS_REGION &&
-          mkdir -p resources/jars/ &&
-          aws codeartifact get-package-version-asset --domain aimedic --domain-owner 264427866130 --repository aimedic --format maven --namespace ch.aimedic --package aimedic-grouper_2.12 --package-version ${AIMEDIC_GROUPER_VERSION} --asset aimedic-grouper-assembly-${AIMEDIC_GROUPER_VERSION}.jar resources/jars/aimedic-grouper-assembly.jar &&
-          '/usr/local/bin/start.sh' jupyter lab --ServerApp.token='' --ServerApp.password=''"
+        mv /tmp/jars/aimedic-grouper-assembly.jar /home/jovyan/work/resources/jars &&
+        '/usr/local/bin/start.sh' jupyter lab --ServerApp.token=''"
