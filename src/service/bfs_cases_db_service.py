@@ -54,7 +54,7 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int, sessi
     Get the cases filtered by year and hospital name, joined together with all its ICD and CHOP codes.
     @param hospital_name:
     @param year:
-    @return: a Dataframe with all matching cases.
+    @return: a dataframe with all matching cases.
     """
     query_sociodemo = (
         session
@@ -177,7 +177,7 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.
     """
      Retrieve primary and secondary procedures of the revised cases from the DB.
      @param df_revision_ids:
-     @return: a Dataframe containing revision ids, primary and secondary diagnoses
+     @return: a dataframe containing revision ids, primary and secondary diagnoses
      """
 
     all_aimedic_ids = set(df_revision_ids[AIMEDIC_ID_COL].values.tolist())
@@ -229,7 +229,7 @@ def get_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
     """
      Merging information on the diagnoses and procedures from the DB for usage in the revise function (revise.py).
      @param df_revision_ids
-     @return: a Dataframe containing revision ids, diagnoses and procedures
+     @return: a dataframe containing revision ids, diagnoses and procedures
      """
 
     diagnoses_df = get_diagnoses_codes(df_revision_ids, session)
