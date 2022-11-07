@@ -119,9 +119,9 @@ def validate_pd_revised_sd(df: pd.DataFrame,
                            added_icd_col: str = 'added_icds',
                            removed_icd_col: str = 'removed_icds',
                            ) -> pd.DataFrame:
-    """Validate whether a list of old and new primary diagnosis are captured, discarding codes which are not correctly
-    captured. Furthermore, we validate added and removed secondary diagnosis (added_icds and removed icds), discarding
-    those which do not correspond to an added or removed secondary diagnosis respectively.
+    """Compare lists of old and new primary diagnoses, discarding codes which are not correctly captured. "new_pd" is
+    deleted from "added_icds" if it appears in "added_icds". "old_pd" is removed from "removed_icds" if it appears in
+    "removed_icds".
 
     @param df: The data where to perform the filter.
     @param pd_col: The column containing the unrevised primary diagnosis to validate.
