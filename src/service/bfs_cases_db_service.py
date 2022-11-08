@@ -61,7 +61,6 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int, sessi
     query_sociodemo = (
         session
         .query(Sociodemographics)
-        # TODO: Get the list of entities to select from a list of strings, which is in the VALIDATION_COLS list
         .with_entities(Sociodemographics.aimedic_id,
                        Sociodemographics.case_id,
                        Sociodemographics.patient_id,
