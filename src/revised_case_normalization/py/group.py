@@ -5,7 +5,7 @@ from loguru import logger
 from src.revised_case_normalization.py.global_configs import *
 from src.service.aimedic_grouper import group_batch_group_cases
 
-
+@beartype
 def format_for_grouper_one_case(row: pd.Series) -> pd.Series:
 
     """This function formats a single case for the SwissDRG grouper and is applied to the previously generated dataframes
