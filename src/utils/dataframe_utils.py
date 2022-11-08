@@ -163,7 +163,7 @@ def validate_pd_revised_sd(df: pd.DataFrame,
     return df
 
 @beartype
-def _remove_duplicates_case_insensitive(codes_list1: list[str], codes_list2: list[str]) -> (list[str], list[str]):
+def _remove_duplicates_case_insensitive(codes_list1: list[str], codes_list2: list[str]) -> tuple[list[str], list[str]]:
     """Compare 2 lists of CHOP codes, which are formatted as '<code>:<side>:<date>', and remove the codes which appear
     in both lists, regardless of their casing.
 
