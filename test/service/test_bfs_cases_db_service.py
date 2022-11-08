@@ -35,19 +35,19 @@ class TestDbAccess(TestCase):
     def test_get_diagnoses_codes(self):
         with database as db:
             df_revision_ids = get_earliest_revisions_for_aimedic_ids([120078, 119991], db.session)
-            df = get_diagnoses_codes(df_revision_ids)
+            df = get_diagnoses_codes(df_revision_ids, db.session)
         self.assertTrue(df.shape[0] > 0)
 
     def test_get_procedures_codes(self):
         with database as db:
             df_revision_ids = get_earliest_revisions_for_aimedic_ids([1, 2], db.session)
-            df = get_procedures_codes(df_revision_ids)
+            df = get_procedures_codes(df_revision_ids, db.session)
         self.assertTrue(df.shape[0] > 0)
 
     def test_get_codes(self):
         with database as db:
             df_revision_ids = get_earliest_revisions_for_aimedic_ids([120078, 119991], db.session)
-            df = get_codes(df_revision_ids)
+            df = get_codes(df_revision_ids, db.session)
         self.assertTrue(df.shape[0] > 0)
 
     def test_apply_revisions(self):
