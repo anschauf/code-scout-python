@@ -16,35 +16,37 @@ from src.models.sociodemographics import Sociodemographics
 from src.revised_case_normalization.py.global_configs import *
 from sqlalchemy.orm.session import Session
 
-
+@beartype
 def get_bfs_cases_by_ids(case_ids: list, session: Session) -> DataFrame:
     """
-
-    @param case_ids:
-    @param session:
-    @return:
-    """
+     Get records from case_data.Sociodemographics table using case_id
+     @param case_ids: a list of case_id
+     @return: a Dataframe
+     """
     query = (session
              .query(Sociodemographics)
              .filter(Sociodemographics.case_id.in_(case_ids)))
 
     return pd.read_sql(query.statement, session.bind)
 
-
-def get_hospital_cases_df(hospital_name, session: Session) -> DataFrame:
+@beartype
+def get_hospital_cases_df(hospital_name: str, session: Session) -> DataFrame:
     """
+     Get records from case_data.Sociodemographics table using hospital_name
+     @param hospital_name:
+     @return: a Dataframe
+     """
 
-    @param hospital_name:
-
-    @return:
-    """
     query = (session.query(Sociodemographics)
              .join(Hospital)
              .filter(Hospital.hospital_name == hospital_name))
     return pd.read_sql(query.statement, session.bind)
 
-
+@beartype
 def get_clinics(session: Session):
+    """
+    Get all records from dimension.clinic table
+    """
     return session.query(Clinic).all()
 
 
