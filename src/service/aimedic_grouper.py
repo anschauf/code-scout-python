@@ -1,14 +1,17 @@
-import subprocess
 import json
+import subprocess
+
 import pandas as pd
+from beartype import beartype
 from sqlalchemy.sql import null
+
 from src.revised_case_normalization.py.global_configs import *
 
 JAR_FILE_PATH = "/home/jovyan/work/resources/jars/aimedic-grouper-assembly.jar"
 SEPARATOR_CHAR = "#"
 DELIMITER_CHAR = ";"
 
-
+@beartype
 def group_batch_group_cases(batch_group_cases: list[str]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Groups patient cases provided in the SwissDRG Batchgrouper Format 2017 (https://grouper-docs.swissdrg.org/batchgrouper2017-format.html)
