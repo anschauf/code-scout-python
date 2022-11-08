@@ -34,19 +34,20 @@ class TestDbAccess(TestCase):
 
     def test_get_diagnoses_codes(self):
         with database as db:
-            df_revision_ids = get_earliest_revisions_for_aimedic_ids([120078, 119991])
+            df_revision_ids = get_earliest_revisions_for_aimedic_ids([120078, 119991], db.session)
             df = get_diagnoses_codes(df_revision_ids)
         self.assertTrue(df.shape[0] > 0)
 
     def test_get_procedures_codes(self):
         with database as db:
-            df_revision_ids = get_earliest_revisions_for_aimedic_ids([1, 2])
+            df_revision_ids = get_earliest_revisions_for_aimedic_ids([1, 2], db.session)
             df = get_procedures_codes(df_revision_ids)
         self.assertTrue(df.shape[0] > 0)
 
     def test_get_codes(self):
-        df_revision_ids = get_earliest_revisions_for_aimedic_ids([120078, 119991])
-        df = get_codes(df_revision_ids)
+        with database as db:
+            df_revision_ids = get_earliest_revisions_for_aimedic_ids([120078, 119991], db.session)
+            df = get_codes(df_revision_ids)
         self.assertTrue(df.shape[0] > 0)
 
     def test_apply_revisions(self):
@@ -75,7 +76,8 @@ class TestDbAccess(TestCase):
         revision_df = pd.DataFrame([[1, 'G07Z', 0.984, 0.65, 0, '2024-12-31'],
                                     [2, 'F59B', 2.549,	1.495, 4, '2024-12-31']],
                                    columns=['aimedic_id', 'drg', 'drg_cost_weight', 'effective_cost_weight', 'pccl', 'revision_date'])
-        aimedic_id_revision_id = insert_revised_cases_into_revisions(revision_df)
+        with database as db:
+            aimedic_id_revision_id = insert_revised_cases_into_revisions(revision_df, db.session)
 
         self.assertEqual(len(aimedic_id_revision_id), revision_df.shape[0])
         self.assertIsInstance(aimedic_id_revision_id, dict)
@@ -86,7 +88,8 @@ class TestDbAccess(TestCase):
             [1, 'I440', 0, False, False]],
             columns=['aimedic_id', 'code', 'ccl', 'is_primary', 'is_grouper_relevant'])
         aimedic_id_revision_id = {1: 1, 2: 2}
-        insert_revised_cases_into_diagnoses(diagnoses_df, aimedic_id_revision_id)
+        with database as db:
+            insert_revised_cases_into_diagnoses(diagnoses_df, aimedic_id_revision_id, db.session)
         self.assertTrue(True)
 
     def test_insert_revised_cases_into_procedures(self):
@@ -94,5 +97,6 @@ class TestDbAccess(TestCase):
                                      [1, 887910, 'B', '2024-12-31', False, False]],
                                      columns=['aimedic_id', 'code', 'side', 'date', 'is_grouper_relevant', 'is_primary'])
         aimedic_id_revision_id = {1: 1, 2: 2}
-        insert_revised_cases_into_procedures(procedures_df, aimedic_id_revision_id)
+        with database as db:
+            insert_revised_cases_into_procedures(procedures_df, aimedic_id_revision_id, db.session)
         self.assertTrue(True)
