@@ -95,7 +95,6 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int, sessi
 
 @beartype
 def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[int], session: Session) -> pd.DataFrame:
-
     """
      Get earliest revisions of aimedic_ids
      @param aimedic_ids:
@@ -130,10 +129,9 @@ def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[int], session: Sess
 
 @beartype
 def get_diagnoses_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
-
     """
      Retrieve primary and secondary diagnoses of the revised cases from the DB.
-     @param df_revision_ids:
+     @param df_revision_ids: a Dataframe with aimedic_id and revision_id
      @return: a Dataframe containing revision ids, primary and secondary diagnoses
      """
 
@@ -175,10 +173,9 @@ def get_diagnoses_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.D
 
 @beartype
 def get_procedures_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
-
     """
      Retrieve primary and secondary procedures of the revised cases from the DB.
-     @param df_revision_ids:
+     @param df_revision_ids: a Dataframe with aimedic_id and revision_id
      @return: a dataframe containing revision ids, primary and secondary diagnoses
      """
 
@@ -227,12 +224,11 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.
 
 @beartype
 def get_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
-
     """
-     Merging information on the diagnoses and procedures from the DB for usage in the revise function (revise.py).
-     @param df_revision_ids
+    Merging information on the diagnoses and procedures from the DB for usage in the revise function (revise.py)
+     @param df_revision_ids: a Dataframe with aimedic_id and revision_id
      @return: a dataframe containing revision ids, diagnoses and procedures
-     """
+    """
 
     diagnoses_df = get_diagnoses_codes(df_revision_ids, session)
     procedures_df = get_procedures_codes(df_revision_ids, session)
@@ -247,10 +243,10 @@ def get_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
 
 @beartype
 def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, session: Session) -> dict:
-
-    """Insert revised cases into the table coding_revision.revisions.
+    """
+    Insert revised cases into the table coding_revision.revisions
     @param revised_case_revision_df: a Dataframe of revised cases after grouping
-    @return: a dictionary with aimedic_ids as keys and revision_ids as values created after insert into the DB.
+    @return: a dictionary with aimedic_ids as keys and revision_ids as values created after insert into the DB
     """
     logger.info(f"Trying to insert {revised_case_revision_df.shape[0]} cases into the 'Revisions' table ...")
     revision_list = revised_case_revision_df.to_dict(orient='records')
@@ -296,10 +292,10 @@ def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, 
 @beartype
 def insert_revised_cases_into_diagnoses(revised_case_diagnoses: pd.DataFrame, aimedic_id_with_revision_id: dict, session: Session):
     """
-    Insert revised cases into the table coding_revision.diagnoses.
-    @param revised_case_diagnoses: a Dataframe of revised cases for diagnoses after grouping.
+    Insert revised cases into the table coding_revision.diagnoses
+    @param revised_case_diagnoses: a Dataframe of revised cases for diagnoses after grouping
     @param aimedic_id_with_revision_id: a dictionary with aimedic_ids as keys and revision_ids as values which are created
-        after insert into the DB.
+        after insert into the DB
     """
     logger.info(f"Trying to insert {revised_case_diagnoses.shape[0]} rows into the 'Diagnoses' table ...")
 
