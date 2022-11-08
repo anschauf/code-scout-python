@@ -162,7 +162,7 @@ def validate_pd_revised_sd(df: pd.DataFrame,
 
     return df
 
-
+@beartype
 def _remove_duplicates_case_insensitive(codes_list1: list[str], codes_list2: list[str]) -> (list[str], list[str]):
     """Compare 2 lists of CHOP codes, which are formatted as '<code>:<side>:<date>', and remove the codes which appear
     in both lists, regardless of their casing.
@@ -193,7 +193,7 @@ def _remove_duplicates_case_insensitive(codes_list1: list[str], codes_list2: lis
         cleaned_codes_list2 = [':'.join(codes_info) for codes_info in cleaned_codes_list2_split]
         return cleaned_codes_list1, cleaned_codes_list2
 
-
+@beartype
 def _filter_out_codes_from_list(codes_list: list[list[str]], *, codes_to_filter_out: set[str]) -> list[list[str]]:
     """Remove codes from a list of CHOP codes info. The codes are compared all upper-cased.
 
@@ -208,12 +208,12 @@ def _filter_out_codes_from_list(codes_list: list[list[str]], *, codes_to_filter_
 
     return clean_codes_list
 
-
+@beartype
 def _filter_empty_strings(lst: list[str]) -> list[str]:
     """Remove empty strings from a list."""
     return [item for item in lst if item != '']
 
-
+@beartype
 def _get_list_diff_case_insensitive(list1: list[str], list2: list[str]) -> set[str]:
     """Lists the items which are different between 2 lists, returning them upper-case."""
     upper_list1 = [item.upper() for item in list1]
