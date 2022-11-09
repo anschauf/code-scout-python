@@ -17,13 +17,13 @@ RUN aws codeartifact get-package-version-asset --domain aimedic --domain-owner 2
 FROM jupyter/datascience-notebook
 
 RUN mkdir -p "/tmp/jars"
-RUN chown -R root:root /tmp/jars
+RUN sudo chown -R root:root /tmp/jars
 
 COPY --from=AWS-CLI /tmp/jars/aimedic-grouper-assembly.jar /tmp/jars
 
 WORKDIR "/home/jovyan/work"
 RUN mkdir -p "./resources/jars"
-RUN chown -R root:root /home/jovyan/work
+RUN sudo chown -R root:root /home/jovyan/work
 
 RUN python3 -m pip install --upgrade pip
 COPY requirements.txt .
