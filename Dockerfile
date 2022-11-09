@@ -17,6 +17,8 @@ RUN aws codeartifact get-package-version-asset --domain aimedic --domain-owner 2
 FROM jupyter/datascience-notebook
 
 RUN mkdir -p "/tmp/jars"
+RUN chown -R root:root /tmp/jars
+RUN chown -R root:root /home/jovyan/work
 COPY --from=AWS-CLI /tmp/jars/aimedic-grouper-assembly.jar /tmp/jars
 
 WORKDIR "/home/jovyan/work"
