@@ -1,8 +1,8 @@
 import unittest
 import pandas as pd
 
-from src.revised_case_normalization.py.group import format_for_grouper
-from src.revised_case_normalization.py.global_configs import GROUPER_FORMAT_COL
+from src.revised_case_normalization.notebook_functions.group import format_for_grouper
+from src.revised_case_normalization.notebook_functions.global_configs import GROUPER_FORMAT_COL
 
 
 class GroupTest(unittest.TestCase):

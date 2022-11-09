@@ -13,7 +13,7 @@ from src.models.hospital import Hospital
 from src.models.procedure import Procedure
 from src.models.revision import Revision
 from src.models.sociodemographics import Sociodemographics
-from src.revised_case_normalization.py.global_configs import *
+from src.revised_case_normalization.notebook_functions.global_configs import *
 from sqlalchemy.orm.session import Session
 
 @beartype
@@ -224,7 +224,7 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.
 @beartype
 def get_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
     """
-    Merging information on the diagnoses and procedures from the DB for usage in the revise function (revise.py)
+    Merging information on the diagnoses and procedures from the DB for usage in the revise function (revise.notebook_functions)
      @param df_revision_ids: a Dataframe with aimedic_id and revision_id
      @return: a dataframe containing revision ids, diagnoses and procedures
     """

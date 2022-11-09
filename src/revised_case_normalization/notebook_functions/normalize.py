@@ -3,7 +3,7 @@ import pandas as pd
 from beartype import beartype
 from loguru import logger
 
-from src.revised_case_normalization.py.global_configs import *
+from src.revised_case_normalization.notebook_functions.global_configs import *
 from src.utils.dataframe_utils import validate_icd_codes, validate_chop_codes, remove_duplicated_chops, \
     validate_pd_revised_sd
 

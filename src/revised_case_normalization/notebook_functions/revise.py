@@ -2,8 +2,8 @@ import pandas as pd
 from beartype import beartype
 from loguru import logger
 
-from src.revised_case_normalization.py.global_configs import *
-from src.revised_case_normalization.py.normalize import remove_leading_zeros
+from src.revised_case_normalization.notebook_functions.global_configs import *
+from src.revised_case_normalization.notebook_functions.normalize import remove_leading_zeros
 from src.service.bfs_cases_db_service import get_sociodemographics_for_hospital_year, \
     get_earliest_revisions_for_aimedic_ids, get_codes
 from src.utils.chop_validation import split_chop_codes

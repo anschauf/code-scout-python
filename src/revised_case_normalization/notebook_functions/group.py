@@ -2,7 +2,7 @@ import pandas as pd
 from beartype import beartype
 from loguru import logger
 
-from src.revised_case_normalization.py.global_configs import *
+from src.revised_case_normalization.notebook_functions.global_configs import *
 from src.service.aimedic_grouper import group_batch_group_cases
 
 @beartype
