@@ -1,5 +1,5 @@
 from src.models.base import Base
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String
 
 
 class Hospital(Base):
