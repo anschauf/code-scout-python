@@ -1,1 +1,2 @@
-matplotlib==3.5.3
+openpyxl>=3
+pyarrow>=8
