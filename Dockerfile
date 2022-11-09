@@ -16,7 +16,7 @@ RUN aws codeartifact get-package-version-asset --domain aimedic --domain-owner 2
 
 FROM jupyter/datascience-notebook
 
-USER root
+
 RUN mkdir -p "/tmp/jars"
 RUN chown -R root:root /tmp/jars
 
@@ -30,3 +30,5 @@ RUN python3 -m pip install --upgrade pip
 COPY requirements.txt .
 COPY constraints.txt .
 RUN pip3 install -r requirements.txt -c constraints.txt
+RUN echo $USER
+RUN find / -uid 100 -ls
