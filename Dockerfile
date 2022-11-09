@@ -28,7 +28,7 @@ WORKDIR "/home/jovyan/work"
 RUN mkdir -p "./resources/jars"
 RUN chown -R root:root /home/jovyan/work
 
-RUN python3 -m pip install --upgrade pip
+#RUN python3 -m pip install --upgrade pip
 COPY requirements.txt .
 COPY constraints.txt .
 
