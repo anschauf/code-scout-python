@@ -12,8 +12,16 @@ from src.utils import save_figure_to_pdf_on_s3
 def plot_heatmap_comparing_all_case_code_rankings(*,
                                                   dir_results: str,
                                                   s3_bucket: str = 'code-scout'
-                                                  ):
+                                                  ) -> object:
+    """ This function generates clustermaps of all case code rankings. The output contains the four following clustermaps:
+            - clustermap on non-standardised rankings on all cases
+            - clustermap on log-standardised rankings on all cases
+            - clustermap on non-standardised rankings with threshold on rank 10
+            - clustermap on log-standardised rankings with threshold on rank 10
 
+    @param dir_results: The output directory.
+    @param s3_bucket: The S3 bucket.
+    """
     all_files = wr.s3.list_objects(dir_results)
     all_files = [x for x in all_files if x.endswith(".csv") and not x.endswith('all_ranks.csv')]
 
