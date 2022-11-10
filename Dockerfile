@@ -1,4 +1,4 @@
-FROM jupyter/datascience-notebook:aarch64-lab-3.4.7
+FROM jupyter/datascience-notebook
 
 ARG AWS_ACCESS_KEY_ID
 ARG AWS_SECRET_ACCESS_KEY
