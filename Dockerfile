@@ -10,10 +10,14 @@ ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 ENV AWS_REGION=${AWS_REGION}
 ENV AIMEDIC_GROUPER_VERSION=${AIMEDIC_GROUPER_VERSION}
 
+COPY requirements.txt .
+COPY constraints.txt .
+
 USER root
 RUN apt-get update
 RUN apt-get --yes install openjdk-11-jdk
 RUN python3 -m pip install --upgrade pip
+RUN pip3 install -r requirements.txt -c constraints.txt
 RUN python3 -m pip install awscli --force-reinstall --upgrade
 
 RUN aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
