@@ -45,6 +45,7 @@ def normalize(fi: FileInfo,
 
     # Fix unavailable duration of stay
     df[DURATION_OF_STAY_COL] = df[DURATION_OF_STAY_COL].replace('n.ü.', np.nan)
+    df.dropna(subset=VALIDATION_COLS, inplace=True)
 
     # Fix format of some columns
     lstrip_fun = lambda x: x.lstrip("'")
@@ -62,7 +63,6 @@ def normalize(fi: FileInfo,
     non_existing_validation_cols = set(VALIDATION_COLS).difference(df.columns)
     if len(non_existing_validation_cols) > 0:
         raise ValueError(f'The following columns to validate did not exist: {sorted(list(non_existing_validation_cols))}')
-    df.dropna(subset=VALIDATION_COLS, inplace=True)
     n_valid_rows = df.shape[0]
     if n_valid_rows < n_all_rows:
         logger.info(f'{n_all_rows - n_valid_rows}/{n_all_rows} rows were deleted because contained NaNs')
