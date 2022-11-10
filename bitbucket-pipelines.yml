@@ -4,7 +4,7 @@ options:
   max-time: 60
   docker: true
 
-image: alpinelinux/docker-compose
+#image: alpinelinux/docker-compose
 
 definitions:
   steps:
