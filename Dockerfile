@@ -1,4 +1,4 @@
-FROM amazon/aws-cli AS AWS-CLI
+FROM arm64v8/python:3.10.7
 
 ARG AWS_ACCESS_KEY_ID
 ARG AWS_SECRET_ACCESS_KEY
@@ -10,9 +10,14 @@ ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 ENV AWS_REGION=${AWS_REGION}
 ENV AIMEDIC_GROUPER_VERSION=${AIMEDIC_GROUPER_VERSION}
 
+RUN apt-get update
+RUN python3 -m pip install --upgrade pip
+RUN python3 -m pip install awscli --force-reinstall --upgrade
+
 RUN aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
 RUN aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
 RUN aws configure set default.region ${AWS_REGION}
+
 
 RUN mkdir "/tmp/jars"
 RUN aws codeartifact get-package-version-asset \
