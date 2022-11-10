@@ -35,7 +35,14 @@ definitions:
           - coverage xml
         artifacts:
           - coverage.xml
+    - step: &sonar
+        name: Sonar
+        script:
+          - pipe: sonarsource/sonarcloud-scan:1.2.2
+            variables:
+              SONAR_TOKEN: ${SONAR_TOKEN}
 pipelines:
   default:
     - step: *build-test-env
     - step: *test
+    - step: *sonar
