@@ -1,4 +1,4 @@
-FROM arm64v8/python:3.10.7
+FROM jupyter/datascience-notebook:aarch64-lab-3.4.7
 
 ARG AWS_ACCESS_KEY_ID
 ARG AWS_SECRET_ACCESS_KEY
@@ -10,7 +10,9 @@ ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 ENV AWS_REGION=${AWS_REGION}
 ENV AIMEDIC_GROUPER_VERSION=${AIMEDIC_GROUPER_VERSION}
 
+USER root
 RUN apt-get update
+RUN apt-get --yes install openjdk-11-jdk
 RUN python3 -m pip install --upgrade pip
 RUN python3 -m pip install awscli --force-reinstall --upgrade
 
