@@ -5,6 +5,8 @@ awswrangler
 boto3
 numpy
 pandas
+openpyxl
+pyarrow
 
 # Plotting
 matplotlib
@@ -12,6 +14,7 @@ matplotlib
 # database
 psycopg2-binary
 sqlalchemy
+marshmallow_sqlalchemy
 
 # environment variable
 python-decouple
