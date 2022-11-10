@@ -5,30 +5,27 @@ ARG AWS_SECRET_ACCESS_KEY
 ARG AWS_REGION
 ARG AIMEDIC_GROUPER_VERSION
 
-
-ENV AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-ENV AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-ENV AWS_REGION=$AWS_REGION
-ENV AIMEDIC_GROUPER_VERSION=$AIMEDIC_GROUPER_VERSION
-
-
-#ENV test_var=$test_var
-#ENV AWS_SECRET_ACCESS_KEY $AWS_SECRET_ACCESS_KEY
-#ENV AWS_REGION eu-central-1
-
-#USER root
-#RUN yum update
-#RUN yum install -y java
-
-RUN echo ${AWS_REGION}
+ENV AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+ENV AWS_REGION=${AWS_REGION}
+ENV AIMEDIC_GROUPER_VERSION=${AIMEDIC_GROUPER_VERSION}
 
 RUN aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
 RUN aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
 RUN aws configure set default.region ${AWS_REGION}
 
-
 RUN mkdir "/tmp/jars"
-RUN aws codeartifact get-package-version-asset --domain aimedic --domain-owner 264427866130 --repository aimedic --format maven --namespace ch.aimedic --package aimedic-grouper_2.12 --package-version ${AIMEDIC_GROUPER_VERSION} --asset aimedic-grouper-assembly-${AIMEDIC_GROUPER_VERSION}.jar /tmp/jars/aimedic-grouper-assembly.jar
+RUN aws codeartifact get-package-version-asset \
+    --domain aimedic \
+    --domain-owner 264427866130  \
+    --repository aimedic  \
+    --format maven  \
+    --namespace ch.aimedic  \
+    --package aimedic-grouper_2.12  \
+    --package-version ${AIMEDIC_GROUPER_VERSION}  \
+    --asset aimedic-grouper-assembly-${AIMEDIC_GROUPER_VERSION}.jar  \
+    /tmp/jars/aimedic-grouper-assembly.jar
+
 
 #FROM jupyter/datascience-notebook
 #
