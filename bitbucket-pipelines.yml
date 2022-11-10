@@ -26,7 +26,7 @@ definitions:
         size: 2x
         name: Unit Tests
         image:
-          name: aimedicch/code-scout-python-bitbucket-pipeline:latest
+          name: andyaimedic/test-code-scout-python-bitbucket-pipeline:latest
           username: $DOCKER_HUB_USER
           password: $DOCKER_HUB_PASSWORD
           email: $DOCKER_HUB_EMAIL
