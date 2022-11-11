@@ -37,28 +37,3 @@ RUN aws codeartifact get-package-version-asset \
     --asset aimedic-grouper-assembly-${AIMEDIC_GROUPER_VERSION}.jar  \
     /tmp/jars/aimedic-grouper-assembly.jar
 
-
-#FROM jupyter/datascience-notebook
-#
-#RUN echo $USER
-#
-#USER root
-##RUN mkdir -p "/tmp/jars"
-##RUN chown -R root:root /tmp/jars
-#
-#
-#WORKDIR "/home/jovyan/work"
-#RUN mkdir -p "./resources/jars"
-#RUN chown -R root:root /home/jovyan/work
-#
-#COPY --from=AWS-CLI /tmp/jars/aimedic-grouper-assembly.jar /resources/jars
-#
-##RUN python3 -m pip install --upgrade pip
-#COPY requirements.txt .
-#COPY constraints.txt .
-#
-#RUN #find / -uid 100 -ls
-#
-#RUN pip3 install -r requirements.txt -c constraints.txt
-#RUN #'/usr/local/bin/start.sh' jupyter lab --ServerApp.token=''
-

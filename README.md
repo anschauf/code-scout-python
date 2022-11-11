@@ -30,40 +30,23 @@ The detailed description of the CodeScout apps can be found here [RFC 0011 - Per
 
 Python 3, Docker Desktop and the PyCharm IDE must be installed locally => see Technology stack
 
-#### Installation 
+#### Setup
 
-1. Open the project folder in PyCharm 
-2. In the run configurations at the top right, you need to launch the build of the docker container.
-3. After the container is built successfully you need to set the python interpreter for PyCharm.
-4. Go to the interpreter settings in PyCharm.
-5. Click the gear icon and select add.
-6. Select the image which you created in the previous step. Default: Remote Python 3.10.5 Docker (codescout-performance-app)
-7. Copy and rename the file `.env-example` to `.env` and replace all variables with values found in the App: `KeePass > aimedic > AWS > databases`
+1. Duplicate the `.env-example` file and name the file `.env`
+2. Insert all env variables into the file. You find them in KeePass
+   1. All `BFS_CASES_DB_*` are found under `aimedic/AWS/databases` 
+   2. `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` is your personal AWS Key
+   3. `AWS_REGION` is **eu-central-1**
+   4. The most recent `AIMEDIC_GROUPER_VERSION` you find on [AWS CodeArtifact](https://eu-central-1.console.aws.amazon.com/codesuite/codeartifact/d/264427866130/aimedic/r/aimedic/p/maven/ch.aimedic/aimedic-grouper_2.12/versions?region=eu-central-1&package-versions-meta=eyJmIjp7fSwicyI6e30sIm4iOjIwLCJpIjowfQ)
+3. From the run configs click `Add configuration`. Under `Shell script` you should find run configs for `dockerfile.sh`. Click **OK** ro add the configs.
+4. Run the shell script by hitting the green arrow button.
+5. In the terminal it should now start a Docker build. Wait until it has finished buidling.
+6. Once finished you see a localhost URL in the output. Open it and a jupyter notebook opens in your browser
+7. You are ready to code =)
 
-#### Setting up the Docker Environment and interpreter in the PyCharm IDE
-
-For the apps to run, it is to be ensured that the docker environment is set up as follows in the PyCharm IDE 
-**(Run > Edit configurations...)**:
-
-<img src="resources/images/readme/run_debug_config_docker.png" width="700">
-
-
-
-
-To run the case ranking and code ranking tier apps, the following configurations are needed in the PyCharm IDE 
-(here shown in the case ranking tier) **(Run > Edit configurations...)**:
-
-<img src="resources/images/readme/config_case_ranking.png" width="700">
-
-The script path as well as the working directory are set up according to the individual local space of the user.
-Another thing to ensure is that the **AWS Connection** is set to "Use the currently selected credential profile/region" (also in <b>(Run > Edit configurations...)</b>) is set up as follows:
-
-<img src="resources/images/readme/aws_config.png"width="700">
-
-Further, the AWS Connection setting (bottom right in PyCharm IDE) are to be set up as follows:
-
-<img height="201" src="resources/images/readme/aws_connection_settings.png" width="206"/>
-
+> It is important that you alway call the shell-script `dockerfile.sh` and not the Dockerfile itself.
+> 
+> As there the environment variables are not loaded in upfront and the building of the Dockerfile will fail.
 
 ### Input and Output
 
@@ -103,6 +86,8 @@ to restructuring.
 
 - Lirui Zhang
 - Michael Kunz 
+
+
 
 
 
