@@ -19,9 +19,9 @@ The detailed description of the CodeScout apps can be found here [RFC 0011 - Per
 
 ### Technology Stack
 
-- Python 3.10.5
-- Docker Desktop
-- PyCharm IDE
+- [Python 3.10.5](https://www.python.org/downloads/)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- [PyCharm IDE](https://www.jetbrains.com/pycharm/promo/?source=google&medium=cpc&campaign=14123077402&term=pycharm)
 
 
 ## Getting Started
