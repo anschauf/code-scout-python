@@ -8,12 +8,6 @@ options:
 
 definitions:
   steps:
-    - step: &sonar
-        name: Sonar
-        script:
-          - pipe: sonarsource/sonarcloud-scan:1.2.2
-            variables:
-              SONAR_TOKEN: ${SONAR_TOKEN}
     - step: &build-test-env
         name: Build Bitbucket Test environment
         services:
