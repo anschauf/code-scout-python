@@ -83,7 +83,7 @@ GROUPER_FORMAT_COL = 'batchgrouper_format'
 # Define a common mapping from some column names to our normalized names. 
 # Mind that columns are converted to lower case when read from the file.
 COLUMNS_TO_RENAME = {
-    'admno': CASE_ID_COL,  
+    'admno': CASE_ID_COL,
     'patid': PATIENT_ID_COL,
     'geschlecht': GENDER_COL,
     'alter (jahre)': AGE_COL,

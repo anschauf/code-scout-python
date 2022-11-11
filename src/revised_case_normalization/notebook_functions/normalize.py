@@ -37,6 +37,9 @@ def normalize(fi: FileInfo,
     # Convert all column names to lower-case, so we don't have to deal with columns named `HD Alt` vs `HD alt`
     df.columns = [c.lower() for c in df.columns]
 
+    # exception: if existant, rename column 'fall nummer' to 'admno'
+    df = df.rename(columns={'fall nummer': 'admno'})
+
     # Renaming columns that don't exist is a no-op. Make sure that all names actually exist
     non_existing_columns_to_rename = set(columns_mapper.keys()).difference(df.columns)
     if len(non_existing_columns_to_rename) > 0:
