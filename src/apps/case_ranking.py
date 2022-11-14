@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from src import venn
 from src.files import load_revised_cases, load_all_rankings
 from src.schema import case_id_col, prob_most_likely_code_col
-from src.utils import save_figure_to_pdf_on_s3
+from src.utils.general_utils import save_figure_to_pdf_on_s3
 
 
 def create_rankings_of_revised_cases(*,
@@ -120,8 +120,8 @@ def create_rankings_of_revised_cases(*,
 
 if __name__ == '__main__':
     create_rankings_of_revised_cases(
-        filename_revised_cases="s3://code-scout/performance-measuring/CodeScout_GroundTruthforPerformanceMeasuring.csv",
-        dir_rankings='s3://code-scout/performance-measuring/code_rankings/2022-09-14_first-filter-comparison_ksw/',
-        dir_output="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw_2019_2_case_ranking_tier_plots/",
+        filename_revised_cases="s3://code-scout/hackathon/aimedic_id_revised_cases_test.csv",
+        dir_rankings='s3://code-scout/hackathon/test_run_case_rankings/',
+        dir_output="s3://code-scout/hackathon/test_run_case_rankings_results/",
         s3_bucket='code-scout'
     )

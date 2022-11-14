@@ -43,6 +43,26 @@ def get_hospital_cases_df(hospital_name: str, session: Session) -> DataFrame:
     return pd.read_sql(query.statement, session.bind)
 
 @beartype
+def get_all_cases_socio_demographics_df(session: Session) -> DataFrame:
+    """
+     Get all records from case_data.Sociodemographics
+     @return: a Dataframe
+     """
+
+    query = (session.query(Sociodemographics))
+    return pd.read_sql(query.statement, session.bind)
+
+@beartype
+def get_all_revisions_df(session: Session) -> DataFrame:
+    """
+     Get all records from coding_revisions.revisions
+     @return: a Dataframe
+     """
+
+    query = (session.query(Revision))
+    return pd.read_sql(query.statement, session.bind)
+
+@beartype
 def get_clinics(session: Session):
     """
     Get all records from dimension.clinic table
@@ -90,6 +110,33 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int, sessi
         logger.info(f"Read {num_cases_in_db} rows from the DB, for the hospital '{hospital_name}' in {year}")
 
     return df
+
+@beartype
+def get_patient_case_for_aimedic_ids_df(aimedic_ids: list[int], session: Session) -> pd.DataFrame:
+    """ Get socio-demographics and revision data.
+
+    @param aimedic_ids: Aimedic IDs to look for.
+    @param session: The database session.
+    @return: A dataframe containing socio-demographics and revision data for patient case.
+    """
+    query_socio_demographics = (
+        session
+        .query(Sociodemographics)
+        .filter(Sociodemographics.aimedic_id.in_(aimedic_ids))
+    )
+    df_socio_demographics = pd.read_sql(query_socio_demographics.statement, session.bind)
+
+    query_revisions = (
+        session
+        .query(Revision)
+        .filter(Revision.aimedic_id.in_(aimedic_ids))
+    )
+    df_revisions = pd.read_sql(query_revisions.statement, session.bind)
+    df_revisions_cols = df_revisions.columns.tolist()
+    df_revisions_cols.remove('aimedic_id')
+    df_revisions = df_revisions.groupby('aimedic_id', as_index=False)[df_revisions_cols].agg(lambda x: list(x))
+
+    return pd.merge(df_socio_demographics, df_revisions, how='outer', on='aimedic_id')
 
 
 @beartype
