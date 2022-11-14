@@ -19,7 +19,7 @@ class Database:
 
     Example usage: Inject the session to a Database function, which makes use of it.
         with Database() as db:
-            insert_revised_cases_into_diagnoses(diagnoses_df, aimedic_id_with_revision_id, db.session)
+            get_clinics(db.session)
     """
 
     def __init__(self,
