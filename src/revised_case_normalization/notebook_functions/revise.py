@@ -47,7 +47,7 @@ def revise(file_info: FileInfo,
             logger.warning(f'{num_unmatched} rows could not be matched, given {sorted(validation_cols)}')
 
         # Retrieve the codes from the DB
-        original_revision_ids = get_earliest_revisions_for_aimedic_ids(matched_cases[AIMEDIC_ID_COL].values.tolist(), db.session)
+        original_revision_ids = get_earliest_revisions_for_aimedic_ids(matched_cases[AIMEDIC_ID_COL].astype(int).values.tolist(), db.session)
         original_cases = get_codes(original_revision_ids, db.session)
 
         # Apply the revisions to the cases from the DB
@@ -63,6 +63,13 @@ def revise(file_info: FileInfo,
             GENDER_COL, AGE_COL, AGE_DAYS_COL, GESTATION_AGE_COL, DURATION_OF_STAY_COL, VENTILATION_HOURS_COL,
             ADMISSION_TYPE_COL, ADMISSION_DATE_COL, ADMISSION_WEIGHT_COL, DISCHARGE_TYPE_COL, DISCHARGE_DATE_COL
         ]]
+
+        # Format columns to integer before calling the group function
+
+        revised_cases[AGE_DAYS_COL] = revised_cases[AGE_DAYS_COL].astype(int)
+        revised_cases[GESTATION_AGE_COL] = revised_cases[GESTATION_AGE_COL].astype(int)
+        revised_cases[VENTILATION_HOURS_COL] = revised_cases[VENTILATION_HOURS_COL].astype(int)
+        revised_cases[ADMISSION_WEIGHT_COL] = revised_cases[ADMISSION_WEIGHT_COL].astype(int)
 
         return revised_cases, unmatched_cases
 
