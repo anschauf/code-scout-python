@@ -1,7 +1,7 @@
 from os import makedirs
 from os.path import join, exists
 
-import pandas as pd
+import awswrangler as wr
 
 from src.sandbox_hackathon_utils import load_data, train_lr_model, write_model_coefs_to_file, predict_proba, \
     write_evaluation_metrics_to_file, extract_case_ranking_performance_app
@@ -11,8 +11,8 @@ if not exists(dir_output):
     makedirs(dir_output)
 
 # load meta data containing aimedic id and label (whether the case was revised)
-meta_data_train = pd.read_csv(join('aimedic_id_label_data_train.csv'))
-meta_data_test = pd.read_csv(join('aimedic_id_label_data_test.csv'))
+meta_data_train = wr.s3.read_csv("s3://code-scout/hackathon/aimedic_id_label_data_train.csv")
+meta_data_test = wr.s3.read_csv("s3://code-scout/hackathon/aimedic_id_label_data_test.csv")
 
 # read in all data from DB and merge it with the labels from the meta data
 data_train = load_data(meta_data_train)
