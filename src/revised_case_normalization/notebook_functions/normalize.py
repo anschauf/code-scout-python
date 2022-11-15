@@ -37,6 +37,7 @@ def normalize(fi: FileInfo,
     # Convert all column names to lower-case, so we don't have to deal with columns named `HD Alt` vs `HD alt`
     df.columns = [c.lower() for c in df.columns]
 
+    # TODO: Remove line once the hospital with "fall nummer" is found
     # exception: if existant, rename column 'fall nummer' to 'admno'
     df = df.rename(columns={'fall nummer': 'admno'})
 
