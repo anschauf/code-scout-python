@@ -40,9 +40,14 @@ def format_for_grouper_one_case(row: pd.Series) -> pd.Series:
 
     primary_procedure = row[PRIMARY_PROCEDURE_COL]
     secondary_procedures = '|'.join(row[SECONDARY_PROCEDURES_COL])
-    procedures = f'{primary_procedure}|{secondary_procedures}'
 
-    primary_diagnosis = row[NEW_PRIMARY_DIAGNOSIS_COL]
+    # check if primary procedure is not defined or not an empty str
+    if not primary_procedure or len(primary_procedure) == 0:
+        procedures = f'{secondary_procedures}'
+    else:
+        procedures = f'{primary_procedure}|{secondary_procedures}'
+
+    primary_diagnosis = str(row[NEW_PRIMARY_DIAGNOSIS_COL])
     secondary_diagnoses = '|'.join(row[SECONDARY_DIAGNOSES_COL])
     diagnoses = f'{primary_diagnosis}|{secondary_diagnoses}'
 
