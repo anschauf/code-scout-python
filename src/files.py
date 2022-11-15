@@ -8,7 +8,7 @@ from beartype import beartype
 from loguru import logger
 
 from src.schema import case_id_col, suggested_code_rankings_split_col, prob_most_likely_code_col
-from src.utils import split_codes
+from src.utils_apps import split_codes
 
 
 def load_revised_cases(filename_revised_cases: str) -> pd.DataFrame:

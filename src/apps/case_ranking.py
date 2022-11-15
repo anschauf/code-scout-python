@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from src import venn
 from src.files import load_revised_cases, load_all_rankings
 from src.schema import case_id_col, prob_most_likely_code_col
-from src.utils import save_figure_to_pdf_on_s3
+from src.utils_apps import save_figure_to_pdf_on_s3
 
 
 def create_rankings_of_revised_cases(*,
