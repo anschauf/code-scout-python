@@ -34,10 +34,6 @@ def normalize(fi: FileInfo,
     n_all_rows = df.shape[0]
     logger.info(f'Read {n_all_rows} cases for {fi.hospital_name_db} {fi.year}')
 
-    # Change the FID to AdmNo for winterthur 2019
-    if fi.hospital_name_db == 'KSW' and fi.year == '2019':
-        df = df.rename(columns={'FID': 'AdmNo'})
-
     # Convert all column names to lower-case, so we don't have to deal with columns named `HD Alt` vs `HD alt`
     df.columns = [c.lower() for c in df.columns]
 
@@ -47,7 +43,7 @@ def normalize(fi: FileInfo,
     # Renaming columns that don't exist is a no-op. Make sure that all names actually exist
     non_existing_columns_to_rename = set(columns_mapper.keys()).difference(df.columns)
     if len(non_existing_columns_to_rename) > 0:
-        raise ValueError(f'The following columns to rename did not exist: {sorted(list(non_existing_columns_to_rename))}')
+        raise ValueError(f'The following columns to rename did not exist: {sorted(list(non_existing_columns_to_rename))}. Available columns are {list(df.columns)}')
     df.rename(columns=columns_mapper, inplace=True)
 
     # Fix unavailable duration of stay
