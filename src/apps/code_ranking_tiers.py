@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 from src.files import load_revised_cases, load_all_rankings
 from src.rankings import LABEL_NOT_SUGGESTED, RANKING_LABELS, RANKING_RANGES
 from src.schema import case_id_col, suggested_code_rankings_split_col
-from src.utils import save_figure_to_pdf_on_s3
+from src.utils.general_utils import save_figure_to_pdf_on_s3
 
 
 def calculate_code_ranking_performance(*,
