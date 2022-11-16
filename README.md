@@ -42,9 +42,12 @@ Python 3, Docker Desktop and the PyCharm IDE must be installed locally => see Te
 4. Run the shell script by hitting the green arrow button.
 5. In the terminal it should now start a Docker build. Wait until it has finished buidling.
 6. Once finished you see a localhost URL in the output. Open it and a jupyter notebook opens in your browser
-7. You are ready to code =)
+7. You are ready to code in the jupyter notebook =)
+8. If you want to set the intepreter in PyCharm, do the following:
+   1. Open Python `Intepreter settings > Add intepreter > Docker >Image name (Dropdown)`
+   2. Choose `code-scout-python:latest`
 
-> It is important that you alway call the shell-script `dockerfile.sh` and not the Dockerfile itself.
+> It is important that you always call the shell-script `dockerfile.sh` and not the Dockerfile itself.
 > 
 > As there the environment variables are not loaded in upfront and the building of the Dockerfile will fail.
 
