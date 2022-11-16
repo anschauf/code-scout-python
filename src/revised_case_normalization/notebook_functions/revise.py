@@ -32,8 +32,7 @@ def revise(file_info: FileInfo,
 
     with Database() as db:
         # Read the sociodemographics from the DB, and normalize the case ID by removing leading zeros
-        cases_in_db = get_sociodemographics_for_hospital_year(file_info.hospital_name_db, int(file_info.year),
-                                                              db.session)
+        cases_in_db = get_sociodemographics_for_hospital_year(file_info.hospital_name_db, int(file_info.year), db.session)
         cases_in_db[NORM_CASE_ID_COL] = cases_in_db[CASE_ID_COL].apply(remove_leading_zeros)
 
         # Merge cases in DB with the revised cases
@@ -52,8 +51,7 @@ def revise(file_info: FileInfo,
             logger.warning(f'{num_unmatched} rows could not be matched, given {sorted(validation_cols)}')
 
         # Retrieve the codes from the DB
-        original_revision_ids = get_earliest_revisions_for_aimedic_ids(matched_cases[AIMEDIC_ID_COL].values.tolist(),
-                                                                       db.session)
+        original_revision_ids = get_earliest_revisions_for_aimedic_ids(matched_cases[AIMEDIC_ID_COL].astype(int).values.tolist(), db.session)
         original_cases = get_codes(original_revision_ids, db.session)
 
         # Apply the revisions to the cases from the DB
@@ -69,6 +67,13 @@ def revise(file_info: FileInfo,
             GENDER_COL, AGE_COL, AGE_DAYS_COL, GESTATION_AGE_COL, DURATION_OF_STAY_COL, VENTILATION_HOURS_COL,
             ADMISSION_TYPE_COL, ADMISSION_DATE_COL, ADMISSION_WEIGHT_COL, DISCHARGE_TYPE_COL, DISCHARGE_DATE_COL
         ]]
+
+        # Format columns to integer before calling the group function
+
+        revised_cases[AGE_DAYS_COL] = revised_cases[AGE_DAYS_COL].astype(int)
+        revised_cases[GESTATION_AGE_COL] = revised_cases[GESTATION_AGE_COL].astype(int)
+        revised_cases[VENTILATION_HOURS_COL] = revised_cases[VENTILATION_HOURS_COL].astype(int)
+        revised_cases[ADMISSION_WEIGHT_COL] = revised_cases[ADMISSION_WEIGHT_COL].astype(int)
 
         return revised_cases, unmatched_cases
 
@@ -173,3 +178,4 @@ def apply_revisions(cases_df: pd.DataFrame, revisions_df: pd.DataFrame) -> pd.Da
     revised_cases = revised_cases.apply(__revise_secondary_procedure_codes, axis=1)
 
     return revised_cases
+

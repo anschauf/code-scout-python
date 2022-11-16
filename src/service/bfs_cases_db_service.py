@@ -121,7 +121,6 @@ def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[int], session: Sess
 
     def get_earliest_revision_id(row):
         row[AIMEDIC_ID_COL] = row[AIMEDIC_ID_COL][0]  # pick only the first one as they are all the same (because of the group-by)
-
         revision_dates = row[REVISION_DATE_COL]
         min_idx = np.argmin(revision_dates)
         row[REVISION_ID_COL] = row[REVISION_ID_COL][min_idx]
