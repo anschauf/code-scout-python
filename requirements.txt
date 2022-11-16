@@ -18,3 +18,5 @@ marshmallow_sqlalchemy
 
 # environment variable
 python-decouple
+
+coverage
