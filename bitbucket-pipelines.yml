@@ -36,7 +36,13 @@ definitions:
             variables:
               SONAR_TOKEN: ${SONAR_TOKEN}
 pipelines:
-  default:
-    - step: *build-test-env
-    - step: *test
-    - step: *sonar
+  pull-requests:
+    '**':
+      - step: *build-test-env
+      - step: *test
+      - step: *sonar
+  branches:
+    '{develop,master,main}':
+      - step: *build-test-env
+      - step: *test
+      - step: *sonar
