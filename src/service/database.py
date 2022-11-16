@@ -19,7 +19,7 @@ class Database:
 
     Example usage: Inject the session to a Database function, which makes use of it.
         with Database() as db:
-            insert_revised_cases_into_diagnoses(diagnoses_df, aimedic_id_with_revision_id, db.session)
+            get_clinics(db.session)
     """
 
     def __init__(self,
@@ -33,7 +33,7 @@ class Database:
                  ):
         self._client = boto3.client('rds', region_name=region_name, aws_access_key_id=aws_access_key_id,
                                     aws_secret_access_key=aws_secret_access_key)
-        engine = create_engine(f'postgresql://{db_user}@{db_host}:{port}/{db_name}')
+        engine = create_engine(f'postgresql://{db_user}@{db_host}:{port}/{db_name}')  # NOSONAR
 
         @event.listens_for(engine, "do_connect")
         def receive_do_connect(dialect, conn_rec, cargs, cparams):
