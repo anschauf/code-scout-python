@@ -117,13 +117,16 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int, sessi
     return df
 
 @beartype
-def get_patient_case_for_aimedic_ids_df(aimedic_ids: list[int], session: Session) -> pd.DataFrame:
+def get_patient_case_for_aimedic_ids_df(aimedic_ids: list[int], session: Session, load_diagnoses=False, load_procedures=False) -> pd.DataFrame:
     """ Get socio-demographics and revision data.
 
     @param aimedic_ids: Aimedic IDs to look for.
     @param session: The database session.
+    @param load_diagnoses: Whether to load the diagnoses.
+    @param load_procedures: Whether to load the procedures.
     @return: A dataframe containing socio-demographics and revision data for patient case.
     """
+    # load socio demographics
     query_socio_demographics = (
         session
         .query(Sociodemographics)
@@ -131,6 +134,7 @@ def get_patient_case_for_aimedic_ids_df(aimedic_ids: list[int], session: Session
     )
     df_socio_demographics = pd.read_sql(query_socio_demographics.statement, session.bind)
 
+    # load revisions
     query_revisions = (
         session
         .query(Revision)
@@ -140,8 +144,50 @@ def get_patient_case_for_aimedic_ids_df(aimedic_ids: list[int], session: Session
     df_revisions_cols = df_revisions.columns.tolist()
     df_revisions_cols.remove('aimedic_id')
     df_revisions = df_revisions.groupby('aimedic_id', as_index=False)[df_revisions_cols].agg(lambda x: list(x))
+    df_merged = pd.merge(df_socio_demographics, df_revisions, how='outer', on='aimedic_id')
 
-    return pd.merge(df_socio_demographics, df_revisions, how='outer', on='aimedic_id')
+    if load_diagnoses:
+        # load diagnoses
+        query_diagnoses = (
+            session
+            .query(Diagnosis)
+            .filter(Diagnosis.aimedic_id.in_(aimedic_ids))
+        )
+        df_diagnoses = pd.read_sql(query_diagnoses.statement, session.bind)
+        df_diagnoses.rename(columns={
+            'code': 'code_diagnoses',
+            'ccl': 'ccl_diagnoses',
+            'is_primary': 'is_primary_diagnoses',
+            'is_grouper_relevant': 'is_grouper_relevant_diagnoses',
+            'revision_id': 'revision_id_diagnoses'
+        }, inplace=True)
+        df_diagnoses_cols = df_diagnoses.columns.tolist()
+        df_diagnoses_cols.remove('aimedic_id')
+        df_diagnoses = df_diagnoses.groupby('aimedic_id', as_index=False)[df_diagnoses_cols].agg(lambda x: list(x))
+        df_merged = pd.merge(df_merged, df_diagnoses, how='outer', on='aimedic_id')
+
+    if load_procedures:
+        # load diagnoses
+        query_procedures = (
+            session
+            .query(Procedure)
+            .filter(Procedure.aimedic_id.in_(aimedic_ids))
+        )
+        df_procedures = pd.read_sql(query_procedures.statement, session.bind)
+        df_procedures.rename(columns={
+            'code': 'code_procedures',
+            'side': 'side_procedures',
+            'date': 'date_procedures',
+            'is_primary': 'is_primary_procedures',
+            'is_grouper_relevant': 'is_grouper_relevant_procedures',
+            'revision_id': 'revision_id_procedures'
+        }, inplace=True)
+        df_procedures_cols = df_procedures.columns.tolist()
+        df_procedures_cols.remove('aimedic_id')
+        df_procedures = df_procedures.groupby('aimedic_id', as_index=False)[df_procedures_cols].agg(lambda x: list(x))
+        df_merged = pd.merge(df_merged, df_procedures, how='outer', on='aimedic_id')
+
+    return df_merged
 
 
 @beartype
