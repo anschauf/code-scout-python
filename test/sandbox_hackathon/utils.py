@@ -119,10 +119,10 @@ def categorize_variable(data: pd.DataFrame, variable: str, encoder: object = Non
     @return: (the categorized variable, the list of class labels, the encoder)
     """
     assert variable in data.columns, "Variable not contained in the given DataFrame."
-    logger.info(f'Categorizing variable {variable}.')
+    logger.info(f'Start categorizing variable {variable}.')
     if encoder is None:
         logger.info(f'Fitting a new encoder for variable {variable}.')
         encoder = MultiLabelBinarizer(classes=np.sort(data[variable].unique())).fit(data[variable].values.reshape((-1,1)))
-    enccoded_variable = encoder.transform(data[variable].values.reshape((-1, 1)))
-    logger.info(f'Encoded variable {variable}.')
-    return enccoded_variable, encoder.classes_, encoder
+    encoded_variable = encoder.transform(data[variable].values.reshape((-1, 1)))
+    logger.info(f'Categorized variable {variable}. Shape of encoded variable is {encoded_variable.shape}')
+    return encoded_variable, encoder.classes_, encoder

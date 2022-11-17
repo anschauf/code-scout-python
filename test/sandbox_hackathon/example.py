@@ -23,12 +23,25 @@ def main(dir_output):
 
     # do your feature engineering magic here
     # for this example, duration of stay and age in years does the trick
+
+    # example of continuous variables
     predictor_labels = ['duration_of_stay', 'age_years']
     y_label = 'y_label_is_revised_case'
     X_train = data_train[predictor_labels].values
     y_train = data_train[y_label].values
     X_test = data_test[predictor_labels].values
     y_test = data_test[y_label].values
+
+    # # example for categorizing a variable, such as clinic_id
+    # X_train_clinic_id, clinic_id_labels, encoder_clinic_id = categorize_variable(data_train, 'clinic_id')
+    # X_test_clinic_id, _, _ = categorize_variable(data_test, 'clinic_id', encoder=encoder_clinic_id)
+    #
+    # predictor_labels = clinic_id_labels
+    # y_label = 'y_label_is_revised_case'
+    # X_train = X_train_clinic_id
+    # y_train = data_train[y_label].values
+    # X_test = X_test_clinic_id
+    # y_test = data_test[y_label].values
 
     # train the model
     model = train_lr_model(X_train, y_train, penalty='l1', class_weight='balanced', solver='liblinear', random_state=RANDOM_SEED, fit_intercept=False)
