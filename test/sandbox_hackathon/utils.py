@@ -24,7 +24,7 @@ def load_data(meta_data: pd.DataFrame) -> pd.DataFrame:
         return pd.merge(data, meta_data, how='outer', on='aimedic_id')
 
 
-def train_lr_model(X: npt.ArrayLike, y: npt.ArrayLike, fit_intercept=False):
+def train_lr_model(X: npt.ArrayLike, y: npt.ArrayLike, **kwargs):
     """ Train a Logistic Regression.
 
     @param X: Predictors matrix.
@@ -32,9 +32,9 @@ def train_lr_model(X: npt.ArrayLike, y: npt.ArrayLike, fit_intercept=False):
     @param fit_intercept: Whether to fit an intercept.
     @return: The trained model.
     """
-    assert(X.shape[0] == y.shape[0], "Predictors and labels need to have same amount of samples.")
+    assert len(X) == len(y), "Predictors and labels need to have same amount of samples."
     logger.info('Training logistic regression')
-    model = LogisticRegression(penalty='l1', class_weight='balanced', solver='liblinear', random_state=42, fit_intercept=fit_intercept)
+    model = LogisticRegression(**kwargs)
     model = model.fit(X, y)
     return model
 
@@ -75,7 +75,7 @@ def write_evaluation_metrics_to_file(y_train: npt.ArrayLike, probas_train: npt.A
     @param filename: The filename where to write the results to.
     @param threshold: A threshold where to cut the probabilities.
     """
-    assert (0 < threshold < 1, "Threshold must be between 0 and 1.")
+    assert 0 < threshold < 1, "Threshold must be between 0 and 1."
     predictions_train = [1 if (x > threshold) else 0 for x in probas_train]
     f1_training = f1_score(y_true=y_train, y_pred=predictions_train)
     recall_training = recall_score(y_true=y_train, y_pred=predictions_train)

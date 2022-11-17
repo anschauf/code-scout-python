@@ -8,6 +8,7 @@ from src.schema import case_id_col
 from src.service.bfs_cases_db_service import get_clinics, get_all_cases_socio_demographics_df, \
     get_all_revisions_df
 from src.service.database import Database
+from test.sandbox_hackathon.constants import RANDOM_SEED
 
 with Database() as db:
     clinics = get_clinics(db.session)
@@ -18,7 +19,7 @@ with Database() as db:
     full_data['y_label_is_revised_case'] = full_data['revision_id'].apply(lambda x: 1 if (len(x) > 1) else 0)
 
     # split data train test
-    ind_train, ind_test = train_test_split(range(full_data.shape[0]), stratify=full_data['y_label_is_revised_case'].values, test_size=0.3, random_state=42)
+    ind_train, ind_test = train_test_split(range(full_data.shape[0]), stratify=full_data['y_label_is_revised_case'].values, test_size=0.3, random_state=RANDOM_SEED)
     full_data_train = full_data.iloc[np.sort(ind_train)]
     full_data_test = full_data.iloc[np.sort(ind_test)]
 
