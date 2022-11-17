@@ -126,17 +126,19 @@ def create_rankings_of_revised_cases(*,
     save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf_percentage.pdf'))
 
     # plot boxplots to compare probabilities between revised and non-revised cases
+    probabilities_dfs = list()
     for method_name, data in probabilities.items():
         probabilities_revised = data['revised']
         probabilities_non_revised = data['non_revised']
-        plt.figure()
-        sns.boxplot(data=pd.DataFrame({
+        probabilities_dfs.append(pd.DataFrame({
             'Probability': np.concatenate([probabilities_revised, probabilities_non_revised]),
-            'Revision': np.concatenate([['Revised']*len(probabilities_revised), ['Non-revised']*len(probabilities_non_revised)])
-        }), x="Probability", y="Revision")
-        plt.tight_layout()
-        save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, f'boxplot_probabilities_revised_vs_non-revised_{method_name}.pdf'))
+            'Method': np.concatenate([[method_name] * len(probabilities_revised), [method_name] * len(probabilities_non_revised)]),
+            'Revision-Outcome': np.concatenate([['Revised'] * len(probabilities_revised), ['Non-revised'] * len(probabilities_non_revised)])
+        }))
 
+    plt.figure()
+    sns.boxplot(data=pd.concat(probabilities_dfs), x="Probability", y="Method", hue='Revision-Outcome')
+    save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, f'boxplot_probabilities_revised_vs_non-revised.pdf'))
 
 
 if __name__ == '__main__':
