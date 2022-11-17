@@ -23,18 +23,11 @@ def main(dir_output):
 
     # do your feature engineering magic here
     # for this example, duration of stay and age in years does the trick
-
-    X_train_clinic_id, clinic_id_labels, encoder_clinic_id = categorize_variable(data_train, 'clinic_id')
-    X_test_clinic_id, _, _ = categorize_variable(data_test, 'clinic_id', encoder=encoder_clinic_id)
-
-    # predictor_labels = ['duration_of_stay', 'age_years']
-    predictor_labels = clinic_id_labels
+    predictor_labels = ['duration_of_stay', 'age_years']
     y_label = 'y_label_is_revised_case'
-    # X_train = data_train[predictor_labels].values
-    X_train = X_train_clinic_id
+    X_train = data_train[predictor_labels].values
     y_train = data_train[y_label].values
-    # X_test = data_test[predictor_labels].values
-    X_test = X_test_clinic_id
+    X_test = data_test[predictor_labels].values
     y_test = data_test[y_label].values
 
     # train the model
