@@ -6,6 +6,7 @@ import pandas as pd
 from loguru import logger
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score, recall_score, precision_score
+from sklearn.preprocessing import MultiLabelBinarizer
 
 from src.schema import prob_most_likely_code_col, suggested_code_rankings_split_col, case_id_col
 from src.service.bfs_cases_db_service import get_patient_case_for_aimedic_ids_df
@@ -108,3 +109,20 @@ def extract_case_ranking_performance_app(data: pd.DataFrame, probas: npt.ArrayLi
     data[suggested_code_rankings_split_col] = ['']*len(probas)
     data[[case_id_col, suggested_code_rankings_split_col, 'UpcodingConfidenceScore']].to_csv(filename, sep=';', index=False)
 
+
+def categorize_variable(data: pd.DataFrame, variable: str, encoder: object = None) -> (npt.ArrayLike, list, object):
+    """ Categorize a variable in the DataFrame while training the encoder or using a given encoder.
+
+    @param data: The DataFrame containing the variable which should be categorized.
+    @param variable: The variable name which should be categorized.
+    @param encoder: If given, the encoder is used to categorize.
+    @return: (the categorized variable, the list of class labels, the encoder)
+    """
+    assert variable in data.columns, "Variable not contained in the given DataFrame."
+    logger.info(f'Categorizing variable {variable}.')
+    if encoder is None:
+        logger.info(f'Fitting a new encoder for variable {variable}.')
+        encoder = MultiLabelBinarizer(classes=np.sort(data[variable].unique())).fit(data[variable].values.reshape((-1,1)))
+    enccoded_variable = encoder.transform(data[variable].values.reshape((-1, 1)))
+    logger.info(f'Encoded variable {variable}.')
+    return enccoded_variable, encoder.classes_, encoder

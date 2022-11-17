@@ -6,7 +6,8 @@ import awswrangler as wr
 from src import PROJECT_ROOT_DIR
 from test.sandbox_hackathon.constants import FILENAME_TRAIN_SPLIT, FILENAME_TEST_SPLIT, RANDOM_SEED
 from test.sandbox_hackathon.utils import load_data, train_lr_model, write_model_coefs_to_file, predict_proba, \
-    write_evaluation_metrics_to_file, extract_case_ranking_performance_app
+    write_evaluation_metrics_to_file, extract_case_ranking_performance_app, categorize_variable
+
 
 def main(dir_output):
     if not exists(dir_output):
@@ -22,11 +23,18 @@ def main(dir_output):
 
     # do your feature engineering magic here
     # for this example, duration of stay and age in years does the trick
-    predictor_labels = ['duration_of_stay', 'age_years']
+
+    X_train_clinic_id, clinic_id_labels, encoder_clinic_id = categorize_variable(data_train, 'clinic_id')
+    X_test_clinic_id, _, _ = categorize_variable(data_test, 'clinic_id', encoder=encoder_clinic_id)
+
+    # predictor_labels = ['duration_of_stay', 'age_years']
+    predictor_labels = clinic_id_labels
     y_label = 'y_label_is_revised_case'
-    X_train = data_train[predictor_labels].values
+    # X_train = data_train[predictor_labels].values
+    X_train = X_train_clinic_id
     y_train = data_train[y_label].values
-    X_test = data_test[predictor_labels].values
+    # X_test = data_test[predictor_labels].values
+    X_test = X_test_clinic_id
     y_test = data_test[y_label].values
 
     # train the model
