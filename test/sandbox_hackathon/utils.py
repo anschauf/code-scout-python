@@ -21,7 +21,7 @@ def load_data(meta_data: pd.DataFrame) -> pd.DataFrame:
     logger.info(f'Start loading {meta_data.shape[0]} patient cases from DB.')
     with Database() as db:
         data = get_patient_case_for_aimedic_ids_df(meta_data['aimedic_id'].values.tolist(), db.session)
-        logger.info(f'Loading of {data.shape[1]} patient cases from DB finished.')
+        logger.info(f'Loaded of {data.shape[0]} patient cases from DB finished.')
         return pd.merge(data, meta_data, how='outer', on='aimedic_id')
 
 
