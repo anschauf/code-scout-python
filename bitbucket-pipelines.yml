@@ -40,7 +40,7 @@ pipelines:
       - step: *test
       - step: *sonar
   branches:
-    '{develop,master,main}':
+    '{develop,master,main,feature/unit-tests}':
       - step: *build-test-env
       - step: *test
       - step: *sonar
