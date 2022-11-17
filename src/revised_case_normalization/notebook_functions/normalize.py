@@ -3,7 +3,10 @@ import pandas as pd
 from beartype import beartype
 from loguru import logger
 
-from src.revised_case_normalization.notebook_functions.global_configs import *
+from src.revised_case_normalization.notebook_functions.global_configs import FileInfo, COLUMNS_TO_RENAME, \
+    COLUMNS_TO_LSTRIP, COLUMNS_TO_CAST, DURATION_OF_STAY_COL, NORM_CASE_ID_COL, VALIDATION_COLS, ADDED_ICD_CODES, \
+    REMOVED_ICD_CODES, ADDED_CHOP_CODES, REMOVED_CHOP_CODES, PRIMARY_DIAGNOSIS_COL, NEW_PRIMARY_DIAGNOSIS_COL, \
+    COLS_TO_SELECT, CASE_ID_COL
 from src.utils.dataframe_utils import validate_icd_codes, validate_chop_codes, remove_duplicated_chops, \
     validate_pd_revised_sd
 
@@ -40,11 +43,22 @@ def normalize(fi: FileInfo,
     # Renaming columns that don't exist is a no-op. Make sure that all names actually exist
     non_existing_columns_to_rename = set(columns_mapper.keys()).difference(df.columns)
     if len(non_existing_columns_to_rename) > 0:
-        raise ValueError(f'The following columns to rename did not exist: {sorted(list(non_existing_columns_to_rename))}')
+        raise ValueError(f'The following columns to rename did not exist: {sorted(list(non_existing_columns_to_rename))}. Available columns are {list(df.columns)}')
     df.rename(columns=columns_mapper, inplace=True)
 
     # Fix unavailable duration of stay
     df[DURATION_OF_STAY_COL] = df[DURATION_OF_STAY_COL].replace('n.ü.', np.nan)
+
+    # Discard rows where any value on any validation col is empty
+    non_existing_validation_cols = set(VALIDATION_COLS).difference(df.columns)
+    if len(non_existing_validation_cols) > 0:
+        raise ValueError(f'The following columns to validate did not exist: {sorted(list(non_existing_validation_cols))}')
+
+    df.dropna(subset=VALIDATION_COLS, inplace=True)
+
+    n_valid_rows = df.shape[0]
+    if n_valid_rows < n_all_rows:
+        logger.info(f'{n_all_rows - n_valid_rows}/{n_all_rows} rows were deleted because contained NaNs')
 
     # Fix format of some columns
     lstrip_fun = lambda x: x.lstrip("'")
@@ -57,15 +71,6 @@ def normalize(fi: FileInfo,
     for col_name, col_type in columns_to_cast.items():
         df[col_name] = df[col_name].astype(col_type)
     logger.info(f'TYPES:\n{df.dtypes}')
-
-    # Discard rows where any value on any validation col is empty
-    non_existing_validation_cols = set(VALIDATION_COLS).difference(df.columns)
-    if len(non_existing_validation_cols) > 0:
-        raise ValueError(f'The following columns to validate did not exist: {sorted(list(non_existing_validation_cols))}')
-    df.dropna(subset=VALIDATION_COLS, inplace=True)
-    n_valid_rows = df.shape[0]
-    if n_valid_rows < n_all_rows:
-        logger.info(f'{n_all_rows - n_valid_rows}/{n_all_rows} rows were deleted because contained NaNs')
 
     # Split ICD and CHOP columns into list[str]
     for code_col_to_fix in (ADDED_ICD_CODES, REMOVED_ICD_CODES, ADDED_CHOP_CODES, REMOVED_CHOP_CODES):
@@ -109,3 +114,4 @@ def normalize(fi: FileInfo,
 
 def remove_leading_zeros(s: str) -> str:
     return s.lstrip('0')
+

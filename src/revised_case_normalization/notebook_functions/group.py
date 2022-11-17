@@ -2,7 +2,10 @@ import pandas as pd
 from beartype import beartype
 from loguru import logger
 
-from src.revised_case_normalization.notebook_functions.global_configs import *
+from src.revised_case_normalization.notebook_functions.global_configs import AIMEDIC_ID_COL, CASE_ID_COL, AGE_COL, \
+    AGE_DAYS_COL, ADMISSION_WEIGHT_COL, GESTATION_AGE_COL, VENTILATION_HOURS_COL, DURATION_OF_STAY_COL, GENDER_COL, \
+    ADMISSION_DATE_COL, DISCHARGE_DATE_COL, ADMISSION_TYPE_COL, DISCHARGE_TYPE_COL, PRIMARY_PROCEDURE_COL, \
+    SECONDARY_PROCEDURES_COL, NEW_PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL, GROUPER_FORMAT_COL
 from src.service.aimedic_grouper import group_batch_group_cases
 
 @beartype
@@ -40,9 +43,14 @@ def format_for_grouper_one_case(row: pd.Series) -> pd.Series:
 
     primary_procedure = row[PRIMARY_PROCEDURE_COL]
     secondary_procedures = '|'.join(row[SECONDARY_PROCEDURES_COL])
-    procedures = f'{primary_procedure}|{secondary_procedures}'
 
-    primary_diagnosis = row[NEW_PRIMARY_DIAGNOSIS_COL]
+    # check if primary procedure is not defined or not an empty str
+    if not primary_procedure or len(primary_procedure) == 0:
+        procedures = f'{secondary_procedures}'
+    else:
+        procedures = f'{primary_procedure}|{secondary_procedures}'
+
+    primary_diagnosis = str(row[NEW_PRIMARY_DIAGNOSIS_COL])
     secondary_diagnoses = '|'.join(row[SECONDARY_DIAGNOSES_COL])
     diagnoses = f'{primary_diagnosis}|{secondary_diagnoses}'
 

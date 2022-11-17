@@ -5,7 +5,9 @@ import pandas as pd
 from beartype import beartype
 from sqlalchemy.sql import null
 
-from src.revised_case_normalization.notebook_functions.global_configs import *
+from src.revised_case_normalization.notebook_functions.global_configs import AIMEDIC_ID_COL, DRG_COST_WEIGHT_COL, \
+    EFFECTIVE_COST_WEIGHT_COL, REVISION_DATE_COL, IS_GROUPER_RELEVANT_COL, IS_PRIMARY_COL, CCL_COL, CODE_COL, \
+    PROCEDURE_DATE_COL, PROCEDURE_SIDE_COL
 
 JAR_FILE_PATH = "/home/jovyan/work/resources/jars/aimedic-grouper-assembly.jar"
 SEPARATOR_CHAR = "#"
@@ -48,7 +50,7 @@ def group_batch_group_cases(batch_group_cases: list[str]) -> tuple[pd.DataFrame,
     """
     # Check for unique aimedic IDs
     aimedic_ids = [bgc.split(DELIMITER_CHAR)[0] for bgc in batch_group_cases]
-    if not len(set(aimedic_ids)) == (len(aimedic_ids)):
+    if len(set(aimedic_ids)) != (len(aimedic_ids)):
         raise ValueError('Provided cases have not unique aimedic IDs. Make sure you pass only one revision case for one patient case.')
 
     # Send the data to the grouper
@@ -89,7 +91,10 @@ def group_batch_group_cases(batch_group_cases: list[str]) -> tuple[pd.DataFrame,
     diagnoses_df = diagnoses_df.reindex(columns=[AIMEDIC_ID_COL, CODE_COL, CCL_COL, IS_PRIMARY_COL, IS_GROUPER_RELEVANT_COL])
 
     # Prepare Dataframe for the procedure table
-    procedures_df = pd.json_normalize(grouped_cases_dicts, record_path=[col_procedures], meta=[col_aimedic_id]) \
+    # Delete empty or not defined procedures from the procedures dataframe
+    grouped_cases_pd = pd.DataFrame(grouped_cases_dicts)
+    grouped_cases_pd.dropna(subset=col_procedures)
+    procedures_df = pd.json_normalize(grouped_cases_pd.to_dict(orient="records"), record_path=[col_procedures], meta=[col_aimedic_id]) \
         .drop([col_date_valid, col_side_valid, ], axis=1)
 
     procedures_df.rename(columns={col_aimedic_id: AIMEDIC_ID_COL,
