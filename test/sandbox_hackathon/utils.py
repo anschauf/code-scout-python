@@ -125,4 +125,4 @@ def categorize_variable(data: pd.DataFrame, variable: str, encoder: object = Non
         encoder = MultiLabelBinarizer(classes=np.sort(data[variable].unique())).fit(data[variable].values.reshape((-1,1)))
     encoded_variable = encoder.transform(data[variable].values.reshape((-1, 1)))
     logger.info(f'Categorized variable {variable}. Shape of encoded variable is {encoded_variable.shape}')
-    return encoded_variable, encoder.classes_, encoder
+    return encoded_variable, [f'{variable}_{x}' for x in encoder.classes_], encoder

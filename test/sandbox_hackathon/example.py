@@ -2,6 +2,7 @@ from os import makedirs
 from os.path import join, exists
 
 import awswrangler as wr
+import numpy as np
 
 from src import PROJECT_ROOT_DIR
 from test.sandbox_hackathon.constants import FILENAME_TRAIN_SPLIT, FILENAME_TEST_SPLIT, RANDOM_SEED
@@ -35,13 +36,33 @@ def main(dir_output):
     # # example for categorizing a variable, such as clinic_id
     # X_train_clinic_id, clinic_id_labels, encoder_clinic_id = categorize_variable(data_train, 'clinic_id')
     # X_test_clinic_id, _, _ = categorize_variable(data_test, 'clinic_id', encoder=encoder_clinic_id)
-    #
+
     # predictor_labels = clinic_id_labels
     # y_label = 'y_label_is_revised_case'
     # X_train = X_train_clinic_id
     # y_train = data_train[y_label].values
     # X_test = X_test_clinic_id
     # y_test = data_test[y_label].values
+
+    # # example for categorizing a variable, such as clinic_id
+    # X_train_hospital_id, hospital_id_labels, encoder_hospital_id = categorize_variable(data_train, 'hospital_id')
+    # X_test_hospital_id, _, _ = categorize_variable(data_test, 'hospital_id', encoder=encoder_hospital_id)
+
+    # predictor_labels = hospital_id_labels
+    # y_label = 'y_label_is_revised_case'
+    # X_train = X_train_hospital_id
+    # y_train = data_train[y_label].values
+    # X_test = X_test_hospital_id
+    # y_test = data_test[y_label].values
+
+    # # concatenate categorical variables from clinic id and hospital id
+    # predictor_labels = list(np.concatenate([clinic_id_labels, hospital_id_labels]))
+    # y_label = 'y_label_is_revised_case'
+    # X_train = np.hstack([X_train_clinic_id, X_train_hospital_id])
+    # y_train = data_train[y_label].values
+    # X_test = np.hstack([X_test_clinic_id, X_test_hospital_id])
+    # y_test = data_test[y_label].values
+
 
     # train the model
     model = train_lr_model(X_train, y_train, penalty='l1', class_weight='balanced', solver='liblinear', random_state=RANDOM_SEED, fit_intercept=False)
