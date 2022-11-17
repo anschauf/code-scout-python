@@ -8,8 +8,7 @@ from test.sandbox_hackathon.constants import FILENAME_TRAIN_SPLIT, FILENAME_TEST
 from test.sandbox_hackathon.utils import load_data, train_lr_model, write_model_coefs_to_file, predict_proba, \
     write_evaluation_metrics_to_file, extract_case_ranking_performance_app
 
-def main():
-    dir_output = join(PROJECT_ROOT_DIR, 'results', 'test_results_dos_age')
+def main(dir_output):
     if not exists(dir_output):
         makedirs(dir_output)
 
@@ -48,4 +47,4 @@ def main():
     extract_case_ranking_performance_app(data_test, prediction_probas_test, join(dir_output, 'performance_app_input.csv'))
 
 if __name__ == "__main__":
-    main()
+    main(dir_output=join(PROJECT_ROOT_DIR, 'results', 'test_results_dos_age'))
