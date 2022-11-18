@@ -13,17 +13,18 @@ from src.service.bfs_cases_db_service import get_patient_case_for_aimedic_ids_df
 from src.service.database import Database
 
 
-def load_data(meta_data: pd.DataFrame, load_diagnoses=False, load_procedures=False) -> pd.DataFrame:
+def load_data(meta_data: pd.DataFrame, load_diagnoses=False, load_procedures=False, only_revised_cases=False) -> pd.DataFrame:
     """ Load all cases given in the meta data containin a column 'aimedic_id'.
 
     @param meta_data: Meta data containing at least the column 'aimedic_id'.
     @param load_diagnoses: Whether to load the diagnoses.
     @param load_procedures: Whether to load the procedures.
+    @param only_revised_cases: Whether to only load revised cases.
     @return: Patient data, consisting of socio-demographics and revisions, merged with meta data.
     """
     logger.info(f'Start loading {meta_data.shape[0]} patient cases from DB ...')
     with Database() as db:
-        data = get_patient_case_for_aimedic_ids_df(meta_data['aimedic_id'].values.tolist(), db.session, load_diagnoses=load_diagnoses, load_procedures=load_procedures)
+        data = get_patient_case_for_aimedic_ids_df(meta_data['aimedic_id'].values.tolist(), db.session, load_diagnoses=load_diagnoses, load_procedures=load_procedures, only_revised_cases=only_revised_cases)
         logger.info(f'... Loading of {data.shape[0]} patient cases from DB finished.')
         return pd.merge(data, meta_data, how='outer', on='aimedic_id')
 

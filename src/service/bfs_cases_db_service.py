@@ -117,13 +117,14 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int, sessi
     return df
 
 @beartype
-def get_patient_case_for_aimedic_ids_df(aimedic_ids: list[int], session: Session, load_diagnoses=False, load_procedures=False) -> pd.DataFrame:
+def get_patient_case_for_aimedic_ids_df(aimedic_ids: list[int], session: Session, load_diagnoses=False, load_procedures=False, only_revised_cases=False) -> pd.DataFrame:
     """ Get socio-demographics and revision data.
 
     @param aimedic_ids: Aimedic IDs to look for.
     @param session: The database session.
     @param load_diagnoses: Whether to load the diagnoses.
     @param load_procedures: Whether to load the procedures.
+    @param only_revised_cases: Whether only fetching revised cases.
     @return: A dataframe containing socio-demographics and revision data for patient case.
     """
     # load socio demographics
@@ -186,6 +187,9 @@ def get_patient_case_for_aimedic_ids_df(aimedic_ids: list[int], session: Session
         df_procedures_cols.remove('aimedic_id')
         df_procedures = df_procedures.groupby('aimedic_id', as_index=False)[df_procedures_cols].agg(lambda x: list(x))
         df_merged = pd.merge(df_merged, df_procedures, how='outer', on='aimedic_id')
+
+    if only_revised_cases:
+        df_merged = df_merged[df_merged['revision_id'].apply(lambda x: len(x) > 1)]
 
     return df_merged
 

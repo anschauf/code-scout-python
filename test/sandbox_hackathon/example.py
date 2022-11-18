@@ -19,8 +19,8 @@ def main(dir_output):
     meta_data_test = wr.s3.read_csv(FILENAME_TEST_SPLIT)
 
     # read in all data from DB and merge it with the labels from the meta data
-    data_train = load_data(meta_data_train, load_diagnoses=False, load_procedures=False)
-    data_test = load_data(meta_data_test, load_diagnoses=False, load_procedures=False)
+    data_train = load_data(meta_data_train, load_diagnoses=False, load_procedures=False, only_revised_cases=False)
+    data_test = load_data(meta_data_test, load_diagnoses=False, load_procedures=False, only_revised_cases=False)
 
     # do your feature engineering magic here
     # for this example, duration of stay and age in years does the trick
