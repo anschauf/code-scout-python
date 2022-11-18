@@ -134,6 +134,7 @@ def calculate_code_ranking_performance(*,
     plt.close()
 
     if len(code_probabilities_fp) == len(code_ranks_and_probabilities_tp):
+        logger.info('Plot boxplot and store to s3.')
         # plot boxplot of probabilities comparing true positives vs. false positives
         plt.figure()
         all_probabilities = list()
@@ -149,7 +150,9 @@ def calculate_code_ranking_performance(*,
             })
             all_probabilities.append(df_probability_plot)
         all_probabilities = pd.concat(all_probabilities)
-        sns.boxplot(data=all_probabilities, x='Probability', y='Method', hue='Truth')
+        # define outlier properties
+        flierprops = dict(marker='o', markersize=1)
+        sns.boxplot(data=all_probabilities, x='Probability', y='Method', hue='Truth', flierprops=flierprops)
         save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'boxplot_probabilities_tp_vs_fp.pdf'))
         plt.close()
 
