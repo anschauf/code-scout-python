@@ -23,10 +23,16 @@ def load_data(meta_data: pd.DataFrame, load_diagnoses=False, load_procedures=Fal
     @return: Patient data, consisting of socio-demographics and revisions, merged with meta data.
     """
     logger.info(f'Start loading {meta_data.shape[0]} patient cases from DB ...')
+
+    if only_revised_cases:
+        meta_data_revised = meta_data[meta_data['y_label_is_revised_case'] == 1]
+        logger.info(f'Filtering {meta_data.shape[0] - meta_data_revised.shape[0]} which are not revised.')
+        meta_data = meta_data_revised
+
     with Database() as db:
-        data = get_patient_case_for_aimedic_ids_df(meta_data['aimedic_id'].values.tolist(), db.session, load_diagnoses=load_diagnoses, load_procedures=load_procedures, only_revised_cases=only_revised_cases)
+        data = get_patient_case_for_aimedic_ids_df(meta_data['aimedic_id'].values.tolist(), db.session, load_diagnoses=load_diagnoses, load_procedures=load_procedures)
         logger.info(f'... Loading of {data.shape[0]} patient cases from DB finished.')
-        return pd.merge(data, meta_data, how='outer', on='aimedic_id')
+        return pd.merge(data, meta_data, how='right', on='aimedic_id')
 
 
 def train_lr_model(X: npt.ArrayLike, y: npt.ArrayLike, **kwargs):

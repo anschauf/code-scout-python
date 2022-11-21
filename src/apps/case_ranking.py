@@ -120,8 +120,8 @@ def create_rankings_of_revised_cases(*,
 
 if __name__ == '__main__':
     create_rankings_of_revised_cases(
-        filename_revised_cases="s3://code-scout/hackathon/aimedic_id_revised_cases_test.csv",
-        dir_rankings='s3://code-scout/hackathon/test_run_case_rankings/',
-        dir_output="s3://code-scout/hackathon/test_run_case_rankings_results/",
+        filename_revised_cases="s3://code-scout/hackathon/aimedic_id_revised_cases.csv",
+        dir_rankings='s3://code-scout/hackathon/2022-11-21_different_LR_models/',
+        dir_output="s3://code-scout/hackathon/2022-11-21_different_LR_models_results/",
         s3_bucket='code-scout'
     )

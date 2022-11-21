@@ -68,7 +68,7 @@ def main(dir_output):
             'CW_new',
             'PCCL_old',
             'PCCL_new'
-        ]].to_csv(os.path.join(dir_output, 'aimedic_id_revised_cases_test.csv'), index=False)
+        ]].to_csv(os.path.join(dir_output, 'aimedic_id_revised_cases.csv'), index=False)
 
 
 if __name__ == "__main__":

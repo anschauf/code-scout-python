@@ -87,4 +87,4 @@ def main(dir_output):
 
 
 if __name__ == "__main__":
-    main(dir_output=join(PROJECT_ROOT_DIR, 'results', 'test_analysis_revised_cases'))
+    main(dir_output=join(PROJECT_ROOT_DIR, 'results', 'analysis_revised_cases'))
