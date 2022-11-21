@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 import pandas as pd
+import seaborn as sns
 from matplotlib import pyplot as plt
 
 from src import venn
@@ -37,6 +38,7 @@ def create_rankings_of_revised_cases(*,
 
     cdf_delta_cw = dict()
     num_cases = dict()
+    probabilities = dict()
     for hospital_year, method_name, rankings in all_rankings:
         # Sort the cases based on probabilities, and add a column indicating the rank
         rankings = rankings.sort_values(by=prob_most_likely_code_col, ascending=False).reset_index(drop=True)
@@ -46,6 +48,12 @@ def create_rankings_of_revised_cases(*,
         revised_cases[case_id_col] = revised_cases['combined_id']
         overlap = pd.merge(revised_cases, rankings, on=case_id_col, how='inner')
         revised_codescout = overlap[[case_id_col, 'CW_old', 'CW_new', rank_col]].sort_values(by=rank_col)
+
+        # add probabilities for revised cases
+        probabilities[method_name] = dict()
+        probabilities[method_name]['revised'] = overlap[prob_most_likely_code_col].values
+        non_revised_cases_overlap = pd.merge(rankings, revised_cases, on=case_id_col, how='left')
+        probabilities[method_name]['non_revised'] = non_revised_cases_overlap[prob_most_likely_code_col].values
 
         # Calculate the delta cost-weight
         revised_codescout['delta_CW'] = revised_codescout['CW_new'].astype(float) - revised_codescout['CW_old'].astype(float)
@@ -116,6 +124,21 @@ def create_rankings_of_revised_cases(*,
     plt.title("Cumulative distribution of delta cost weight (CW_delta) in %")
     plt.legend()
     save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf_percentage.pdf'))
+
+    # plot boxplots to compare probabilities between revised and non-revised cases
+    probabilities_dfs = list()
+    for method_name, data in probabilities.items():
+        probabilities_revised = data['revised']
+        probabilities_non_revised = data['non_revised']
+        probabilities_dfs.append(pd.DataFrame({
+            'Probability': np.concatenate([probabilities_revised, probabilities_non_revised]),
+            'Method': np.concatenate([[method_name] * len(probabilities_revised), [method_name] * len(probabilities_non_revised)]),
+            'Revision-Outcome': np.concatenate([['Revised'] * len(probabilities_revised), ['Non-revised'] * len(probabilities_non_revised)])
+        }))
+
+    plt.figure()
+    sns.boxplot(data=pd.concat(probabilities_dfs), x="Probability", y="Method", hue='Revision-Outcome')
+    save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, f'boxplot_probabilities_revised_vs_non-revised.pdf'))
 
 
 if __name__ == '__main__':
