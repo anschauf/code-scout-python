@@ -5,7 +5,6 @@ import pandas as pd
 from src.revised_case_normalization.notebook_functions.global_configs import AIMEDIC_ID_COL
 from src.revised_case_normalization.notebook_functions.revise import apply_revisions
 from src.service.bfs_cases_db_service import get_sociodemographics_for_hospital_year,\
-    get_sociodemographics_for_hospital_year_all_columns,\
     get_earliest_revisions_for_aimedic_ids, insert_revised_cases_into_diagnoses, \
     get_diagnoses_codes, get_procedures_codes, get_codes, insert_revised_cases_into_revisions
 from src.service.bfs_cases_db_service import insert_revised_cases_into_procedures, get_bfs_cases_by_ids
