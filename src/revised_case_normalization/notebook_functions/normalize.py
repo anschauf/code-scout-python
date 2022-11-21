@@ -3,7 +3,10 @@ import pandas as pd
 from beartype import beartype
 from loguru import logger
 
-from src.revised_case_normalization.notebook_functions.global_configs import *
+from src.revised_case_normalization.notebook_functions.global_configs import FileInfo, COLUMNS_TO_RENAME, \
+    COLUMNS_TO_LSTRIP, COLUMNS_TO_CAST, DURATION_OF_STAY_COL, NORM_CASE_ID_COL, VALIDATION_COLS, ADDED_ICD_CODES, \
+    REMOVED_ICD_CODES, ADDED_CHOP_CODES, REMOVED_CHOP_CODES, PRIMARY_DIAGNOSIS_COL, NEW_PRIMARY_DIAGNOSIS_COL, \
+    COLS_TO_SELECT, CASE_ID_COL
 from src.utils.dataframe_utils import validate_icd_codes, validate_chop_codes, remove_duplicated_chops, \
     validate_pd_revised_sd
 
