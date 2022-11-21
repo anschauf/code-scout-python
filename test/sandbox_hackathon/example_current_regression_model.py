@@ -9,6 +9,35 @@ from test.sandbox_hackathon.constants import FILENAME_TRAIN_SPLIT, FILENAME_TEST
 from test.sandbox_hackathon.utils import load_data, train_lr_model, write_model_coefs_to_file, predict_proba, \
     write_evaluation_metrics_to_file, extract_case_ranking_performance_app, categorize_variable, categorize_age
 
+def extract_number_of(data):
+    # create number of code fields
+    X_number_of_sdx = np.zeros((len(data), 1))
+    X_number_of_chops = np.zeros((len(data), 1))
+    X_number_of_used_diags = np.zeros((len(data), 1))
+    X_number_of_used_chops = np.zeros((len(data), 1))
+    X_number_of_ccl_triggering_diags = np.zeros((len(data), 1))
+    for i, row in enumerate(data.itertuples()):
+        revision_id = row.revision_id[0]
+        ind_diags = np.where(np.asarray(row.revision_id_diagnoses) == revision_id)[0]
+        ind_chops = np.where(np.asarray(row.revision_id_procedures) == revision_id)[0]
+
+        if len(ind_diags) > 0:
+            # number of side diagnoses
+            X_number_of_sdx[i] = len(ind_diags) - 1
+            # number of used diags
+            X_number_of_used_diags[i] = np.sum(np.asarray(row.is_grouper_relevant_diagnoses)[ind_diags])
+            # number of ccl triggering diags
+            X_number_of_ccl_triggering_diags[i] = np.sum(np.asarray(row.ccl_diagnoses)[ind_diags] > 0)
+
+        if len(ind_chops) > 0:
+            # number of chops
+            X_number_of_chops[i] = len(ind_chops)
+            # number of used chops
+            X_number_of_used_chops[i] = np.sum(np.asarray(row.is_grouper_relevant_procedures)[ind_chops])
+
+
+    return X_number_of_sdx, X_number_of_chops, X_number_of_used_diags, X_number_of_used_chops, X_number_of_ccl_triggering_diags
+
 
 def main(dir_output):
     if not exists(dir_output):
@@ -37,34 +66,21 @@ def main(dir_output):
     X_train_gender, gender_label, encoder_gender = categorize_variable(data_train, 'gender')
     X_test_gender, _, _ = categorize_variable(data_test, 'gender', encoder=encoder_gender)
 
-    data_train['pccl_revised'] = data_train['pccl'].apply(lambda x: x[0] if (len(x) == 1) else x[-1])
-    data_test['pccl_revised'] = data_test['pccl'].apply(lambda x: x[0] if (len(x) == 1) else x[-1])
-    X_train_pccl, pccl_label, encoder_pccl = categorize_variable(data_train, 'pccl_revised')
-    X_test_pccl, _, _ = categorize_variable(data_test, 'pccl_revised', encoder=encoder_pccl)
+    data_train['pccl_original'] = data_train['pccl'].apply(lambda x: x[0])
+    data_test['pccl_original'] = data_test['pccl'].apply(lambda x: x[0])
+    X_train_pccl, pccl_label, encoder_pccl = categorize_variable(data_train, 'pccl_original')
+    X_test_pccl, _, _ = categorize_variable(data_test, 'pccl_original', encoder=encoder_pccl)
 
-    data_train['effective_cost_weight_revised'] = data_train['effective_cost_weight'].apply(lambda x: x[0] if (len(x) == 1) else x[-1])
-    data_test['effective_cost_weight_revised'] = data_test['effective_cost_weight'].apply(lambda x: x[0] if (len(x) == 1) else x[-1])
-    X_train_cw = data_train['effective_cost_weight_revised'].values.reshape((-1,1))
-    X_test_cw = data_test['effective_cost_weight_revised'].values.reshape((-1,1))
+    data_train['effective_cost_weight_original'] = data_train['effective_cost_weight'].apply(lambda x: x[0])
+    data_test['effective_cost_weight_original'] = data_test['effective_cost_weight'].apply(lambda x: x[0])
+    X_train_cw = data_train['effective_cost_weight_original'].values.reshape((-1,1))
+    X_test_cw = data_test['effective_cost_weight_original'].values.reshape((-1,1))
 
     X_train_dos = data_train['duration_of_stay'].values.reshape((-1,1))
     X_test_dos = data_test['duration_of_stay'].values.reshape((-1,1))
 
-    # create number of code fields
-    X_train_number_of_sdx = data_train['code_diagnoses'].apply(lambda x: len(x) - 1 if isinstance(x, list) else 0).values.reshape((-1,1))
-    X_test_number_of_sdx = data_test['code_diagnoses'].apply(lambda x: len(x) - 1 if isinstance(x, list) else 0).values.reshape((-1,1))
-
-    X_train_number_of_chops = data_train['code_procedures'].apply(lambda x: len(x) if isinstance(x, list) else 0).values.reshape((-1,1))
-    X_test_number_of_chops = data_test['code_procedures'].apply(lambda x: len(x) if isinstance(x, list) else 0).values.reshape((-1,1))
-
-    X_train_number_of_used_diags = data_train['is_grouper_relevant_diagnoses'].apply(lambda x: sum(x) if isinstance(x, list) else 0).values.reshape((-1,1))
-    X_test_number_of_used_diags = data_test['is_grouper_relevant_diagnoses'].apply(lambda x: sum(x) if isinstance(x, list) else 0).values.reshape((-1,1))
-
-    X_train_number_of_used_chops = data_train['is_grouper_relevant_procedures'].apply(lambda x: sum(x) if isinstance(x, list) else 0).values.reshape((-1,1))
-    X_test_number_of_used_chops = data_test['is_grouper_relevant_procedures'].apply(lambda x: sum(x) if isinstance(x, list) else 0).values.reshape((-1,1))
-
-    X_train_number_of_ccl_triggering_diags = data_train['ccl_diagnoses'].apply(lambda x: sum(np.asarray(x)>0) if isinstance(x, list) else 0).values.reshape((-1,1))
-    X_test_number_of_ccl_triggering_diags = data_test['ccl_diagnoses'].apply(lambda x: sum(np.asarray(x)>0) if isinstance(x, list) else 0).values.reshape((-1,1))
+    X_train_number_of_sdx, X_train_number_of_chops, X_train_number_of_used_diags, X_train_number_of_used_chops, X_train_number_of_ccl_triggering_diags = extract_number_of(data_train)
+    X_test_number_of_sdx, X_test_number_of_chops, X_test_number_of_used_diags, X_test_number_of_used_chops, X_test_number_of_ccl_triggering_diags = extract_number_of(data_test)
 
     # define model input
     predictor_labels = list(np.concatenate([age_labels, gender_label, pccl_label, ['effective_cost_weight', 'duration_of_stay', 'number_of_sdx', 'number_of_chops', 'number_of_used_diags', 'number_of_used_chops', 'number_of_ccl_triggering_diags']]))
@@ -92,4 +108,4 @@ def main(dir_output):
     extract_case_ranking_performance_app(data_test, prediction_probas_test, join(dir_output, 'performance_app_input.csv'))
 
 if __name__ == "__main__":
-    main(dir_output=join(PROJECT_ROOT_DIR, 'results', 'results_current_model'))
+    main(dir_output=join(PROJECT_ROOT_DIR, 'results', 'results_current_mdel_before_revision'))

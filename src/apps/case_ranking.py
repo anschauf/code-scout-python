@@ -86,17 +86,25 @@ def create_rankings_of_revised_cases(*,
         cdf_list.append(df)
 
     plt.figure()
+    max_x = 0
     for method_name, data in cdf_delta_cw.items():
         ranks, cdf = cdf_delta_cw[method_name]
         n_cases = num_cases[method_name]
         x = [0] + list(ranks) + [n_cases]
         y = [0] + list(cdf) + [cdf[-1]]
         plt.step(x, y, where='post', label=method_name)
+        if max_x < np.max(x):
+            max_x = np.max(x)
     x_50 = int(n_cases/2)
     y_50 = int(cdf[-1]/2)
     plt.axhline(y_50, color="red", linestyle="--", linewidth=1)
     plt.axvline(x_50, color="red", linestyle="--", linewidth=1)
     plt.xlabel("# cases")
+    xticks = [0, 8000]
+    while xticks[-1] < max_x:
+        xticks.append(xticks[-1] * 2)
+    xticks[-1] = int(max_x)
+    plt.xticks(xticks, xticks, rotation=90)
     plt.ylabel("delta CW")
     plt.suptitle("Cumulative distribution of delta cost weight (CW_delta)")
     plt.legend()
