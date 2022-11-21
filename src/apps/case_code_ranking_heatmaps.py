@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from src.utils import save_figure_to_pdf_on_s3
+from src.utils.general_utils import save_figure_to_pdf_on_s3
 
 
 def plot_heatmap_comparing_all_case_code_rankings(*,
