@@ -8,6 +8,7 @@ pandas
 openpyxl
 pyarrow
 scipy
+sklearn
 
 # Plotting
 matplotlib

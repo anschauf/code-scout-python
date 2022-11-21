@@ -20,8 +20,8 @@ def main(dir_output):
 
     # read in all data from DB and merge it with the labels from the meta data
     data = load_data(pd.concat([
-        meta_data_train[meta_data_train['y_label_is_revised_case'] == 1],
-        meta_data_test[meta_data_test['y_label_is_revised_case'] == 1]
+        meta_data_train,
+        meta_data_test
     ]).drop_duplicates("aimedic_id"), load_diagnoses=True, load_procedures=True, only_revised_cases=True)
 
     # create column added diagnoses for latest revision

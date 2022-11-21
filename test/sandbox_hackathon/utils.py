@@ -133,3 +133,42 @@ def categorize_variable(data: pd.DataFrame, variable: str, encoder: object = Non
     encoded_variable = encoder.transform(data[variable].values.reshape((-1, 1)))
     logger.info(f'Categorized variable {variable}. Shape of encoded variable is {encoded_variable.shape}')
     return encoded_variable, [f'{variable}_{x}' for x in encoder.classes_], encoder
+
+
+def categorize_age(ages_years: npt.ArrayLike, ages_days: npt.ArrayLike):
+    """ Compute age bins
+
+    @param ages_years: The age in years.
+    @param ages_days: The age in days.
+    :return: (The age-categorized BFS data, the labels for the age bins)
+    """
+    agebins_labels = ['age_below_28_days', 'age_28_days_to_2_years', 'age_2_to_5_years', 'age_6_to_15_years', 'age_16_to_29_years', 'age_30_to_39_years', 'age_40_to_49_years', 'age_50_to_59_years', 'age_60_to_69_years', 'age_70_to_79_years', 'age_80_and_older']
+    categories_age = np.zeros((len(ages_years), len(agebins_labels)))
+    for i, age_year_days in enumerate(zip(ages_years, ages_days)):
+        age_year = age_year_days[0]
+        age_day = age_year_days[1]
+
+        if age_year == 0 and 0 <= age_day < 28:
+            categories_age[i, 0] = 1
+        elif 28 <= age_day <= 365 or 1 <= age_year < 2:
+            categories_age[i, 1] = 1
+        elif 2 <= age_year <= 5:
+            categories_age[i, 2] = 1
+        elif 6 <= age_year <= 15:
+            categories_age[i, 3] = 1
+        elif 16 <= age_year <= 29:
+            categories_age[i, 4] = 1
+        elif 30 <= age_year <= 39:
+            categories_age[i, 5] = 1
+        elif 40 <= age_year <= 49:
+            categories_age[i, 6] = 1
+        elif 50 <= age_year <= 59:
+            categories_age[i, 7] = 1
+        elif 60 <= age_year <= 69:
+            categories_age[i, 8] = 1
+        elif 70 <= age_year <= 79:
+            categories_age[i, 9] = 1
+        else:
+            categories_age[i, 10] = 1
+
+    return categories_age, agebins_labels
