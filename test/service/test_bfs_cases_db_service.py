@@ -24,7 +24,7 @@ class TestDbAccess(TestCase):
         with database as db:
             df = get_sociodemographics_for_hospital_year('Hirslanden Aarau', 2018, db.session)
         num_columns = len(df.columns)
-        self.assertequal(num_columns, 34)
+        self.assertEqual(num_columns, 34)
         self.assertTrue(df.shape[0] > 0)
 
 #     def test_get_earliest_revisions_for_aimedic_ids(self):
