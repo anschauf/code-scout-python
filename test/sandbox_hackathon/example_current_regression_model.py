@@ -17,7 +17,13 @@ def extract_number_of(data):
     X_number_of_used_chops = np.zeros((len(data), 1))
     X_number_of_ccl_triggering_diags = np.zeros((len(data), 1))
     for i, row in enumerate(data.itertuples()):
-        revision_id = row.revision_id[0]
+        all_revision_ids = row.revision_id
+        if len(all_revision_ids) > 1:
+            days = [x.year*365+x.month*30+x.day for x in row.revision_date]
+            ind_longest_in_past = np.argmin(days) # take the earlier date, less days in total
+            revision_id = all_revision_ids[ind_longest_in_past]
+        else:
+            revision_id = all_revision_ids[0]
         ind_diags = np.where(np.asarray(row.revision_id_diagnoses) == revision_id)[0]
         ind_chops = np.where(np.asarray(row.revision_id_procedures) == revision_id)[0]
 
