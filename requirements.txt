@@ -7,9 +7,11 @@ numpy
 pandas
 openpyxl
 pyarrow
+scipy
 
 # Plotting
 matplotlib
+seaborn
 
 # database
 psycopg2-binary
@@ -18,3 +20,5 @@ marshmallow_sqlalchemy
 
 # environment variable
 python-decouple
+
+coverage

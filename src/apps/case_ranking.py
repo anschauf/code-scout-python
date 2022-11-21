@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from src import venn
 from src.files import load_revised_cases, load_all_rankings
 from src.schema import case_id_col, prob_most_likely_code_col
-from src.utils import save_figure_to_pdf_on_s3
+from src.utils.general_utils import save_figure_to_pdf_on_s3
 
 
 def create_rankings_of_revised_cases(*,
@@ -99,7 +99,7 @@ def create_rankings_of_revised_cases(*,
     plt.figure()
     for method_name, data in cdf_delta_cw.items():
         ranks, cdf = cdf_delta_cw[method_name]
-        rank_percent = [cases / list(ranks)[-1]*100 for cases in list(ranks)]
+        rank_percent = [cases / num_cases[method_name]*100 for cases in list(ranks)]
         cdf_percent = [cases / max(list(cdf))*100 for cases in list(cdf)]
         x = [0] + rank_percent + [rank_percent[-1]]
         y = [0] + cdf_percent + [cdf_percent[-1]]
@@ -109,8 +109,8 @@ def create_rankings_of_revised_cases(*,
     plt.axhline(y_50, color="red", linestyle="--", linewidth=1)
     plt.axvline(x_50, color="blue", linestyle="--", linewidth=1)
     plt.axvline(50, color="red", linestyle="--", linewidth=1)
-    plt.xticks(np.arange(0, max(rank_percent), step=10))
-    plt.yticks(np.arange(0, max(cdf_percent), step=10))
+    plt.xticks(np.linspace(0, 100, num=11))
+    plt.yticks(np.linspace(0, 100, num=11))
     plt.xlabel("cases in %")
     plt.ylabel("delta CW in %")
     plt.title("Cumulative distribution of delta cost weight (CW_delta) in %")

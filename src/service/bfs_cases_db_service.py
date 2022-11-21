@@ -13,8 +13,13 @@ from src.models.hospital import Hospital
 from src.models.procedure import Procedure
 from src.models.revision import Revision
 from src.models.sociodemographics import Sociodemographics
-from src.revised_case_normalization.notebook_functions.global_configs import *
 from sqlalchemy.orm.session import Session
+
+from src.revised_case_normalization.notebook_functions.global_configs import AIMEDIC_ID_COL, REVISION_DATE_COL, \
+    REVISION_ID_COL, PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL, PROCEDURE_DATE_COL, PROCEDURE_SIDE_COL, CODE_COL, \
+    PRIMARY_PROCEDURE_COL, IS_PRIMARY_COL, SECONDARY_PROCEDURES_COL, DRG_COL, DRG_COST_WEIGHT_COL, \
+    EFFECTIVE_COST_WEIGHT_COL, PCCL_COL, CCL_COL, IS_GROUPER_RELEVANT_COL
+
 
 @beartype
 def get_bfs_cases_by_ids(case_ids: list, session: Session) -> DataFrame:
@@ -82,6 +87,7 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int, sessi
 def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[int], session: Session) -> pd.DataFrame:
     """
      Get earliest revisions of aimedic_ids
+     @param session: active DB session
      @param aimedic_ids:
      @return: a Dataframe containing aimedic ids, revision ids and revision dates
      """
@@ -115,6 +121,7 @@ def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[int], session: Sess
 def get_diagnoses_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
     """
      Retrieve primary and secondary diagnoses of the revised cases from the DB.
+     @param session: active DB session
      @param df_revision_ids: a Dataframe with aimedic_id and revision_id
      @return: a Dataframe containing revision ids, primary and secondary diagnoses
      """
@@ -159,6 +166,7 @@ def get_diagnoses_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.D
 def get_procedures_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
     """
      Retrieve primary and secondary procedures of the revised cases from the DB.
+     @param session: active DB session
      @param df_revision_ids: a Dataframe with aimedic_id and revision_id
      @return: a dataframe containing revision ids, primary and secondary diagnoses
      """
@@ -210,6 +218,7 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.
 def get_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
     """
     Merging information on the diagnoses and procedures from the DB for usage in the revise function (revise.notebook_functions)
+     @param session: active DB session
      @param df_revision_ids: a Dataframe with aimedic_id and revision_id
      @return: a dataframe containing revision ids, diagnoses and procedures
     """
@@ -229,6 +238,7 @@ def get_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
 def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, session: Session) -> dict:
     """
     Insert revised cases into the table coding_revision.revisions
+    @param session: active DB session
     @param revised_case_revision_df: a Dataframe of revised cases after grouping
     @return: a dictionary with aimedic_ids as keys and revision_ids as values created after insert into the DB
     """
@@ -277,6 +287,7 @@ def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, 
 def insert_revised_cases_into_diagnoses(revised_case_diagnoses: pd.DataFrame, aimedic_id_with_revision_id: dict, session: Session):
     """
     Insert revised cases into the table coding_revision.diagnoses
+    @param session: active DB session
     @param revised_case_diagnoses: a Dataframe of revised cases for diagnoses after grouping
     @param aimedic_id_with_revision_id: a dictionary with aimedic_ids as keys and revision_ids as values which are created
         after insert into the DB
