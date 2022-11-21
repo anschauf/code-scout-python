@@ -143,8 +143,8 @@ def create_rankings_of_revised_cases(*,
 
 if __name__ == '__main__':
     create_rankings_of_revised_cases(
-        filename_revised_cases="s3://code-scout/hackathon/aimedic_id_revised_cases_test.csv",
-        dir_rankings='s3://code-scout/hackathon/test_run_case_rankings/',
-        dir_output="s3://code-scout/hackathon/test_run_case_rankings_results/",
+        filename_revised_cases="s3://code-scout/performance-measuring/CodeScout_GroundTruthforPerformanceMeasuring.csv",
+        dir_rankings='s3://code-scout/performance-measuring/code_rankings/2022-09-14_first-filter-comparison_ksw/',
+        dir_output="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw_2019_2_case_ranking_tier_plots/",
         s3_bucket='code-scout'
     )
