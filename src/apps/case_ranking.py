@@ -102,6 +102,23 @@ def create_rankings_of_revised_cases(*,
     plt.legend()
     save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf.pdf'))
 
+    plt.figure()
+    for method_name, data in cdf_delta_cw.items():
+        ranks, cdf = cdf_delta_cw[method_name]
+        n_cases = num_cases[method_name]
+        x = [0] + list(ranks) + [n_cases]
+        y = [0] + list(cdf) + [cdf[-1]]
+        plt.step(np.log(x), y, where='post', label=method_name)
+    x_50 = int(n_cases/2)
+    y_50 = int(cdf[-1]/2)
+    plt.axhline(y_50, color="red", linestyle="--", linewidth=1)
+    plt.axvline(np.log(x_50), color="red", linestyle="--", linewidth=1)
+    plt.xlabel("# cases")
+    plt.ylabel("delta CW")
+    plt.suptitle("Cumulative distribution of delta cost weight (CW_delta)")
+    plt.legend()
+    save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf_log.pdf'))
+
     # Cumulative plot for each method from cdf_delta_cw in percent
 
     plt.figure()
