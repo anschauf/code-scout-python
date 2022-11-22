@@ -12,7 +12,7 @@ from src.service.bfs_cases_db_service import get_clinics, get_all_cases_socio_de
 from src.service.database import Database
 from test.sandbox_hackathon.constants import RANDOM_SEED
 
-def main(dir_output):
+def main(dir_output, test_size=0.3):
     if not exists(dir_output):
         os.makedirs(dir_output)
 
@@ -25,7 +25,7 @@ def main(dir_output):
         full_data['y_label_is_revised_case'] = full_data['revision_id'].apply(lambda x: 1 if (len(x) > 1) else 0)
 
         # split data train test
-        ind_train, ind_test = train_test_split(range(full_data.shape[0]), stratify=full_data['y_label_is_revised_case'].values, test_size=0.3, random_state=RANDOM_SEED)
+        ind_train, ind_test = train_test_split(range(full_data.shape[0]), stratify=full_data['y_label_is_revised_case'].values, test_size=test_size, random_state=RANDOM_SEED)
         full_data_train = full_data.iloc[np.sort(ind_train)]
         full_data_test = full_data.iloc[np.sort(ind_test)]
 
