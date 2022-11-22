@@ -16,14 +16,19 @@ def extract_number_of(data):
     X_number_of_used_diags = np.zeros((len(data), 1))
     X_number_of_used_chops = np.zeros((len(data), 1))
     X_number_of_ccl_triggering_diags = np.zeros((len(data), 1))
+    original_pccl = np.asarray(['']*len(data)).reshape((-1,1))
+    original_effective_cost_weight = np.zeros((len(data), 1))
     for i, row in enumerate(data.itertuples()):
         all_revision_ids = row.revision_id
         if len(all_revision_ids) > 1:
             days = [x.year*365+x.month*30+x.day for x in row.revision_date]
-            ind_longest_in_past = np.argmin(days) # take the earlier date, less days in total
-            revision_id = all_revision_ids[ind_longest_in_past]
+            ind_original_case = np.argmin(days) # take the earlier date, less days in total
+            revision_id = all_revision_ids[ind_original_case]
         else:
+            ind_original_case = 0
             revision_id = all_revision_ids[0]
+        original_pccl[i] = np.asarray(row.pccl)[ind_original_case]
+        original_effective_cost_weight[i] = np.asarray(row.effective_cost_weight)[ind_original_case]
         ind_diags = np.where(np.asarray(row.revision_id_diagnoses) == revision_id)[0]
         ind_chops = np.where(np.asarray(row.revision_id_procedures) == revision_id)[0]
 
@@ -42,7 +47,7 @@ def extract_number_of(data):
             X_number_of_used_chops[i] = np.sum(np.asarray(row.is_grouper_relevant_procedures)[ind_chops])
 
 
-    return X_number_of_sdx, X_number_of_chops, X_number_of_used_diags, X_number_of_used_chops, X_number_of_ccl_triggering_diags
+    return X_number_of_sdx, X_number_of_chops, X_number_of_used_diags, X_number_of_used_chops, X_number_of_ccl_triggering_diags, original_pccl, original_effective_cost_weight
 
 
 def main(dir_output):
@@ -72,21 +77,21 @@ def main(dir_output):
     X_train_gender, gender_label, encoder_gender = categorize_variable(data_train, 'gender')
     X_test_gender, _, _ = categorize_variable(data_test, 'gender', encoder=encoder_gender)
 
-    data_train['pccl_original'] = data_train['pccl'].apply(lambda x: x[0])
-    data_test['pccl_original'] = data_test['pccl'].apply(lambda x: x[0])
-    X_train_pccl, pccl_label, encoder_pccl = categorize_variable(data_train, 'pccl_original')
-    X_test_pccl, _, _ = categorize_variable(data_test, 'pccl_original', encoder=encoder_pccl)
-
-    data_train['effective_cost_weight_original'] = data_train['effective_cost_weight'].apply(lambda x: x[0])
-    data_test['effective_cost_weight_original'] = data_test['effective_cost_weight'].apply(lambda x: x[0])
-    X_train_cw = data_train['effective_cost_weight_original'].values.reshape((-1,1))
-    X_test_cw = data_test['effective_cost_weight_original'].values.reshape((-1,1))
-
     X_train_dos = data_train['duration_of_stay'].values.reshape((-1,1))
     X_test_dos = data_test['duration_of_stay'].values.reshape((-1,1))
 
-    X_train_number_of_sdx, X_train_number_of_chops, X_train_number_of_used_diags, X_train_number_of_used_chops, X_train_number_of_ccl_triggering_diags = extract_number_of(data_train)
-    X_test_number_of_sdx, X_test_number_of_chops, X_test_number_of_used_diags, X_test_number_of_used_chops, X_test_number_of_ccl_triggering_diags = extract_number_of(data_test)
+    X_train_number_of_sdx, X_train_number_of_chops, X_train_number_of_used_diags, X_train_number_of_used_chops, X_train_number_of_ccl_triggering_diags, pccl_train_original_case, effektive_cost_weight_train_original_case = extract_number_of(data_train)
+    X_test_number_of_sdx, X_test_number_of_chops, X_test_number_of_used_diags, X_test_number_of_used_chops, X_test_number_of_ccl_triggering_diags, pccl_test_original_case, effektive_cost_weight_test_original_case = extract_number_of(data_test)
+
+    data_train['effective_cost_weight_original'] = effektive_cost_weight_train_original_case
+    data_test['effective_cost_weight_original'] = effektive_cost_weight_test_original_case
+    X_train_cw = data_train['effective_cost_weight_original'].values.reshape((-1,1))
+    X_test_cw = data_test['effective_cost_weight_original'].values.reshape((-1,1))
+
+    data_train['pccl_original'] = pccl_train_original_case
+    data_test['pccl_original'] = pccl_test_original_case
+    X_train_pccl, pccl_label, encoder_pccl = categorize_variable(data_train, 'pccl_original')
+    X_test_pccl, _, _ = categorize_variable(data_test, 'pccl_original', encoder=encoder_pccl)
 
     # define model input
     predictor_labels = list(np.concatenate([age_labels, gender_label, pccl_label, ['effective_cost_weight', 'duration_of_stay', 'number_of_sdx', 'number_of_chops', 'number_of_used_diags', 'number_of_used_chops', 'number_of_ccl_triggering_diags']]))
