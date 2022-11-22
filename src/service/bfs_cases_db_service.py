@@ -99,20 +99,6 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int, sessi
     query_sociodemo = (
         session
         .query(Sociodemographics)
-        .with_entities(Sociodemographics.aimedic_id,
-                       Sociodemographics.case_id,
-                       Sociodemographics.patient_id,
-                       Sociodemographics.age_years,
-                       Sociodemographics.age_days,
-                       Sociodemographics.admission_weight,
-                       Sociodemographics.gestation_age,
-                       Sociodemographics.gender,
-                       Sociodemographics.admission_date,
-                       Sociodemographics.grouper_admission_type,
-                       Sociodemographics.discharge_date,
-                       Sociodemographics.grouper_discharge_type,
-                       Sociodemographics.duration_of_stay,
-                       Sociodemographics.ventilation_hours)
         .join(Hospital, Sociodemographics.hospital_id == Hospital.hospital_id)
         .filter(Hospital.hospital_name == hospital_name)
         .filter(Sociodemographics.discharge_year == year)

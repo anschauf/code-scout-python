@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, CHAR, Date, Float, SmallInteger
+from sqlalchemy import Column, Integer, String, ForeignKey, CHAR, Date, SmallInteger, BOOLEAN, VARCHAR
 from sqlalchemy import MetaData
 from sqlalchemy.orm import declarative_base
 
@@ -26,3 +26,23 @@ class Sociodemographics(Base):
     discharge_date = Column('discharge_date', Date)
     grouper_discharge_type = Column('grouper_discharge_type', String(2))
     discharge_year = Column('discharge_year', SmallInteger)
+    place_of_residence = Column('place_of_residence', String(4))
+    introducing_authority = Column('introducing_authority', CHAR)
+    main_cost_unit = Column('main_cost_unit', CHAR)
+    health_insurance_class = Column('health_insurance_class', CHAR)
+    hours_in_icu = Column('hours_in_icu', Integer)
+    location_before_admission = Column('location_before_admission', String(2))
+    admission_type = Column('admission_type', CHAR)
+    discharge_type = Column('discharge_type', CHAR)
+    location_after_discharge = Column('location_after_discharge', String(2))
+    treatment_after_discharge = Column('treatment_after_discharge', CHAR)
+    nems_total = Column('nems_total', String(6))
+    imc_effort_points = Column('imc_effort_points', String(6))
+    medications = Column('medications', VARCHAR)
+    vital_status = Column('vital_status', BOOLEAN)
+    multiple_birth = Column('multiple_birth', CHAR)
+    congenital_malformation = Column('congenital_malformation', CHAR)
+    age_of_mother = Column('age_of_mother', Integer)
+
+
+
