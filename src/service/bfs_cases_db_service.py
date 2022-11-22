@@ -48,6 +48,19 @@ def get_hospital_cases_df(hospital_name: str, session: Session) -> DataFrame:
     return pd.read_sql(query.statement, session.bind)
 
 @beartype
+def get_hospital_df(session: Session) -> DataFrame:
+    """ Get all hospitals.
+
+    @param session: The DB session.
+    @return: The Dataframe containing all Hospital infos.
+    """
+    query = (
+        session.query(Hospital)
+    )
+    return pd.read_sql(query.statement, session.bind)
+
+
+@beartype
 def get_all_cases_socio_demographics_df(session: Session) -> DataFrame:
     """
      Get all records from case_data.Sociodemographics
