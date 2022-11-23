@@ -172,3 +172,20 @@ def categorize_age(ages_years: npt.ArrayLike, ages_days: npt.ArrayLike):
             categories_age[i, 10] = 1
 
     return categories_age, agebins_labels
+
+
+def get_revision_id_of_original_case(row: pd.Series) -> (int, int):
+    """ Return revision ID and index of original case.
+
+    @param row: Series of current row of patient case.
+    @return: (index of original case; revision ID of original case)
+    """
+    all_revision_ids = row.revision_id
+    if len(all_revision_ids) > 1:
+        days = [x.year * 365 + x.month * 30 + x.day for x in row.revision_date]
+        ind_original_case = np.argmin(days)  # take the earlier date, less days in total
+        revision_id = all_revision_ids[ind_original_case]
+    else:
+        ind_original_case = 0
+        revision_id = all_revision_ids[0]
+    return ind_original_case, revision_id
