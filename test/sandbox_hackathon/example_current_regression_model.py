@@ -35,6 +35,9 @@ def main(dir_output):
     X_train_age_bins, age_labels = categorize_age(data_train['age_years'].values, data_train['age_days'].values)
     X_test_age_bins, _ = categorize_age(data_test['age_years'], data_test['age_days'].values)
 
+    # X_train_age = data_train['age_years'].values.reshape((-1, 1))
+    # X_test_age = data_test['age_years'].values.reshape((-1, 1))
+
     X_train_gender, gender_label, encoder_gender = categorize_variable(data_train, 'gender')
     X_test_gender, _, _ = categorize_variable(data_test, 'gender', encoder=encoder_gender)
 
@@ -59,6 +62,7 @@ def main(dir_output):
     # define model input
     predictor_labels = list(np.concatenate([
         age_labels,
+        # ['age'],
         gender_label,
         pccl_label,
         ['effective_cost_weight'],
@@ -70,6 +74,7 @@ def main(dir_output):
     y_label = 'y_label_is_revised_case'
     X_train = np.hstack([
         X_train_age_bins,
+        # X_train_age,
         X_train_gender,
         X_train_pccl,
         X_train_cw,
@@ -85,6 +90,7 @@ def main(dir_output):
 
     X_test = np.hstack([
         X_test_age_bins,
+        # X_test_age,
         X_test_gender,
         X_test_pccl,
         X_test_cw,
@@ -116,4 +122,4 @@ def main(dir_output):
     extract_case_ranking_performance_app(data_test, prediction_probas_test, join(dir_output, 'performance_app_input.csv'))
 
 if __name__ == "__main__":
-    main(dir_output=join(PROJECT_ROOT_DIR, 'results', 'results_current_model_discharge_year'))
+    main(dir_output=join(PROJECT_ROOT_DIR, 'results', 'results_current_model_age_instead_bins'))
