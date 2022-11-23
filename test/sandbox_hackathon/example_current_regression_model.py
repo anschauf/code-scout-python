@@ -7,7 +7,9 @@ import numpy as np
 from src import PROJECT_ROOT_DIR
 from test.sandbox_hackathon.constants import FILENAME_TRAIN_SPLIT, FILENAME_TEST_SPLIT, RANDOM_SEED
 from test.sandbox_hackathon.utils import load_data, train_lr_model, write_model_coefs_to_file, predict_proba, \
-    write_evaluation_metrics_to_file, extract_case_ranking_performance_app, categorize_variable, categorize_age
+    write_evaluation_metrics_to_file, extract_case_ranking_performance_app, categorize_variable, categorize_age, \
+    get_revision_id_of_original_case
+
 
 def extract_number_of(data):
     # create number of code fields
@@ -19,14 +21,7 @@ def extract_number_of(data):
     original_pccl = np.asarray(['']*len(data)).reshape((-1,1))
     original_effective_cost_weight = np.zeros((len(data), 1))
     for i, row in enumerate(data.itertuples()):
-        all_revision_ids = row.revision_id
-        if len(all_revision_ids) > 1:
-            days = [x.year*365+x.month*30+x.day for x in row.revision_date]
-            ind_original_case = np.argmin(days) # take the earlier date, less days in total
-            revision_id = all_revision_ids[ind_original_case]
-        else:
-            ind_original_case = 0
-            revision_id = all_revision_ids[0]
+        ind_original_case, revision_id = get_revision_id_of_original_case(row)
         original_pccl[i] = np.asarray(row.pccl)[ind_original_case]
         original_effective_cost_weight[i] = np.asarray(row.effective_cost_weight)[ind_original_case]
         ind_diags = np.where(np.asarray(row.revision_id_diagnoses) == revision_id)[0]
