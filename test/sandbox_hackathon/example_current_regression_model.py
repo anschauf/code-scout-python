@@ -6,44 +6,10 @@ import numpy as np
 
 from src import PROJECT_ROOT_DIR
 from test.sandbox_hackathon.constants import FILENAME_TRAIN_SPLIT, FILENAME_TEST_SPLIT, RANDOM_SEED
+from test.sandbox_hackathon.feature_extraction_functions import extract_number_of, get_categorized_predictors
 from test.sandbox_hackathon.utils import load_data, train_lr_model, write_model_coefs_to_file, predict_proba, \
     write_evaluation_metrics_to_file, extract_case_ranking_performance_app, categorize_variable, categorize_age, \
     get_revision_id_of_original_case
-
-
-def extract_number_of(data):
-    # create number of code fields
-    X_number_of_sdx = np.zeros((len(data), 1))
-    X_number_of_chops = np.zeros((len(data), 1))
-    X_number_of_used_diags = np.zeros((len(data), 1))
-    X_number_of_used_chops = np.zeros((len(data), 1))
-    X_number_of_ccl_triggering_diags = np.zeros((len(data), 1))
-    original_pccl = np.asarray(['']*len(data)).reshape((-1,1))
-    original_effective_cost_weight = np.zeros((len(data), 1))
-    for i, row in enumerate(data.itertuples()):
-        ind_original_case, revision_id = get_revision_id_of_original_case(row)
-        original_pccl[i] = np.asarray(row.pccl)[ind_original_case]
-        original_effective_cost_weight[i] = np.asarray(row.effective_cost_weight)[ind_original_case]
-        ind_diags = np.where(np.asarray(row.revision_id_diagnoses) == revision_id)[0]
-        ind_chops = np.where(np.asarray(row.revision_id_procedures) == revision_id)[0]
-
-        if len(ind_diags) > 0:
-            # number of side diagnoses
-            X_number_of_sdx[i] = len(ind_diags) - 1
-            # number of used diags
-            X_number_of_used_diags[i] = np.sum(np.asarray(row.is_grouper_relevant_diagnoses)[ind_diags])
-            # number of ccl triggering diags
-            X_number_of_ccl_triggering_diags[i] = np.sum(np.asarray(row.ccl_diagnoses)[ind_diags] > 0)
-
-        if len(ind_chops) > 0:
-            # number of chops
-            X_number_of_chops[i] = len(ind_chops)
-            # number of used chops
-            X_number_of_used_chops[i] = np.sum(np.asarray(row.is_grouper_relevant_procedures)[ind_chops])
-
-
-    return X_number_of_sdx, X_number_of_chops, X_number_of_used_diags, X_number_of_used_chops, X_number_of_ccl_triggering_diags, original_pccl, original_effective_cost_weight
-
 
 def main(dir_output):
     if not exists(dir_output):
@@ -75,8 +41,8 @@ def main(dir_output):
     X_train_dos = data_train['duration_of_stay'].values.reshape((-1,1))
     X_test_dos = data_test['duration_of_stay'].values.reshape((-1,1))
 
-    X_train_number_of_sdx, X_train_number_of_chops, X_train_number_of_used_diags, X_train_number_of_used_chops, X_train_number_of_ccl_triggering_diags, pccl_train_original_case, effektive_cost_weight_train_original_case = extract_number_of(data_train)
-    X_test_number_of_sdx, X_test_number_of_chops, X_test_number_of_used_diags, X_test_number_of_used_chops, X_test_number_of_ccl_triggering_diags, pccl_test_original_case, effektive_cost_weight_test_original_case = extract_number_of(data_test)
+    X_train_number_of_sdx, X_train_number_of_chops, X_train_number_of_used_diags, X_train_number_of_used_chops, X_train_number_of_ccl_triggering_diags, number_of_predictor_labels, pccl_train_original_case, effektive_cost_weight_train_original_case = extract_number_of(data_train)
+    X_test_number_of_sdx, X_test_number_of_chops, X_test_number_of_used_diags, X_test_number_of_used_chops, X_test_number_of_ccl_triggering_diags, _, pccl_test_original_case, effektive_cost_weight_test_original_case = extract_number_of(data_test)
 
     data_train['effective_cost_weight_original'] = effektive_cost_weight_train_original_case
     data_test['effective_cost_weight_original'] = effektive_cost_weight_test_original_case
@@ -88,12 +54,47 @@ def main(dir_output):
     X_train_pccl, pccl_label, encoder_pccl = categorize_variable(data_train, 'pccl_original')
     X_test_pccl, _, _ = categorize_variable(data_test, 'pccl_original', encoder=encoder_pccl)
 
+    # X_train_discharge_year, X_test_discharge_year, label_discharge_year = get_categorized_predictors(data_train, data_test, column='discharge_year')
+
     # define model input
-    predictor_labels = list(np.concatenate([age_labels, gender_label, pccl_label, ['effective_cost_weight', 'duration_of_stay', 'number_of_sdx', 'number_of_chops', 'number_of_used_diags', 'number_of_used_chops', 'number_of_ccl_triggering_diags']]))
+    predictor_labels = list(np.concatenate([
+        age_labels,
+        gender_label,
+        pccl_label,
+        ['effective_cost_weight', 'duration_of_stay'],
+        number_of_predictor_labels
+        # label_discharge_year
+    ]))
+
     y_label = 'y_label_is_revised_case'
-    X_train = np.hstack([X_train_age_bins, X_train_gender, X_train_pccl, X_train_cw, X_train_dos, X_train_number_of_sdx, X_train_number_of_chops, X_train_number_of_used_diags, X_train_number_of_used_chops, X_train_number_of_ccl_triggering_diags])
+    X_train = np.hstack([
+        X_train_age_bins,
+        X_train_gender,
+        X_train_pccl,
+        X_train_cw,
+        X_train_dos,
+        X_train_number_of_sdx,
+        X_train_number_of_chops,
+        X_train_number_of_used_diags,
+        X_train_number_of_used_chops,
+        X_train_number_of_ccl_triggering_diags
+        # X_train_discharge_year
+    ])
     y_train = data_train[y_label]
-    X_test = np.hstack([X_test_age_bins, X_test_gender, X_test_pccl, X_test_cw, X_test_dos, X_test_number_of_sdx, X_test_number_of_chops, X_test_number_of_used_diags, X_test_number_of_used_chops, X_test_number_of_ccl_triggering_diags])
+
+    X_test = np.hstack([
+        X_test_age_bins,
+        X_test_gender,
+        X_test_pccl,
+        X_test_cw,
+        X_test_dos,
+        X_test_number_of_sdx,
+        X_test_number_of_chops,
+        X_test_number_of_used_diags,
+        X_test_number_of_used_chops,
+        X_test_number_of_ccl_triggering_diags
+        # X_test_discharge_year
+    ])
     y_test = data_test[y_label]
 
     # train the model
@@ -114,4 +115,4 @@ def main(dir_output):
     extract_case_ranking_performance_app(data_test, prediction_probas_test, join(dir_output, 'performance_app_input.csv'))
 
 if __name__ == "__main__":
-    main(dir_output=join(PROJECT_ROOT_DIR, 'results', 'results_current_mdel_before_revision'))
+    main(dir_output=join(PROJECT_ROOT_DIR, 'results', 'results_current_model_discharge_year'))
