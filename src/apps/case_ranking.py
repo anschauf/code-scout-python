@@ -169,7 +169,7 @@ def create_rankings_of_revised_cases(*,
 if __name__ == '__main__':
     create_rankings_of_revised_cases(
         filename_revised_cases="s3://code-scout/hackathon/aimedic_id_revised_cases.csv",
-        dir_rankings='s3://code-scout/hackathon/2022-11-21_different_LR_models/',
-        dir_output="s3://code-scout/hackathon/2022-11-21_different_LR_models_results/",
+        dir_rankings='s3://code-scout/hackathon/2022-11-23_IMC_effort_points/',
+        dir_output="s3://code-scout/hackathon/2022-11-23_IMC_effort_points_results/",
         s3_bucket='code-scout'
     )

@@ -38,6 +38,7 @@ def extract_number_of(data):
 
     return X_number_of_sdx, X_number_of_chops, X_number_of_used_diags, X_number_of_used_chops, X_number_of_ccl_triggering_diags, predictor_labels, original_pccl, original_effective_cost_weight, \
 
+
 def get_categorized_predictors(data_train, data_test, column):
     logger.info(f'Preparing categorical variable for column {column}')
     X_train, label, encoder = categorize_variable(data_train, column)
@@ -45,3 +46,31 @@ def get_categorized_predictors(data_train, data_test, column):
     return X_train, X_test, label
 
 
+def get_nems_total(data_train, data_test):
+    logger.info('Preparing NEMS total number.')
+    data_train['nems_total'] = data_train['nems_total'].replace(np.nan, 0)
+    data_train['nems_total'] = data_train['nems_total'].apply(lambda x: x if str(x).isdigit() else 0)
+    data_train = data_train.astype({'nems_total': int})
+    data_test['nems_total'] = data_test['nems_total'].replace(np.nan, 0)
+    data_test['nems_total'] = data_test['nems_total'].apply(lambda x: x if str(x).isdigit() else 0)
+    data_test = data_test.astype({'nems_total': int})
+
+    X_train = data_train['nems_total'].values.reshape((-1, 1))
+    X_test = data_test['nems_total'].values.reshape((-1, 1))
+    
+    return X_train, X_test
+
+
+def get_imc_effort_points(data_train, data_test):
+    logger.info('Preparing IMC effort points.')
+    data_train['imc_effort_points'] = data_train['imc_effort_points'].replace(np.nan, 0)
+    data_train['imc_effort_points'] = data_train['imc_effort_points'].apply(lambda x: x if str(x).isdigit() else 0)
+    data_train = data_train.astype({'imc_effort_points': int})
+    data_test['imc_effort_points'] = data_test['imc_effort_points'].replace(np.nan, 0)
+    data_test['imc_effort_points'] = data_test['imc_effort_points'].apply(lambda x: x if str(x).isdigit() else 0)
+    data_test = data_test.astype({'imc_effort_points': int})
+
+    X_train = data_train['imc_effort_points'].values.reshape((-1, 1))
+    X_test = data_test['imc_effort_points'].values.reshape((-1, 1))
+
+    return X_train, X_test

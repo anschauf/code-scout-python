@@ -6,7 +6,8 @@ import numpy as np
 
 from src import PROJECT_ROOT_DIR
 from test.sandbox_hackathon.constants import FILENAME_TRAIN_SPLIT, FILENAME_TEST_SPLIT, RANDOM_SEED
-from test.sandbox_hackathon.feature_extraction_functions import extract_number_of, get_categorized_predictors
+from test.sandbox_hackathon.feature_extraction_functions import extract_number_of, get_categorized_predictors, \
+    get_nems_total, get_imc_effort_points
 from test.sandbox_hackathon.utils import load_data, train_lr_model, write_model_coefs_to_file, predict_proba, \
     write_evaluation_metrics_to_file, extract_case_ranking_performance_app, categorize_variable, categorize_age, \
     get_revision_id_of_original_case
@@ -57,7 +58,15 @@ def main(dir_output):
     X_train_pccl, pccl_label, encoder_pccl = categorize_variable(data_train, 'pccl_original')
     X_test_pccl, _, _ = categorize_variable(data_test, 'pccl_original', encoder=encoder_pccl)
 
+    # # add discharge year
     # X_train_discharge_year, X_test_discharge_year, label_discharge_year = get_categorized_predictors(data_train, data_test, column='discharge_year')
+
+    # # get nems points
+    # X_train_nems, X_test_nems = get_nems_total(data_train, data_test)
+
+    # # get IMC effort points
+    # X_train_imc_effort_points, X_test_imc_effort_points = get_imc_effort_points(data_train, data_test)
+
 
     # define model input
     predictor_labels = list(np.concatenate([
@@ -67,8 +76,10 @@ def main(dir_output):
         pccl_label,
         ['effective_cost_weight'],
         ['duration_of_stay'],
-        number_of_predictor_labels
+        number_of_predictor_labels, # this contains all cases
         # label_discharge_year
+        # ['nems']
+        # ['IMC_effort_points']
     ]))
 
     y_label = 'y_label_is_revised_case'
@@ -83,8 +94,10 @@ def main(dir_output):
         X_train_number_of_chops,
         X_train_number_of_used_diags,
         X_train_number_of_used_chops,
-        X_train_number_of_ccl_triggering_diags
+        X_train_number_of_ccl_triggering_diags,
         # X_train_discharge_year
+        # X_train_nems
+        # X_train_imc_effort_points
     ])
     y_train = data_train[y_label]
 
@@ -99,8 +112,10 @@ def main(dir_output):
         X_test_number_of_chops,
         X_test_number_of_used_diags,
         X_test_number_of_used_chops,
-        X_test_number_of_ccl_triggering_diags
+        X_test_number_of_ccl_triggering_diags,
         # X_test_discharge_year
+        # X_test_nems
+        # X_test_imc_effort_points
     ])
     y_test = data_test[y_label]
 
@@ -122,4 +137,4 @@ def main(dir_output):
     extract_case_ranking_performance_app(data_test, prediction_probas_test, join(dir_output, 'performance_app_input.csv'))
 
 if __name__ == "__main__":
-    main(dir_output=join(PROJECT_ROOT_DIR, 'results', 'results_current_model_age_instead_bins'))
+    main(dir_output=join(PROJECT_ROOT_DIR, 'results', 'results_current_model'))
