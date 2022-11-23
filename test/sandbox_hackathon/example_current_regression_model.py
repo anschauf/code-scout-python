@@ -61,7 +61,8 @@ def main(dir_output):
         age_labels,
         gender_label,
         pccl_label,
-        ['effective_cost_weight', 'duration_of_stay'],
+        ['effective_cost_weight'],
+        ['duration_of_stay'],
         number_of_predictor_labels
         # label_discharge_year
     ]))
