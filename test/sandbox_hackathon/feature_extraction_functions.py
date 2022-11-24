@@ -46,31 +46,16 @@ def get_categorized_predictors(data_train, data_test, column):
     return X_train, X_test, label
 
 
-def get_nems_total(data_train, data_test):
-    logger.info('Preparing NEMS total number.')
-    data_train['nems_total'] = data_train['nems_total'].replace(np.nan, 0)
-    data_train['nems_total'] = data_train['nems_total'].apply(lambda x: x if str(x).isdigit() else 0)
-    data_train = data_train.astype({'nems_total': int})
-    data_test['nems_total'] = data_test['nems_total'].replace(np.nan, 0)
-    data_test['nems_total'] = data_test['nems_total'].apply(lambda x: x if str(x).isdigit() else 0)
-    data_test = data_test.astype({'nems_total': int})
+def get_continous_int_variable(data_train, data_test, column):
+    logger.info(f'Preparing {column}.')
+    data_train[column] = data_train[column].replace(np.nan, 0)
+    data_train[column] = data_train[column].apply(lambda x: x if str(x).isdigit() else 0)
+    data_train = data_train.astype({column: int})
+    data_test[column] = data_test[column].replace(np.nan, 0)
+    data_test[column] = data_test[column].apply(lambda x: x if str(x).isdigit() else 0)
+    data_test = data_test.astype({column: int})
 
-    X_train = data_train['nems_total'].values.reshape((-1, 1))
-    X_test = data_test['nems_total'].values.reshape((-1, 1))
-    
-    return X_train, X_test
-
-
-def get_imc_effort_points(data_train, data_test):
-    logger.info('Preparing IMC effort points.')
-    data_train['imc_effort_points'] = data_train['imc_effort_points'].replace(np.nan, 0)
-    data_train['imc_effort_points'] = data_train['imc_effort_points'].apply(lambda x: x if str(x).isdigit() else 0)
-    data_train = data_train.astype({'imc_effort_points': int})
-    data_test['imc_effort_points'] = data_test['imc_effort_points'].replace(np.nan, 0)
-    data_test['imc_effort_points'] = data_test['imc_effort_points'].apply(lambda x: x if str(x).isdigit() else 0)
-    data_test = data_test.astype({'imc_effort_points': int})
-
-    X_train = data_train['imc_effort_points'].values.reshape((-1, 1))
-    X_test = data_test['imc_effort_points'].values.reshape((-1, 1))
+    X_train = data_train[column].values.reshape((-1, 1))
+    X_test = data_test[column].values.reshape((-1, 1))
 
     return X_train, X_test

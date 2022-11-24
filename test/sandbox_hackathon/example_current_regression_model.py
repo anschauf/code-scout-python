@@ -3,11 +3,11 @@ from os.path import join, exists
 
 import awswrangler as wr
 import numpy as np
+from loguru import logger
 
 from src import PROJECT_ROOT_DIR
 from test.sandbox_hackathon.constants import FILENAME_TRAIN_SPLIT, FILENAME_TEST_SPLIT, RANDOM_SEED
-from test.sandbox_hackathon.feature_extraction_functions import extract_number_of, get_categorized_predictors, \
-    get_nems_total, get_imc_effort_points
+from test.sandbox_hackathon.feature_extraction_functions import extract_number_of, get_categorized_predictors, get_continous_int_variable
 from test.sandbox_hackathon.utils import load_data, train_lr_model, write_model_coefs_to_file, predict_proba, \
     write_evaluation_metrics_to_file, extract_case_ranking_performance_app, categorize_variable, categorize_age, \
     get_revision_id_of_original_case
@@ -15,6 +15,7 @@ from test.sandbox_hackathon.utils import load_data, train_lr_model, write_model_
 def main(dir_output):
     if not exists(dir_output):
         makedirs(dir_output)
+        logger.info(f'Created directory: {dir_output}')
 
     # load meta data containing aimedic id and label (whether the case was revised)
     meta_data_train = wr.s3.read_csv(FILENAME_TRAIN_SPLIT)
@@ -62,10 +63,13 @@ def main(dir_output):
     # X_train_discharge_year, X_test_discharge_year, label_discharge_year = get_categorized_predictors(data_train, data_test, column='discharge_year')
 
     # # get nems points
-    # X_train_nems, X_test_nems = get_nems_total(data_train, data_test)
+    # X_train_nems, X_test_nems = get_continous_int_variable(data_train, data_test, 'nems_total')
 
     # # get IMC effort points
-    # X_train_imc_effort_points, X_test_imc_effort_points = get_imc_effort_points(data_train, data_test)
+    # X_train_imc_effort_points, X_test_imc_effort_points = get_continous_int_variable(data_train, data_test, 'imc_effort_points')
+
+    # # get IMC effort points
+    # X_train_ventilation_hours, X_test_ventilation_hours = get_continous_int_variable(data_train, data_test, 'ventilation_hours')
 
 
     # define model input
@@ -80,6 +84,7 @@ def main(dir_output):
         # label_discharge_year
         # ['nems']
         # ['IMC_effort_points']
+        # ['ventilation_hours']
     ]))
 
     y_label = 'y_label_is_revised_case'
@@ -98,6 +103,7 @@ def main(dir_output):
         # X_train_discharge_year
         # X_train_nems
         # X_train_imc_effort_points
+        # X_train_ventilation_hours
     ])
     y_train = data_train[y_label]
 
@@ -116,6 +122,7 @@ def main(dir_output):
         # X_test_discharge_year
         # X_test_nems
         # X_test_imc_effort_points
+        # X_test_ventilation_hours
     ])
     y_test = data_test[y_label]
 
@@ -137,4 +144,4 @@ def main(dir_output):
     extract_case_ranking_performance_app(data_test, prediction_probas_test, join(dir_output, 'performance_app_input.csv'))
 
 if __name__ == "__main__":
-    main(dir_output=join(PROJECT_ROOT_DIR, 'results', 'results_current_model'))
+    main(dir_output=join(PROJECT_ROOT_DIR, 'results', 'results_current_model_ventilation_hours'))
