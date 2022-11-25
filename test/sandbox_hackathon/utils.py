@@ -5,6 +5,7 @@ import numpy.typing as npt
 import pandas as pd
 from loguru import logger
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import f1_score, recall_score, precision_score
 from sklearn.preprocessing import MultiLabelBinarizer
 
@@ -46,6 +47,20 @@ def train_lr_model(X: npt.ArrayLike, y: npt.ArrayLike, **kwargs):
     assert len(X) == len(y), "Predictors and labels need to have same amount of samples."
     logger.info('Training logistic regression')
     model = LogisticRegression(**kwargs)
+    model = model.fit(X, y)
+    return model
+
+def train_rf_model(X: npt.ArrayLike, y: npt.ArrayLike):
+    """ Train a Random Forest regressor.
+
+    @param X: Predictors matrix.
+    @param y: Labels vector.
+    @param fit_intercept: Whether to fit an intercept.
+    @return: The trained model.
+    """
+    assert len(X) == len(y), "Predictors and labels need to have same amount of samples."
+    logger.info('Training Random Forest')
+    model = RandomForestRegressor(n_estimators=100)
     model = model.fit(X, y)
     return model
 
