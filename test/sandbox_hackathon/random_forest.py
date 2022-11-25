@@ -15,7 +15,6 @@ from test.sandbox_hackathon.utils import load_data, train_rf_model, write_model_
     write_evaluation_metrics_to_file, extract_case_ranking_performance_app, categorize_variable, categorize_age, \
     get_revision_id_of_original_case
 
-
 def main(dir_output):
     if not exists(dir_output):
         makedirs(dir_output)
