@@ -142,7 +142,7 @@ def get_diagnoses_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.D
      """
 
     all_aimedic_ids = set(df_revision_ids[AIMEDIC_ID_COL].values.tolist())
-    all_revision_ids = set(df_revision_ids['revision_id'].values.tolist())
+    all_revision_ids = set(df_revision_ids[REVISION_ID_COL].values.tolist())
 
     query_diagnoses = (
         session
@@ -155,17 +155,17 @@ def get_diagnoses_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.D
     df = pd.read_sql(query_diagnoses.statement, session.bind)
 
     # Select a subset of rows, which contain the primary diagnosis for each case
-    primary_diagnoses = df[df['is_primary']][['revision_id', 'code']]
-    primary_diagnoses.rename(columns={'code': PRIMARY_DIAGNOSIS_COL}, inplace=True)
+    primary_diagnoses = df[df[IS_PRIMARY_COL]][[REVISION_ID_COL, CODE_COL]]
+    primary_diagnoses.rename(columns={CODE_COL: PRIMARY_DIAGNOSIS_COL}, inplace=True)
 
     # Aggregate the subset of rows, which contain the secondary diagnoses for each case
-    secondary_diagnoses = df[~df['is_primary']].groupby('revision_id', group_keys=True)['code'].apply(list)
+    secondary_diagnoses = df[~df[IS_PRIMARY_COL]].groupby(REVISION_ID_COL, group_keys=True)[CODE_COL].apply(list)
     secondary_diagnoses = secondary_diagnoses.to_frame(SECONDARY_DIAGNOSES_COL)
     secondary_diagnoses.reset_index(drop=False, inplace=True)
 
     codes_df = (df_revision_ids
-                .merge(primary_diagnoses, on='revision_id', how='left')
-                .merge(secondary_diagnoses, on='revision_id', how='left'))
+                .merge(primary_diagnoses, on=REVISION_ID_COL, how='left')
+                .merge(secondary_diagnoses, on=REVISION_ID_COL, how='left'))
 
     n_cases_no_pd = codes_df[PRIMARY_DIAGNOSIS_COL].isna().sum()
     if n_cases_no_pd > 0:
