@@ -433,5 +433,8 @@ def create_table(table: DeclarativeMeta, session: Session, *, overwrite: bool = 
         table.metadata.create_all(connection, checkfirst=True)
         logger.success(f"Created the table '{schema_name}.{table_name}'")
 
+    except Exception as e:
+        logger.error(e)
+
     finally:
         connection.close()

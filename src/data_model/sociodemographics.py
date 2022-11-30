@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, CHAR, Date, Float, SmallInteger
 from sqlalchemy import MetaData
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import declarative_base, relationship
 
 metadata_obj = MetaData(schema="case_data")
 Base = declarative_base(metadata=metadata_obj)
