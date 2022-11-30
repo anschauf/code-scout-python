@@ -5,16 +5,17 @@ from loguru import logger
 from pandas import DataFrame
 from sqlalchemy import func
 from sqlalchemy import tuple_
+from sqlalchemy.orm import DeclarativeMeta
+from sqlalchemy.orm.session import Session
+from sqlalchemy.sql.ddl import CreateSchema, DropTable
 from sqlalchemy.sql.elements import Null
 
-from src.models.clinic import Clinic
-from src.models.diagnosis import Diagnosis
-from src.models.hospital import Hospital
-from src.models.procedure import Procedure
-from src.models.revision import Revision
-from src.models.sociodemographics import Sociodemographics
-from sqlalchemy.orm.session import Session
-
+from src.data_model.clinic import Clinic
+from src.data_model.diagnosis import Diagnosis
+from src.data_model.hospital import Hospital
+from src.data_model.procedure import Procedure
+from src.data_model.revision import Revision
+from src.data_model.sociodemographics import Sociodemographics
 from src.revised_case_normalization.notebook_functions.global_configs import AIMEDIC_ID_COL, REVISION_DATE_COL, \
     REVISION_ID_COL, PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL, PROCEDURE_DATE_COL, PROCEDURE_SIDE_COL, CODE_COL, \
     PRIMARY_PROCEDURE_COL, IS_PRIMARY_COL, SECONDARY_PROCEDURES_COL, DRG_COL, DRG_COST_WEIGHT_COL, \
@@ -402,3 +403,35 @@ def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame, 
     session.commit()
 
     logger.success(f"Inserted {len(values_to_insert)} rows into the 'Procedures' table")
+
+
+# noinspection PyUnresolvedReferences
+@beartype
+def create_table(table: DeclarativeMeta, session: Session, *, overwrite: bool = False):
+    # We set the isolation level to autocommit, so we don't have to do it after each execute()
+    connection = session.connection(execution_options={
+        'isolation_level': 'AUTOCOMMIT'
+    })
+
+    try:
+        schema_name = table.__table__.schema
+        table_name = table.__tablename__
+
+        # Create the schema if it doesn't exist
+        if not connection.dialect.has_schema(connection, schema_name):
+            logger.info(f"Creating the database schema '{schema_name}' ...")
+            connection.execute(CreateSchema(schema_name))
+            logger.success(f"Created the database schema '{schema_name}'")
+
+        # If the table needs to be overwritten, drop it first
+        if overwrite and connection.dialect.has_table(connection, table_name, schema_name):
+            logger.info(f"Dropping the table '{schema_name}.{table_name}' ...")
+            connection.execute(DropTable(table.__table__, if_exists=True))
+            logger.info(f"Dropped the table '{schema_name}.{table_name}'")
+
+        # Create the table
+        table.metadata.create_all(connection, checkfirst=True)
+        logger.success(f"Created the table '{schema_name}.{table_name}'")
+
+    finally:
+        connection.close()
