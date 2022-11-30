@@ -1,36 +1,36 @@
 
-# Performance testing tool for CodeScout (CodeScout Performance App)
+# Code Scout (python repo)
 
 ## About The Project
 
-The CodeScout performance testing tool was developed to be able to measure and compare various CodeScout approaches/prototypes. 
+This is the python side of CodeScout. There is also a Scala project.
+
+In here, there are the following components:
+
+- The performance testing tool was developed to be able to measure and compare various CodeScout approaches/prototypes. 
 The tool aims to take suggestions from different prototypes and measures and to compare their results, thus offering support
 in finding the best working solution for CodeScout. 
 Currently, the performance measure tool consists of two separate apps:
 
--  code_ranking_tier
--  case_ranking
+  -  code_ranking_tier
+  -  case_ranking
 
-The corresponding .py files to run the apps can be found in the following folder: **codescout-performance-app &rarr; src &rarr; apps** 
-
-
-The detailed description of the CodeScout apps can be found here [RFC 0011 - Performance testing tool for Code Scout](https://www.notion.so/aimedic/RFC-0011-Performance-testing-tool-for-Code-Scout-554e9d35b96845afa42c70f7fe8ccef2)
+The corresponding .py files to run the apps can be found in the following folder: **src &rarr; apps** 
 
 
 ### Technology Stack
 
-- [Python 3.10.5](https://www.python.org/downloads/)
+- [Python 3.10](https://www.python.org/downloads/)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - [PyCharm IDE](https://www.jetbrains.com/pycharm/promo/?source=google&medium=cpc&campaign=14123077402&term=pycharm)
 
-
 ## Getting Started
 
-#### Prerequisites
+### Prerequisites
 
 Python 3, Docker Desktop and the PyCharm IDE must be installed locally => see Technology stack
 
-#### Setup
+### Setup
 
 1. Duplicate the `.env-example` file and name the file `.env`
 2. Insert all env variables into the file. You find them in KeePass
@@ -38,18 +38,12 @@ Python 3, Docker Desktop and the PyCharm IDE must be installed locally => see Te
    2. `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` is your personal AWS Key
    3. `AWS_REGION` is **eu-central-1**
    4. The most recent `AIMEDIC_GROUPER_VERSION` you find on [AWS CodeArtifact](https://eu-central-1.console.aws.amazon.com/codesuite/codeartifact/d/264427866130/aimedic/r/aimedic/p/maven/ch.aimedic/aimedic-grouper_2.12/versions?region=eu-central-1&package-versions-meta=eyJmIjp7fSwicyI6e30sIm4iOjIwLCJpIjowfQ)
-3. From the run configs click `Add configuration`. Under `Shell script` you should find run configs for `dockerfile.sh`. Click **OK** ro add the configs.
-4. Run the shell script by hitting the green arrow button.
-5. In the terminal it should now start a Docker build. Wait until it has finished buidling.
-6. Once finished you see a localhost URL in the output. Open it and a jupyter notebook opens in your browser
-7. You are ready to code in the jupyter notebook =)
-8. If you want to set the intepreter in PyCharm, do the following:
-   1. Open Python `Intepreter settings > Add intepreter > Docker >Image name (Dropdown)`
-   2. Choose `code-scout-python:latest`
 
-> It is important that you always call the shell-script `dockerfile.sh` and not the Dockerfile itself.
-> 
-> As there the environment variables are not loaded in upfront and the building of the Dockerfile will fail.
+#### PyCharm 2022.2.4 on MacOs
+- Go to PyCharm > Preferences.
+- In the sidebar, select "Project: code-scout-python", then "Python Interpreter".
+- On the right-hand side, click on "Add Interpreter ..." > "On Docker Compose ..."
+- Click on Next, and wait for the image to be built and the container run.
 
 ### Input and Output
 

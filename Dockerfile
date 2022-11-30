@@ -25,10 +25,15 @@ RUN mkdir -p /tmp/jars
 RUN ~/aws-cli/bin/aws codeartifact get-package-version-asset --domain aimedic --domain-owner 264427866130 --repository aimedic --format maven --namespace ch.aimedic --package aimedic-grouper_2.12 --package-version ${AIMEDIC_GROUPER_VERSION} --asset aimedic-grouper-assembly-${AIMEDIC_GROUPER_VERSION}.jar /tmp/jars/aimedic-grouper-assembly.jar
 
 
-FROM arm64v8/python:3.10
+FROM openjdk:18-slim
 
-RUN mkdir -p ./resources/jars
-COPY --from=AWS-CLI /tmp/jars/aimedic-grouper-assembly.jar ./resources/jars
+RUN apt-get update -y
+RUN apt-get install -y --no-install-recommends ca-certificates curl python3.10 python3-pip python3-dev python3-setuptools python3-wheel
+# TODO Link python3 to python
+
+RUN mkdir -p /opt/project/resources/jars
+WORKDIR /opt/project/resources/jars
+COPY --from=AWS-CLI /tmp/jars/aimedic-grouper-assembly.jar .
 
 RUN python3 -m pip install --upgrade pip
 COPY requirements.txt .
