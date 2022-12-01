@@ -51,7 +51,7 @@ def revise(file_info: FileInfo,
             logger.warning(f'{num_unmatched} rows could not be matched, given {sorted(validation_cols)}')
 
         # Retrieve the codes from the DB
-        original_revision_ids = get_earliest_revisions_for_aimedic_ids(matched_cases[AIMEDIC_ID_COL].astype(int).values.tolist(), db.session)
+        original_revision_ids = get_earliest_revisions_for_aimedic_ids(matched_cases[AIMEDIC_ID_COL].values.tolist(), db.session)
         original_cases = get_codes(original_revision_ids, db.session)
 
         # Apply the revisions to the cases from the DB
