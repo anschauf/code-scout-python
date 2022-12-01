@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, CHAR, Date, Float, SmallInteger
+from sqlalchemy import Column, Integer, String, ForeignKey, CHAR, Date, SmallInteger
 from sqlalchemy import MetaData
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import declarative_base
 
 metadata_obj = MetaData(schema="case_data")
 Base = declarative_base(metadata=metadata_obj)
@@ -9,7 +9,8 @@ Base = declarative_base(metadata=metadata_obj)
 class Sociodemographics(Base):
     __tablename__ = 'sociodemographics'
 
-    aimedic_id = Column(Integer, primary_key=True)
+    sociodemographics_pk = Column(Integer, primary_key=True)
+    aimedic_id = Column(String)
     hospital_id = Column(Integer, ForeignKey('hospitals.hospital_id'))
     clinic_id = Column('clinic_id', Integer, ForeignKey('clinic.clinic_id'))
     patient_id = Column('patient_id', String(16))

@@ -1,3 +1,6 @@
+import sys
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 from beartype import beartype
@@ -19,7 +22,8 @@ from src.data_model.sociodemographics import Sociodemographics
 from src.revised_case_normalization.notebook_functions.global_configs import AIMEDIC_ID_COL, REVISION_DATE_COL, \
     REVISION_ID_COL, PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL, PROCEDURE_DATE_COL, PROCEDURE_SIDE_COL, CODE_COL, \
     PRIMARY_PROCEDURE_COL, IS_PRIMARY_COL, SECONDARY_PROCEDURES_COL, DRG_COL, DRG_COST_WEIGHT_COL, \
-    EFFECTIVE_COST_WEIGHT_COL, PCCL_COL, CCL_COL, IS_GROUPER_RELEVANT_COL
+    EFFECTIVE_COST_WEIGHT_COL, PCCL_COL, CCL_COL, IS_GROUPER_RELEVANT_COL, NEW_PRIMARY_DIAGNOSIS_COL
+from src.service.database import Database
 
 
 @beartype
@@ -438,3 +442,32 @@ def create_table(table: DeclarativeMeta, session: Session, *, overwrite: bool = 
 
     finally:
         connection.close()
+
+
+@beartype
+def read_cases(*,
+               n_rows: Optional[int] = None
+               ) -> pd.DataFrame:
+    with Database() as db:
+        socio_query = (db.session
+         .query(Sociodemographics, Hospital, Clinic, Revision)
+         .join(Hospital, Sociodemographics.hospital_id == Hospital.hospital_id, isouter=True)
+         .join(Clinic, Sociodemographics.clinic_id == Clinic.clinic_id, isouter=True)
+         .join(Revision, Sociodemographics.aimedic_id == Revision.aimedic_id, isouter=True)
+         )
+
+        if n_rows is not None:
+            socio_query = socio_query.limit(n_rows)
+
+        logger.info('Reading sociodemographic and revision info ...')
+        cases_df = pd.read_sql(socio_query.statement, db.session.bind)
+
+        logger.info('Reading diagnoses codes ...')
+        cases_df = get_diagnoses_codes(cases_df, db.session)
+        cases_df.rename(columns={PRIMARY_DIAGNOSIS_COL: NEW_PRIMARY_DIAGNOSIS_COL}, inplace=True)
+
+        logger.info('Reading procedure codes ...')
+        cases_df = get_procedures_codes(cases_df, db.session)
+
+    logger.success(f'Read {cases_df.shape[0]} cases')
+    return cases_df

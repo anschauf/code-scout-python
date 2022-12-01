@@ -1,9 +1,13 @@
-from sqlalchemy import Column, Integer, Float, ForeignKey
+from sqlalchemy import Column, Integer, Float, ForeignKey, String
 from sqlalchemy import MetaData
 from sqlalchemy.orm import declarative_base
 
-from src.data_model.sociodemographics import Sociodemographics
 from src.data_model.revision import Revision
+from src.data_model.sociodemographics import Sociodemographics
+
+DELTA_CCL_TO_NEXT_PCCL_COL = 'delta_ccl_to_next_pccl'
+
+
 
 
 metadata_obj = MetaData(schema="analytics")
@@ -15,8 +19,8 @@ class FeatureEngineering(Base):
 
     # Define a dummy primary key, and the foreign keys to identify the case
     feateng_pk = Column(Integer, primary_key=True)
-    aimedic_id = Column(Integer, ForeignKey(Sociodemographics.aimedic_id))
+    aimedic_id = Column(String, ForeignKey(Sociodemographics.aimedic_id))
     revision_id = Column(Integer, ForeignKey(Revision.revision_id))
 
     # --- Features ---
-    raw_pccl = Column('raw_pccl', Float)
+    delta_ccl_to_next_pccl = Column(DELTA_CCL_TO_NEXT_PCCL_COL, Float)

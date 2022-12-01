@@ -10,6 +10,7 @@ class Hospital(Base):
     __tablename__ = 'hospital'
 
     hospital_id = Column(Integer, primary_key=True)
+    hospital_abbreviation = Column('hospital_abbreviation', String(5))
     hospital_name = Column('hospital_name', String(100))
     bur_nr = Column('bur_nr', nullable=True)
     company_name = Column('company_name', nullable=True)

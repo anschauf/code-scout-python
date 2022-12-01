@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, ForeignKey, CHAR, Date, VARCHAR, FLOAT
+from sqlalchemy import Column, Integer, ForeignKey, CHAR, Date, VARCHAR, FLOAT, Float
 from sqlalchemy import MetaData
 from sqlalchemy.orm import declarative_base
 
@@ -12,9 +12,11 @@ class Revision(Base):
 
     revision_id = Column(Integer, primary_key=True)
     aimedic_id = Column(Integer, ForeignKey('case_data.sociodemographics.aimedic_id'))
-    drg = Column(VARCHAR)
+    mdc = Column(VARCHAR(3))
     adrg = Column(CHAR)
+    drg = Column(VARCHAR)
     drg_cost_weight = Column(FLOAT)
     effective_cost_weight = Column(FLOAT)
     pccl = Column(Integer)
+    raw_pccl = Column(Float)
     revision_date = Column(Date)
