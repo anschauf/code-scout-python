@@ -13,6 +13,6 @@ echo "--- Starting container ---"
 CONTAINER_ID=$(docker run -it --rm --detach code-scout-python:latest)
 
 echo "--- Copying aimedic-grouper JAR to host ---"
-docker cp "$CONTAINER_ID":/opt/project/resources/jars/aimedic-grouper-assembly.jar "$(pwd)"/resources/jars
+docker cp "$CONTAINER_ID":/opt/project/resources/jars/aimedic-grouper-assembly.jar "$(pwd)"/resources/jars/
 
 echo "--- done ---"
