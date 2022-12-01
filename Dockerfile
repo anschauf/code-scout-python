@@ -15,14 +15,17 @@ ARG AIMEDIC_GROUPER_VERSION
 ENV AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
 ENV AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 ENV AWS_REGION=$AWS_REGION
-ENV AIMEDIC_GROUPER_VERSION=$AIMEDIC_GROUPER_VERSION
+ENV AIMEDIC_GROUPER_VERSION=1.0.14
 
 RUN ~/aws-cli/bin/aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
 RUN ~/aws-cli/bin/aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
 RUN ~/aws-cli/bin/aws configure set default.region $AWS_REGION
 
 RUN mkdir -p /tmp/jars
-RUN ~/aws-cli/bin/aws codeartifact get-package-version-asset --domain aimedic --domain-owner 264427866130 --repository aimedic --format maven --namespace ch.aimedic --package aimedic-grouper_2.12 --package-version ${AIMEDIC_GROUPER_VERSION} --asset aimedic-grouper-assembly-${AIMEDIC_GROUPER_VERSION}.jar /tmp/jars/aimedic-grouper-assembly.jar
+RUN ~/aws-cli/bin/aws codeartifact get-package-version-asset --domain aimedic --domain-owner 264427866130 --repository aimedic --format maven --namespace ch.aimedic --package aimedic-grouper_2.12 \
+    --package-version ${AIMEDIC_GROUPER_VERSION} \
+    --asset aimedic-grouper-assembly-${AIMEDIC_GROUPER_VERSION}.jar \
+    /tmp/jars/aimedic-grouper-assembly.jar
 
 
 FROM openjdk:18-slim
