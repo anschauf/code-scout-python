@@ -98,7 +98,7 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int, sessi
 
 
 @beartype
-def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[int], session: Session) -> pd.DataFrame:
+def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[str], session: Session) -> pd.DataFrame:
     """
      Get earliest revisions of aimedic_ids
      @param session: active DB session
