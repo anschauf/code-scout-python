@@ -5,15 +5,16 @@ import pandas as pd
 from beartype import beartype
 from sqlalchemy.sql import null
 
+from src import ROOT_DIR
 from src.revised_case_normalization.notebook_functions.global_configs import AIMEDIC_ID_COL, DRG_COST_WEIGHT_COL, \
     EFFECTIVE_COST_WEIGHT_COL, REVISION_DATE_COL, IS_GROUPER_RELEVANT_COL, IS_PRIMARY_COL, CCL_COL, CODE_COL, \
     PROCEDURE_DATE_COL, PROCEDURE_SIDE_COL
 
-JAR_FILE_PATH = "/home/jovyan/work/resources/jars/aimedic-grouper-assembly.jar"
-SEPARATOR_CHAR = "#"
-DELIMITER_CHAR = ";"
+JAR_FILE_PATH = f'{ROOT_DIR}/resources/jars/aimedic-grouper-assembly.jar'
+SEPARATOR_CHAR = '#'
+DELIMITER_CHAR = ';'
 
-# Dataframme column names
+# DataFrame column names
 col_aimedic_id = 'aimedicId'
 col_diagnoses = 'diagnoses'
 col_procedures = 'procedures'
@@ -55,7 +56,8 @@ def group_batch_group_cases(batch_group_cases: list[str]) -> tuple[pd.DataFrame,
 
     # Send the data to the grouper
     cases_string = SEPARATOR_CHAR.join(batch_group_cases)
-    grouped_cases_json = subprocess.check_output([
+
+    output = subprocess.check_output([
         'java',
         '-cp',
         JAR_FILE_PATH,
@@ -64,6 +66,11 @@ def group_batch_group_cases(batch_group_cases: list[str]) -> tuple[pd.DataFrame,
         SEPARATOR_CHAR,
         DELIMITER_CHAR,
         arg_filter_valid]).decode('utf-8')
+
+    # Split the captured output into lines. All but the last one contain optional log messages, whereas the last one
+    # contains the JSON-output of the class we called
+    lines = output.split('\n')
+    grouped_cases_json = lines[-1]
 
     # Deserialize the output into a DataFrame
     grouped_cases_dicts = json.loads(grouped_cases_json)

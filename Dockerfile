@@ -3,12 +3,11 @@ FROM jupyter/datascience-notebook
 ARG AWS_ACCESS_KEY_ID
 ARG AWS_SECRET_ACCESS_KEY
 ARG AWS_REGION
-ARG AIMEDIC_GROUPER_VERSION
 
 ENV AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
 ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 ENV AWS_REGION=${AWS_REGION}
-ENV AIMEDIC_GROUPER_VERSION=${AIMEDIC_GROUPER_VERSION}
+ENV AIMEDIC_GROUPER_VERSION=1.0.14
 
 COPY requirements.txt .
 COPY constraints.txt .
@@ -24,8 +23,7 @@ RUN aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
 RUN aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
 RUN aws configure set default.region ${AWS_REGION}
 
-
-RUN mkdir "/tmp/jars"
+RUN mkdir -p "/tmp/jars"
 RUN aws codeartifact get-package-version-asset \
     --domain aimedic \
     --domain-owner 264427866130  \

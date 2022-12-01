@@ -11,11 +11,9 @@ from src.service.bfs_cases_db_service import create_table, get_sociodemographics
 from src.service.database import Database
 
 with Database() as db:
-    aimedic_ids = [393213, 393214, 393215]
 
     # create_table(FeatureEngineering, db.session, overwrite=True)
-    df_socio = get_sociodemographics_for_hospital_year(hospital_name='Hirslanden Klinik Zurich', year=2019, session=db.session)
-    df_socio = df_socio[np.in1d(df_socio[AIMEDIC_ID_COL], aimedic_ids)]
+    df_socio = get_sociodemographics_for_hospital_year(hospital_name='Hirslanden Klinik Zurich', year=2019, session=db.session)[:100]
 
     original_revision_ids = get_earliest_revisions_for_aimedic_ids(df_socio[AIMEDIC_ID_COL].astype(int).values.tolist(), db.session)
     df_codes = get_codes(original_revision_ids, db.session)
