@@ -2,7 +2,8 @@ import pandas as pd
 from beartype import beartype
 from loguru import logger
 
-from src.revised_case_normalization.notebook_functions.global_configs import FileInfo, VALIDATION_COLS, \
+from src.revised_case_normalization.notebook_functions.revised_case_files_info import FileInfo
+from src.revised_case_normalization.notebook_functions.global_configs import VALIDATION_COLS, \
     NORM_CASE_ID_COL, CASE_ID_COL, AIMEDIC_ID_COL, SECONDARY_DIAGNOSES_COL, NEW_PRIMARY_DIAGNOSIS_COL, \
     PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL, GENDER_COL, AGE_COL, AGE_DAYS_COL, GESTATION_AGE_COL, \
     DURATION_OF_STAY_COL, VENTILATION_HOURS_COL, ADMISSION_TYPE_COL, ADMISSION_DATE_COL, ADMISSION_WEIGHT_COL, \

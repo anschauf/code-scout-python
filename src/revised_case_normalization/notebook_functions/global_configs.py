@@ -1,15 +1,3 @@
-import os
-from dataclasses import dataclass, field
-
-
-@dataclass
-class FileInfo:
-    path: str
-    hospital_name_db: str
-    year: str
-    sheet: str
-    
-
 # List the columns to match in the DB
 CASE_ID_COL = 'case_id'
 PATIENT_ID_COL = 'patient_id'
