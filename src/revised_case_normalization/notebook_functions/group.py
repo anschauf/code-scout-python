@@ -18,7 +18,9 @@ def format_for_grouper_one_case(row: pd.Series) -> pd.Series:
        @return: A series of a single revised case in the SwissDRG grouper format 2017.
        """
 
-    aimedic_id = row[AIMEDIC_ID_COL]
+    # replace the aimedic_id with row index because original aimedic_id contains invalid characters for grouper
+    aimedic_id = row.name
+
     case_id = int(row[CASE_ID_COL])
 
     age_years = int(row[AGE_COL])
@@ -85,8 +87,7 @@ def group(revised_cases: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.D
 
     logger.info(f'Grouping {revised_cases.shape[0]} cases ...')
     formatted_revised_cases = format_for_grouper(revised_cases)
-    revision_df, diagnoses_df, procedures_df = group_batch_group_cases(
-        formatted_revised_cases[GROUPER_FORMAT_COL].tolist())
+    revision_df, diagnoses_df, procedures_df = group_batch_group_cases(formatted_revised_cases)
 
     logger.success(
         f'Grouped {revised_cases.shape[0]} cases into: {revision_df.shape[0]} revisions, {diagnoses_df.shape[0]} diagnoses rows, {procedures_df.shape[0]} procedure rows')
