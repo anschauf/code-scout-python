@@ -431,7 +431,7 @@ def create_table(table: DeclarativeMeta, session: Session, *, overwrite: bool = 
         if overwrite and connection.dialect.has_table(connection, table_name, schema_name):
             logger.info(f"Dropping the table '{schema_name}.{table_name}' ...")
             connection.execute(DropTable(table.__table__, if_exists=True))
-            logger.info(f"Dropped the table '{schema_name}.{table_name}'")
+            logger.success(f"Dropped the table '{schema_name}.{table_name}'")
 
         # Create the table
         table.metadata.create_all(connection, checkfirst=True)
@@ -439,9 +439,6 @@ def create_table(table: DeclarativeMeta, session: Session, *, overwrite: bool = 
 
     except Exception as e:
         logger.error(e)
-
-    finally:
-        connection.close()
 
 
 @beartype
