@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, ForeignKey, String
+from sqlalchemy import Column, Integer, Float, ForeignKey, String, Boolean, CHAR
 from sqlalchemy import MetaData
 from sqlalchemy.orm import declarative_base
 
@@ -7,6 +7,7 @@ from src.data_model.sociodemographics import Sociodemographics
 
 # --- Define the feature columns ---
 DELTA_CCL_TO_NEXT_PCCL_COL = 'delta_ccl_to_next_pccl'
+HAS_VENTILATION_HOURS_COL = 'has_ventilation_hours'
 
 # ----------------------------------
 
@@ -24,3 +25,4 @@ class FeatureEngineering(Base):
 
     # --- Features ---
     delta_ccl_to_next_pccl = Column(DELTA_CCL_TO_NEXT_PCCL_COL, Float)
+    has_ventilation_hours = Column(HAS_VENTILATION_HOURS_COL, Boolean)

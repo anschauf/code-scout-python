@@ -84,7 +84,8 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int, sessi
                        Sociodemographics.discharge_date,
                        Sociodemographics.grouper_discharge_type,
                        Sociodemographics.duration_of_stay,
-                       Sociodemographics.ventilation_hours)
+                       Sociodemographics.ventilation_hours,
+                       Sociodemographics.imc_effort_points)
         .join(Hospital, Sociodemographics.hospital_id == Hospital.hospital_id)
         .filter(Hospital.hospital_name == hospital_name)
         .filter(Sociodemographics.discharge_year == year)

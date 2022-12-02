@@ -27,3 +27,11 @@ class Sociodemographics(Base):
     discharge_date = Column('discharge_date', Date)
     grouper_discharge_type = Column('grouper_discharge_type', String(2))
     discharge_year = Column('discharge_year', SmallInteger)
+    imc_effort_points = Column(Integer)
+    admission_type = Column(Integer)
+    discharge_type = Column(Integer)
+    hours_in_icu = Column(Integer)
+    nems_total = Column(Integer)
+    medications = Column(String)
+
+

@@ -30,3 +30,4 @@ def calculate_delta_pccl(cases: pd.DataFrame, *, delta_value_for_max: float = 0.
     logger.info('Calculating the delta CCL to reach the next PCCL value ...')
     cases = cases.apply(_calculate_delta_pccl, axis=1)
     return cases
+
