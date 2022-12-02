@@ -34,44 +34,55 @@ def main(dir_output):
     # mdc
     # duration of stay
 
+    X_train, X_test, y_train, y_test, predictor_labels = get_predictor_response_matrices(data_test, data_train)
+
+    # train the model
+    model = train_lr_model(X_train, y_train, penalty='l1', class_weight='balanced', solver='liblinear', random_state=RANDOM_SEED, fit_intercept=False)
+
+    # evaluate model how well it predicts
+    # write model coefficients to file
+    write_model_coefs_to_file(model, join(dir_output, 'model_coefs.csv'), predictor_labels=predictor_labels)
+
+    # predict on training and test data and get probability for the cases to be revisable
+    prediction_probas_train = predict_proba(model, X_train)
+    prediction_probas_test = predict_proba(model, X_test)
+
+    # write f1, precision, recall to file
+    write_evaluation_metrics_to_file(y_train, prediction_probas_train, y_test, prediction_probas_test, join(dir_output, 'metrics.csv'), threshold=0.5)
+
+    # write performance app output to file for case ranking comparisons
+    extract_case_ranking_performance_app(data_test, prediction_probas_test, join(dir_output, 'performance_app_input.csv'))
+
+
+def get_predictor_response_matrices(data_test, data_train):
     X_train_age_bins, age_labels = categorize_age(data_train['age_years'].values, data_train['age_days'].values)
     X_test_age_bins, _ = categorize_age(data_test['age_years'], data_test['age_days'].values)
-
     # X_train_age = data_train['age_years'].values.reshape((-1, 1))
     # X_test_age = data_test['age_years'].values.reshape((-1, 1))
-
     X_train_gender, gender_label, encoder_gender = categorize_variable(data_train, 'gender')
     X_test_gender, _, _ = categorize_variable(data_test, 'gender', encoder=encoder_gender)
-
-    X_train_dos = data_train['duration_of_stay'].values.reshape((-1,1))
-    X_test_dos = data_test['duration_of_stay'].values.reshape((-1,1))
-
-    X_train_number_of_sdx, X_train_number_of_chops, X_train_number_of_used_diags, X_train_number_of_used_chops, X_train_number_of_ccl_triggering_diags, number_of_predictor_labels, pccl_train_original_case, effektive_cost_weight_train_original_case = extract_number_of(data_train)
-    X_test_number_of_sdx, X_test_number_of_chops, X_test_number_of_used_diags, X_test_number_of_used_chops, X_test_number_of_ccl_triggering_diags, _, pccl_test_original_case, effektive_cost_weight_test_original_case = extract_number_of(data_test)
-
+    X_train_dos = data_train['duration_of_stay'].values.reshape((-1, 1))
+    X_test_dos = data_test['duration_of_stay'].values.reshape((-1, 1))
+    X_train_number_of_sdx, X_train_number_of_chops, X_train_number_of_used_diags, X_train_number_of_used_chops, X_train_number_of_ccl_triggering_diags, number_of_predictor_labels, pccl_train_original_case, effektive_cost_weight_train_original_case = extract_number_of(
+        data_train)
+    X_test_number_of_sdx, X_test_number_of_chops, X_test_number_of_used_diags, X_test_number_of_used_chops, X_test_number_of_ccl_triggering_diags, _, pccl_test_original_case, effektive_cost_weight_test_original_case = extract_number_of(
+        data_test)
     data_train['effective_cost_weight_original'] = effektive_cost_weight_train_original_case
     data_test['effective_cost_weight_original'] = effektive_cost_weight_test_original_case
-    X_train_cw = data_train['effective_cost_weight_original'].values.reshape((-1,1))
-    X_test_cw = data_test['effective_cost_weight_original'].values.reshape((-1,1))
-
+    X_train_cw = data_train['effective_cost_weight_original'].values.reshape((-1, 1))
+    X_test_cw = data_test['effective_cost_weight_original'].values.reshape((-1, 1))
     data_train['pccl_original'] = pccl_train_original_case
     data_test['pccl_original'] = pccl_test_original_case
     X_train_pccl, pccl_label, encoder_pccl = categorize_variable(data_train, 'pccl_original')
     X_test_pccl, _, _ = categorize_variable(data_test, 'pccl_original', encoder=encoder_pccl)
-
     # # add discharge year
     # X_train_discharge_year, X_test_discharge_year, label_discharge_year = get_categorized_predictors(data_train, data_test, column='discharge_year')
-
     # # get nems points
     # X_train_nems, X_test_nems = get_continous_int_variable(data_train, data_test, 'nems_total')
-
     # # get IMC effort points
     # X_train_imc_effort_points, X_test_imc_effort_points = get_continous_int_variable(data_train, data_test, 'imc_effort_points')
-
     # # get IMC effort points
     # X_train_ventilation_hours, X_test_ventilation_hours = get_continous_int_variable(data_train, data_test, 'ventilation_hours')
-
-
     # define model input
     predictor_labels = list(np.concatenate([
         age_labels,
@@ -80,13 +91,12 @@ def main(dir_output):
         pccl_label,
         ['effective_cost_weight'],
         ['duration_of_stay'],
-        number_of_predictor_labels, # this contains all cases
+        number_of_predictor_labels,  # this contains all cases
         # label_discharge_year
         # ['nems']
         # ['IMC_effort_points']
         # ['ventilation_hours']
     ]))
-
     y_label = 'y_label_is_revised_case'
     X_train = np.hstack([
         X_train_age_bins,
@@ -106,7 +116,6 @@ def main(dir_output):
         # X_train_ventilation_hours
     ])
     y_train = data_train[y_label]
-
     X_test = np.hstack([
         X_test_age_bins,
         # X_test_age,
@@ -125,23 +134,8 @@ def main(dir_output):
         # X_test_ventilation_hours
     ])
     y_test = data_test[y_label]
+    return X_train, X_test, y_train, y_test, predictor_labels
 
-    # train the model
-    model = train_lr_model(X_train, y_train, penalty='l1', class_weight='balanced', solver='liblinear', random_state=RANDOM_SEED, fit_intercept=False)
-
-    # evaluate model how well it predicts
-    # write model coefficients to file
-    write_model_coefs_to_file(model, join(dir_output, 'model_coefs.csv'), predictor_labels=predictor_labels)
-
-    # predict on training and test data and get probability for the cases to be revisable
-    prediction_probas_train = predict_proba(model, X_train)
-    prediction_probas_test = predict_proba(model, X_test)
-
-    # write f1, precision, recall to file
-    write_evaluation_metrics_to_file(y_train, prediction_probas_train, y_test, prediction_probas_test, join(dir_output, 'metrics.csv'), threshold=0.5)
-
-    # write performance app output to file for case ranking comparisons
-    extract_case_ranking_performance_app(data_test, prediction_probas_test, join(dir_output, 'performance_app_input.csv'))
 
 if __name__ == "__main__":
     main(dir_output=join(PROJECT_ROOT_DIR, 'results', 'results_current_model_ventilation_hours'))
