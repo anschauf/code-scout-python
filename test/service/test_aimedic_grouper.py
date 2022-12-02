@@ -17,8 +17,8 @@ class AimedicGrouperTest(unittest.TestCase):
                      'ventilation_hours', 'grouper_admission_type', 'admission_date', 'admission_weight', 'grouper_discharge_type', 'discharge_date'])
         formatted = format_for_grouper(revised_cases_df)
         grouper_format = formatted.loc[0][GROUPER_FORMAT_COL]
-        self.assertEqual(grouper_format, 'HLAA|BUR#71275707|FileDate:20180227#1|Pat:07C27DA4B851FD42|Case:0041282182|in2017-out2017|67Y|W|PD:I313|SD:E788,I1090,I318,J91|SRG:009910,340999,3491,371211;41282182;67;0;;W;20170216;01;20170223;0;7;0;I313|J91|I318|E788|I1090|J9580;371211:L:20170216|340999:L:20170216|009910::20170216|3491:L:20170219;')
-        df1, df2, df3 = group_batch_group_cases([grouper_format])
+        self.assertEqual(grouper_format, '0;41282182;67;0;;W;20170216;01;20170223;0;7;0;I313|J91|I318|E788|I1090|J9580;371211:L:20170216|340999:L:20170216|009910::20170216|3491:L:20170219;')
+        df1, df2, df3 = group_batch_group_cases(formatted)
 
         print("")
 
