@@ -52,7 +52,7 @@ def store_features_in_db(data: pd.DataFrame):
     logger.info(f"Storing {data.shape[0]} rows to '{table_name}' ...")
 
     # List the columns in the DB table
-    columns = list(FeatureEngineering.__table__.columns)
+    columns = FeatureEngineering.__table__.columns.values()
     column_names = list()
     for column in columns:
         if not column.primary_key:
