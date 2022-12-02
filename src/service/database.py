@@ -1,6 +1,7 @@
 import boto3
 from decouple import config
 from sqlalchemy import create_engine, event
+from sqlalchemy.engine import Connection
 from sqlalchemy.orm import sessionmaker
 
 BFS_CASES_DB_URL = config('BFS_CASES_DB_URL')
@@ -51,9 +52,8 @@ class Database:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    @property
-    def connection(self):
-        return self.session
+    def get_connection(self, **kwargs) -> Connection:
+        return self.session.connection(execution_options=kwargs)
 
     def commit(self):
         self.session.commit()

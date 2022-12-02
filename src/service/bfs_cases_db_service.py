@@ -1,9 +1,10 @@
-import sys
-from typing import Optional
+import math
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
 from beartype import beartype
+from beartype.typing import Iterator
 from loguru import logger
 from pandas import DataFrame
 from sqlalchemy import func
@@ -23,7 +24,6 @@ from src.revised_case_normalization.notebook_functions.global_configs import AIM
     REVISION_ID_COL, PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL, PROCEDURE_DATE_COL, PROCEDURE_SIDE_COL, CODE_COL, \
     PRIMARY_PROCEDURE_COL, IS_PRIMARY_COL, SECONDARY_PROCEDURES_COL, DRG_COL, DRG_COST_WEIGHT_COL, \
     EFFECTIVE_COST_WEIGHT_COL, PCCL_COL, CCL_COL, IS_GROUPER_RELEVANT_COL, NEW_PRIMARY_DIAGNOSIS_COL
-from src.service.database import Database
 
 
 @beartype
@@ -137,7 +137,7 @@ def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[int], session: Sess
 
 
 @beartype
-def get_diagnoses_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
+def get_diagnoses_codes(df_revision_ids: Union[pd.DataFrame, Iterator[pd.DataFrame]], session: Session) -> pd.DataFrame:
     """
      Retrieve primary and secondary diagnoses of the revised cases from the DB.
      @param session: active DB session
@@ -171,14 +171,17 @@ def get_diagnoses_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.D
                 .merge(primary_diagnoses, on=REVISION_ID_COL, how='left')
                 .merge(secondary_diagnoses, on=REVISION_ID_COL, how='left'))
 
-    n_cases_no_pd = codes_df[PRIMARY_DIAGNOSIS_COL].isna().sum()
+    cases_without_pd = codes_df[PRIMARY_DIAGNOSIS_COL].isna()
+    valid_codes_df = codes_df.loc[~cases_without_pd].copy()
+
+    n_cases_no_pd = cases_without_pd.sum()
     if n_cases_no_pd > 0:
-        raise ValueError(f'There are {n_cases_no_pd} cases without a Primary Diagnosis')
+        logger.warning(f'Discarded {n_cases_no_pd} cases without primary diagnosis')
 
     # Replace NaNs with an empty list
-    codes_df[SECONDARY_DIAGNOSES_COL] = codes_df[SECONDARY_DIAGNOSES_COL].apply(lambda x: x if isinstance(x, list) else [])
+    valid_codes_df[SECONDARY_DIAGNOSES_COL] = valid_codes_df[SECONDARY_DIAGNOSES_COL].apply(lambda x: x if isinstance(x, list) else [])
 
-    return codes_df
+    return valid_codes_df
 
 
 @beartype
@@ -413,9 +416,7 @@ def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame, 
 @beartype
 def create_table(table: DeclarativeMeta, session: Session, *, overwrite: bool = False):
     # We set the isolation level to autocommit, so we don't have to do it after each execute()
-    connection = session.connection(execution_options={
-        'isolation_level': 'AUTOCOMMIT'
-    })
+    connection = session.connection(execution_options={'isolation_level': 'AUTOCOMMIT'})
 
     try:
         schema_name = table.__table__.schema
@@ -442,29 +443,48 @@ def create_table(table: DeclarativeMeta, session: Session, *, overwrite: bool = 
 
 
 @beartype
-def read_cases(*,
-               n_rows: Optional[int] = None
-               ) -> pd.DataFrame:
-    with Database() as db:
-        socio_query = (db.session
-         .query(Sociodemographics, Hospital, Clinic, Revision)
-         .join(Hospital, Sociodemographics.hospital_id == Hospital.hospital_id, isouter=True)
-         .join(Clinic, Sociodemographics.clinic_id == Clinic.clinic_id, isouter=True)
-         .join(Revision, Sociodemographics.aimedic_id == Revision.aimedic_id, isouter=True)
-         )
+def read_cases_in_chunks(session: Session,
+                         *,
+                         n_rows: Optional[int] = None,
+                         chunksize: Optional[int] = None,
+                         ) -> Iterator[pd.DataFrame]:
+    connection = session.connection(execution_options={'stream_results': True})
 
-        if n_rows is not None:
-            socio_query = socio_query.limit(n_rows)
+    socio_query = (session
+     .query(Sociodemographics, Hospital, Clinic, Revision)
+     .join(Hospital, Sociodemographics.hospital_id == Hospital.hospital_id, isouter=True)
+     .join(Clinic, Sociodemographics.clinic_id == Clinic.clinic_id, isouter=True)
+     .join(Revision, Sociodemographics.aimedic_id == Revision.aimedic_id, isouter=True)
+     )
 
-        logger.info('Reading sociodemographic and revision info ...')
-        cases_df = pd.read_sql(socio_query.statement, db.session.bind)
+    if n_rows is not None:
+        socio_query = socio_query.limit(n_rows)
 
-        logger.info('Reading diagnoses codes ...')
-        cases_df = get_diagnoses_codes(cases_df, db.session)
+    # Crate a counter to log in which chunk we currently are
+    chunk_idx = 1
+
+    # Calculate the number of chunks
+    if n_rows is None:
+        n_rows = session.query(Sociodemographics).count()
+    n_chunks = math.ceil(float(n_rows) / chunksize)
+
+    # This log message is needed for the first chunk, which is read when the for-loop starts
+    logger.info(f'Reading chunk {chunk_idx}/{n_chunks} ...')
+
+    for cases_batch in pd.read_sql(socio_query.statement, connection, chunksize=chunksize):
+        # This log message is needed for the following chunks
+        if chunk_idx > 1:
+            logger.info(f'Reading chunk {chunk_idx}/{n_chunks} ...')
+
+        # Increase the counter
+        chunk_idx += 1
+
+        # Read and join the diagnosis info
+        cases_df = get_diagnoses_codes(cases_batch, session)
         cases_df.rename(columns={PRIMARY_DIAGNOSIS_COL: NEW_PRIMARY_DIAGNOSIS_COL}, inplace=True)
 
-        logger.info('Reading procedure codes ...')
-        cases_df = get_procedures_codes(cases_df, db.session)
+        # Read and join the procedure info
+        cases_df = get_procedures_codes(cases_df, session)
 
-    logger.success(f'Read {cases_df.shape[0]} cases')
-    return cases_df
+        # Return the cases so far, ready for the next chunk
+        yield cases_df
