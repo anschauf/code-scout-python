@@ -7,10 +7,13 @@ metadata_obj = MetaData(schema="coding_revision")
 Base = declarative_base(metadata=metadata_obj)
 
 
+REVISION_ID_COL = 'revision_id'
+
+
 class Revision(Base):
     __tablename__ = 'revisions'
 
-    revision_id = Column(Integer, primary_key=True)
+    revision_id = Column(REVISION_ID_COL, Integer, primary_key=True)
     aimedic_id = Column(Integer, ForeignKey('case_data.sociodemographics.aimedic_id'))
     drg = Column(VARCHAR)
     adrg = Column(CHAR)
