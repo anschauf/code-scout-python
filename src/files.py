@@ -7,7 +7,8 @@ import pandas as pd
 from beartype import beartype
 from loguru import logger
 
-from src.schema import case_id_col, suggested_code_rankings_split_col, prob_most_likely_code_col
+from src.schema import case_id_col, suggested_code_rankings_split_col, prob_most_likely_code_col, \
+    suggested_code_probabilities_split_col
 from src.utils.general_utils import split_codes
 
 
@@ -58,6 +59,8 @@ def load_all_rankings(dir_rankings: str) -> list[tuple[str, str, pd.DataFrame]]:
             raise Exception('There are duplicated case IDs in the ranked cases file')
 
         rankings[suggested_code_rankings_split_col] = rankings[suggested_code_rankings_split_col].apply(split_codes)
+        if suggested_code_probabilities_split_col in rankings.columns:
+            rankings[suggested_code_probabilities_split_col] = rankings[suggested_code_probabilities_split_col].apply(split_codes).apply(lambda probas: [float(x) for x in probas])
 
         method_name = splitext(basename(filename))[0]
         folder_name = os.path.dirname(filename).split('/')[-1]
