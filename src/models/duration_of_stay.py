@@ -7,9 +7,9 @@ metadata_obj = MetaData(schema="dimension")
 Base = declarative_base(metadata=metadata_obj)
 
 
-class Clinic(Base):
-    __tablename__ = 'clinic'
+class DurationOfStay(Base):
+    __tablename__ = 'duration_of_stay'
 
-    clinic_id = Column('clinic_id', Integer, primary_key=True, autoincrement=True)
-    clinic_code = Column('clinic_code', VARCHAR(4), nullable=False)
+    dos_id = Column('dos_id', Integer, primary_key=True, autoincrement=True)
+    dos_legacy_code = Column('dos_legacy_code', VARCHAR(2), nullable=False)
     description = Column('description', VARCHAR(500))
