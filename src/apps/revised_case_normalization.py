@@ -47,7 +47,8 @@ for file_info in REVISED_CASE_FILES:
         columns_to_rename['fid'] = CASE_ID_COL
         revised_cases_df = normalize(file_info, columns_mapper=columns_to_rename)
         # Replace case_id with mapped case_ids from DtoD
-        case_id_mapped = pd.read_excel(os.path.join(os.getcwd(), '../revised_case_normalization/case_id_mappings/case_id_mapping_KSW_2018.xlsx')).astype(str)
+        case_id_mapped = pd.read_excel(os.path.join(os.getcwd(),
+                                                    '../revised_case_normalization/case_id_mappings/case_id_mapping_KSW_2018.xlsx')).astype(str)
         revised_cases_df = pd.merge(revised_cases_df, case_id_mapped, on="case_id", how="left")
         revised_cases_df = revised_cases_df.drop('case_id_norm', axis=1)
         revised_cases_df.rename(columns={'case_id_mapped': 'case_id_norm'}, inplace=True)
@@ -79,19 +80,13 @@ for file_info in REVISED_CASE_FILES:
         logger.warning(unmatched)
     num_row = revised_cases.shape[0]
 
-    # special handling for a few cases which can not be grouped (hirslanden_klinik_zurich 2018 and 2016)
-    # if hospital_name == 'hirslanden_klinik_zurich' and year == '2018':
-    #     # The row 96 can not be grouped, we deleted it at the moment
-    #     revised_cases.drop(96, inplace=True)
-    # if hospital_name == 'hirslanden_klinik_zurich' and year == '2016':
-    #     # The row 43 can not be grouped, we deleted it at the moment
-    #     revised_cases.drop(43, inplace=True)
 
     if num_row != revised_cases.shape[0]:
         num_row_deleted = num_row - revised_cases.shape[0]
         logger.info(f'{num_row_deleted} can not be grouped')
 
     revisions_update, diagnoses_update, procedures_update = group(revised_cases)
+
 
     all_revision_list.append(revisions_update)
     all_diagnoses_list.append(diagnoses_update)
@@ -108,6 +103,8 @@ all_revision_df['revised'] = True
 
 num_revision = len(all_revision_df)
 logger.info(f'Number of revised cases: {num_revision}')
+
+
 print("")
 sys.exit(0)
 

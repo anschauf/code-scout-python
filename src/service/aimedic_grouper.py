@@ -9,6 +9,7 @@ import humps  # its pypi name is pyhumps
 import pandas as pd
 import srsly
 from beartype import beartype
+from loguru import logger
 from sqlalchemy.sql import null
 
 from src import ROOT_DIR
@@ -120,7 +121,7 @@ def _get_grouper_output(*,
                     if line.startswith('{"' + _aimedic_id_field)]
 
     grouped_cases = dict()
-    for output_line in output_lines:
+    for i, output_line in enumerate(output_lines):
         # Deserialize the output into a dict
         grouped_case_json = srsly.json_loads(output_line)
 
@@ -128,6 +129,13 @@ def _get_grouper_output(*,
         aimedic_id = grouped_case_json[_aimedic_id_field]
         # Build a copy of the dict, where we insert the aimedicId in all the sub-dictionaries
         ext_grouped_case_json = dict()
+
+        if len(grouped_case_json.keys()) != 4:
+            output_lines.pop(i)  # delete invalid case from output
+            camel_case_sociodemographic_id_col = aimedic_id
+            logger.info(f'This case with sociodemographic_id: {camel_case_sociodemographic_id_col} can not be grouped')
+            logger.info(f'Output after grouper: {grouped_case_json}')
+            continue
 
         for key, value in grouped_case_json.items():
             if key in _dict_subfields:
@@ -140,6 +148,7 @@ def _get_grouper_output(*,
                     for row in value:
                         row[camel_case_sociodemographic_id_col] = aimedic_id  # The sub-dictionary is modified in place
                         row = _fix_global_functions_list(row)
+
 
             # Store the modified dictionary
             ext_grouped_case_json[key] = value
