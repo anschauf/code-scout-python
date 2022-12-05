@@ -17,7 +17,11 @@ class AimedicGrouperTest(unittest.TestCase):
         formatted = format_for_grouper(revised_cases_df)
         grouper_format = formatted.loc[0][GROUPER_FORMAT_COL]
         self.assertEqual(grouper_format, '2;1;77;0;;W;20180110;01;20180112;00;2;0;I7024|I7020|Z9588|I1090|N184|N390;395014:R:20180111|395011:R:20180111|397510:R:20180111|004C12::20180111|005599:R:20180111|0043:R:20180111;')
-        dfs = group_batch_group_cases([grouper_format])
+
+        # Create an additional case, with a different ID
+        grouper_format2 = '0' + grouper_format[1:]
+
+        dfs = group_batch_group_cases([grouper_format, grouper_format2])
         print("")
 
 
