@@ -13,12 +13,13 @@ AIMEDIC_ID_COL = 'aimedic_id'
 
 # This column is the primary key in this table, but named in the following way when used as foreign key
 SOCIODEMOGRAPHIC_ID_COL = 'sociodemographic_id'
+SOCIODEMOGRAPHIC_PK_COL = 'sociodemographics_pk'
 
 
 class Sociodemographics(Base):
     __tablename__ = 'sociodemographics'
 
-    sociodemographics_pk = Column('sociodemographics_pk', Integer, primary_key=True, autoincrement=True)
+    sociodemographics_pk = Column(SOCIODEMOGRAPHIC_PK_COL, Integer, primary_key=True, autoincrement=True)
     aimedic_id = Column(AIMEDIC_ID_COL, VARCHAR, unique=True)
     hospital_id = Column('hospital_id', Integer, ForeignKey(Hospital.hospital_id), nullable=False)
     clinic_id = Column('clinic_id', Integer, ForeignKey(Clinic.clinic_id), nullable=False)

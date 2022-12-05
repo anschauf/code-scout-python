@@ -5,6 +5,7 @@ from loguru import logger
 from pandas import DataFrame
 from sqlalchemy import func
 from sqlalchemy import tuple_
+from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.elements import Null
 
 from src.models.clinic import Clinic
@@ -12,9 +13,7 @@ from src.models.diagnosis import Diagnosis
 from src.models.hospital import Hospital
 from src.models.procedure import Procedure
 from src.models.revision import Revision
-from src.models.sociodemographics import Sociodemographics
-from sqlalchemy.orm.session import Session
-
+from src.models.sociodemographics import Sociodemographics, SOCIODEMOGRAPHIC_ID_COL
 from src.revised_case_normalization.notebook_functions.global_configs import AIMEDIC_ID_COL, REVISION_DATE_COL, \
     REVISION_ID_COL, PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL, PROCEDURE_DATE_COL, PROCEDURE_SIDE_COL, CODE_COL, \
     PRIMARY_PROCEDURE_COL, IS_PRIMARY_COL, SECONDARY_PROCEDURES_COL, DRG_COL, DRG_COST_WEIGHT_COL, \
@@ -66,20 +65,6 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int, sessi
     query_sociodemo = (
         session
         .query(Sociodemographics)
-        .with_entities(Sociodemographics.aimedic_id,
-                       Sociodemographics.case_id,
-                       Sociodemographics.patient_id,
-                       Sociodemographics.age_years,
-                       Sociodemographics.age_days,
-                       Sociodemographics.admission_weight,
-                       Sociodemographics.gestation_age,
-                       Sociodemographics.gender,
-                       Sociodemographics.admission_date,
-                       Sociodemographics.grouper_admission_type,
-                       Sociodemographics.discharge_date,
-                       Sociodemographics.grouper_discharge_type,
-                       Sociodemographics.duration_of_stay,
-                       Sociodemographics.ventilation_hours)
         .join(Hospital, Sociodemographics.hospital_id == Hospital.hospital_id)
         .filter(Hospital.hospital_name == hospital_name)
         .filter(Sociodemographics.discharge_year == year)
@@ -98,29 +83,29 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int, sessi
 
 
 @beartype
-def get_earliest_revisions_for_aimedic_ids(aimedic_ids: list[str], session: Session) -> pd.DataFrame:
+def get_earliest_revisions_for_aimedic_ids(sociodemographic_ids: list[int], session: Session) -> pd.DataFrame:
     """
-     Get earliest revisions of aimedic_ids
+     Get the earliest revisions of aimedic_ids
      @param session: active DB session
-     @param aimedic_ids:
+     @param sociodemographic_ids:
      @return: a Dataframe containing aimedic ids, revision ids and revision dates
      """
 
     query_revisions = (
         session
         .query(
-            func.array_agg(Revision.aimedic_id).label(AIMEDIC_ID_COL),
+            func.array_agg(Revision.sociodemographic_id).label(SOCIODEMOGRAPHIC_ID_COL),
             func.array_agg(Revision.revision_date).label(REVISION_DATE_COL),
             func.array_agg(Revision.revision_id).label(REVISION_ID_COL),
         )
-        .filter(Revision.aimedic_id.in_(aimedic_ids))
-        .group_by(Revision.aimedic_id)
+        .filter(Revision.sociodemographic_id.in_(sociodemographic_ids))
+        .group_by(Revision.sociodemographic_id)
     )
 
     df = pd.read_sql(query_revisions.statement, session.bind)
 
     def get_earliest_revision_id(row):
-        row[AIMEDIC_ID_COL] = row[AIMEDIC_ID_COL][0]  # pick only the first one as they are all the same (because of the group-by)
+        row[SOCIODEMOGRAPHIC_ID_COL] = row[SOCIODEMOGRAPHIC_ID_COL][0]  # pick only the first one as they are all the same (because of the group-by)
         revision_dates = row[REVISION_DATE_COL]
         min_idx = np.argmin(revision_dates)
         row[REVISION_ID_COL] = row[REVISION_ID_COL][min_idx]
@@ -140,14 +125,14 @@ def get_diagnoses_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.D
      @return: a Dataframe containing revision ids, primary and secondary diagnoses
      """
 
-    all_aimedic_ids = set(df_revision_ids[AIMEDIC_ID_COL].values.tolist())
+    all_sociodemographic_ids = set(df_revision_ids[SOCIODEMOGRAPHIC_ID_COL].values.tolist())
     all_revision_ids = set(df_revision_ids['revision_id'].values.tolist())
 
     query_diagnoses = (
         session
         .query(Diagnosis)
-        .with_entities(Diagnosis.aimedic_id, Diagnosis.revision_id, Diagnosis.code, Diagnosis.is_primary)
-        .filter(Diagnosis.aimedic_id.in_(all_aimedic_ids))
+        .with_entities(Diagnosis.sociodemographic_id, Diagnosis.revision_id, Diagnosis.code, Diagnosis.is_primary)
+        .filter(Diagnosis.sociodemographic_id.in_(all_sociodemographic_ids))
         .filter(Diagnosis.revision_id.in_(all_revision_ids))
     )
 
@@ -185,14 +170,14 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.
      @return: a dataframe containing revision ids, primary and secondary diagnoses
      """
 
-    all_aimedic_ids = set(df_revision_ids[AIMEDIC_ID_COL].values.tolist())
+    all_sociodemographic_ids = set(df_revision_ids[SOCIODEMOGRAPHIC_ID_COL].values.tolist())
     all_revision_ids = set(df_revision_ids['revision_id'].values.tolist())
 
     query_procedures = (
         session
         .query(Procedure)
-        .with_entities(Procedure.aimedic_id, Procedure.revision_id, Procedure.code, Procedure.side, Procedure.date, Procedure.is_primary)
-        .filter(Procedure.aimedic_id.in_(all_aimedic_ids))
+        .with_entities(Procedure.sociodemographic_id, Procedure.revision_id, Procedure.code, Procedure.side, Procedure.date, Procedure.is_primary)
+        .filter(Procedure.sociodemographic_id.in_(all_sociodemographic_ids))
         .filter(Procedure.revision_id.in_(all_revision_ids))
     )
 
@@ -240,10 +225,10 @@ def get_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
     diagnoses_df = get_diagnoses_codes(df_revision_ids, session)
     procedures_df = get_procedures_codes(df_revision_ids, session)
 
-    # Drop the aimedic_id column to avoid adding it with a suffix and having to remove it later
+    # Drop the sociodemographic_id column to avoid adding it with a suffix and having to remove it later
     codes_df = (df_revision_ids
-                .merge(diagnoses_df.drop(columns=AIMEDIC_ID_COL), on='revision_id', how='left')
-                .merge(procedures_df.drop(columns=AIMEDIC_ID_COL), on='revision_id', how='left'))
+                .merge(diagnoses_df.drop(columns=SOCIODEMOGRAPHIC_ID_COL), on='revision_id', how='left')
+                .merge(procedures_df.drop(columns=SOCIODEMOGRAPHIC_ID_COL), on='revision_id', how='left'))
 
     return codes_df
 

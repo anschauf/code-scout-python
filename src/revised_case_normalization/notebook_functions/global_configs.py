@@ -28,6 +28,7 @@ ADMISSION_TYPE_COL = 'grouper_admission_type'
 DISCHARGE_DATE_COL = 'discharge_date'
 DISCHARGE_TYPE_COL = 'grouper_discharge_type'
 VENTILATION_HOURS_COL = 'ventilation_hours'
+MEDICATIONS_COL = 'medications'
 
 # List of variables of the revised cases from DtoD for the SwissDRG Batchgrouper
 SECONDARY_DIAGNOSES_COL = 'secondary_diagnoses'
