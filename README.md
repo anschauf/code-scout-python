@@ -37,7 +37,6 @@ Python 3, Docker Desktop and the PyCharm IDE must be installed locally => see Te
    1. All `BFS_CASES_DB_*` are found under `aimedic/AWS/databases` 
    2. `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` is your personal AWS Key
    3. `AWS_REGION` is **eu-central-1**
-   4. The most recent `AIMEDIC_GROUPER_VERSION` you find on [AWS CodeArtifact](https://eu-central-1.console.aws.amazon.com/codesuite/codeartifact/d/264427866130/aimedic/r/aimedic/p/maven/ch.aimedic/aimedic-grouper_2.12/versions?region=eu-central-1&package-versions-meta=eyJmIjp7fSwicyI6e30sIm4iOjIwLCJpIjowfQ)
 
 #### Specific setup for PyCharm 2022.2.4 on MacOs
 These instructions may be needed for later versions, too.
@@ -47,11 +46,13 @@ To restore the old-looking interpreter window, one has to:
   - Type `python.use.targets.api`, and untick the checkbox. 
 - Now you can follow the instructions below. 
 
+Reference: https://youtrack.jetbrains.com/issue/PY-55444/Creating-a-docker-interpreter-fails-with-Introspection-completed-with-error-with-a-certain-image
+
 #### General setup for PyCharm
 These instructions have been only tested on MacOS. They may need to be adapted for other OSs.
 
 - Open the file `dockerfile.sh`, and click on the green arrow at the top of the file.
-  - Wait for all the steps to be completed. Make sure that there are no errors.
+  - Wait for all the steps to be completed. **Make sure that there are no errors**.
 - Go to `PyCharm` | `Preferences`.
   - In the sidebar, select `Project: code-scout-python`, then `Python Interpreter`.
   - On the right-hand side, click on the clockwork icon, then `Add...`.

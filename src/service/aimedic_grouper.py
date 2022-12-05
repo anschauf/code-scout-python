@@ -1,25 +1,29 @@
-import json
+import itertools
 import os.path
+import os.path
+import re
 import subprocess
-
+import itertools
+# noinspection PyPackageRequirements
+import humps  # its pypi name is pyhumps
 import pandas as pd
+import srsly
 from beartype import beartype
-from loguru import logger
 from sqlalchemy.sql import null
 
 from src import ROOT_DIR
-from src.revised_case_normalization.notebook_functions.global_configs import AIMEDIC_ID_COL, DRG_COST_WEIGHT_COL, \
-    EFFECTIVE_COST_WEIGHT_COL, REVISION_DATE_COL, IS_GROUPER_RELEVANT_COL, IS_PRIMARY_COL, CCL_COL, CODE_COL, \
+from src.models.revision import REVISION_ID_COL
+from src.revised_case_normalization.notebook_functions.global_configs import AIMEDIC_ID_COL, REVISION_DATE_COL, \
+    IS_GROUPER_RELEVANT_COL, IS_PRIMARY_COL, CCL_COL, CODE_COL, \
     PROCEDURE_DATE_COL, PROCEDURE_SIDE_COL
 
-JAR_FILE_PATH = f'{ROOT_DIR}/resources/jars/aimedic-grouper-assembly.jar'
-SEPARATOR_CHAR = '#'
-DELIMITER_CHAR = ';'
+# DataFrame column names
+_aimedic_id_field = 'aimedicId'
+_revision_field = 'revision'
+_diagnoses_field = 'diagnoses'
+_procedures_field = 'procedures'
+_dict_subfields = (_revision_field, _diagnoses_field, _procedures_field)
 
-# Dataframme column names
-col_aimedic_id = 'aimedicId'
-col_diagnoses = 'diagnoses'
-col_procedures = 'procedures'
 col_grouper_result = 'grouperResult'
 col_drg_cost_weight = 'drgCostWeight'
 col_effective_cost_weight = 'effectiveCostWeight'
@@ -31,20 +35,12 @@ col_is_primary = 'isPrimary'
 col_date_valid = 'dateValid'
 col_side_valid = 'sideValid'
 
-# Java Grouper constants
-arg_filter_valid = 'filterValid'  # grouper argument, which tells the grouper it shall filter out invalid diagnoses and procedures from the case to group.
-class_path_group_many = 'ch.aimedic.grouper.BatchGroupMany'
-
-
-logger.debug('Testing whether Java is available ...')
-subprocess.check_output(['java', '-version']).decode('utf-8')
-if not os.path.exists(JAR_FILE_PATH):
-    raise IOError(f"The aimedic-grouper JAR file is not available at '{JAR_FILE_PATH}")
-logger.success('Java and the aimedic-grouper JAR are available')
-
 
 @beartype
-def group_batch_group_cases(batch_group_cases: list[str]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def group_batch_group_cases(batch_group_cases: list[str],
+                            separator_char: str = '#',
+                            delimiter_char: str = ';'
+                            ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Groups patient cases provided in the SwissDRG Batchgrouper Format 2017 (https://grouper-docs.swissdrg.org/batchgrouper2017-format.html)
     It uses our aimedic-grouper as FAT Jar written in Scala to group the cases.
@@ -58,72 +54,109 @@ def group_batch_group_cases(batch_group_cases: list[str]) -> tuple[pd.DataFrame,
         - diagnoses_df: diagnoses info to enter into the Database (without revision_id).
         - procedures_df: procedures info to enter into the Database (without revision_id).
     """
+    # Make sure that the grouper is accessible, and Java running
+    jar_file_path = f'{ROOT_DIR}/resources/jars/aimedic-grouper-assembly.jar'
+    is_java_running = subprocess.check_call(['java', '-version'], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    if is_java_running != 0:
+        raise Exception('Java is not accessible')
+    if not os.path.exists(jar_file_path):
+        raise IOError(f"The aimedic-grouper JAR file is not available at '{jar_file_path}")
+
     # Check for unique aimedic IDs
-    aimedic_ids = [bgc.split(DELIMITER_CHAR)[0] for bgc in batch_group_cases]
+    aimedic_ids = [bgc.split(delimiter_char)[0] for bgc in batch_group_cases]
     if len(set(aimedic_ids)) != (len(aimedic_ids)):
         raise ValueError('Provided cases have not unique aimedic IDs. Make sure you pass only one revision case for one patient case.')
 
-    # Send the data to the grouper
-    cases_string = SEPARATOR_CHAR.join(batch_group_cases)
+    # Make a string out of all the cases
+    cases_string = separator_char.join(batch_group_cases)
 
-    output = subprocess.check_output([
-        'java',
-        '-cp',
-        JAR_FILE_PATH,
-        class_path_group_many,
-        cases_string,
-        SEPARATOR_CHAR,
-        DELIMITER_CHAR,
-        arg_filter_valid]).decode('utf-8')
+    # Group the cases
+    grouped_cases_dicts = _get_grouper_output(jar_file_path=jar_file_path,
+                                              cases_string=cases_string,
+                                              separator_char=separator_char,
+                                              delimiter_char=delimiter_char)
 
-    # Split the captured output into lines. All but the last one contain optional log messages, whereas the last one
-    # contains the JSON-output of the class we called
-    lines = output.split('\n')
-    grouped_cases_json = lines[-1]
+    # --- Make the revision DataFrame ---
+    revision_df = pd.json_normalize([d[_revision_field] for d in grouped_cases_dicts.values()])
+    revision_df.columns = [humps.decamelize(col) for col in revision_df.columns]
+    revision_df[REVISION_DATE_COL] = pd.to_datetime(revision_df[REVISION_DATE_COL], format='%Y%m%d')
 
-    # Deserialize the output into a DataFrame
-    grouped_cases_dicts = json.loads(grouped_cases_json)
-    complete_df = pd.DataFrame.from_dict(grouped_cases_dicts)
+    # --- Make the diagnoses DataFrame ---
+    all_diagnosis_rows = [d[_diagnoses_field] for d in grouped_cases_dicts.values()]
+    # noinspection PyTypeChecker
+    diagnoses_df = pd.json_normalize(itertools.chain.from_iterable(all_diagnosis_rows))
+    diagnoses_df.columns = [humps.decamelize(col) for col in diagnoses_df.columns]
 
-    # Prepare DataFrame for the revision table
-    revision_df = complete_df.drop([col_diagnoses, col_procedures, col_grouper_result], axis=1)
-    revision_df.rename(columns={col_aimedic_id: AIMEDIC_ID_COL,
-                                col_drg_cost_weight: DRG_COST_WEIGHT_COL,
-                                col_effective_cost_weight: EFFECTIVE_COST_WEIGHT_COL,
-                                col_revision_date: REVISION_DATE_COL
-                                }, inplace=True)
+    # --- Make the procedures DataFrame ---
+    all_procedure_rows = [d[_procedures_field] for d in grouped_cases_dicts.values()]
+    # noinspection PyTypeChecker
+    procedures_df = pd.json_normalize(itertools.chain.from_iterable(all_procedure_rows))
+    procedures_df.columns = [humps.decamelize(col) for col in procedures_df.columns]
 
-    revision_df[REVISION_DATE_COL] = pd.to_datetime(revision_df[REVISION_DATE_COL], unit='ms')
-
-    # Prepare DataFrame for the diagnoses table
-    diagnoses_df = pd.json_normalize(grouped_cases_dicts, record_path=[col_diagnoses], meta=[col_aimedic_id]) \
-        .drop([col_status], axis=1)
-
-    diagnoses_df.rename(columns={col_aimedic_id: AIMEDIC_ID_COL,
-                                 col_used: IS_GROUPER_RELEVANT_COL,
-                                 col_is_primary: IS_PRIMARY_COL
-                                 }, inplace=True)
-
-    diagnoses_df = diagnoses_df.reindex(columns=[AIMEDIC_ID_COL, CODE_COL, CCL_COL, IS_PRIMARY_COL, IS_GROUPER_RELEVANT_COL])
-
-    # Prepare Dataframe for the procedure table
-    # Delete empty or not defined procedures from the procedures dataframe
-    grouped_cases_pd = pd.DataFrame(grouped_cases_dicts)
-    grouped_cases_pd.dropna(subset=col_procedures)
-    procedures_df = pd.json_normalize(grouped_cases_pd.to_dict(orient='records'), record_path=[col_procedures], meta=[col_aimedic_id]) \
-        .drop([col_date_valid, col_side_valid, ], axis=1)
-
-    procedures_df.rename(columns={col_aimedic_id: AIMEDIC_ID_COL,
-                                  col_is_used: IS_GROUPER_RELEVANT_COL,
-                                  col_is_primary: IS_PRIMARY_COL
-                                  }, inplace=True)
-    procedures_df[PROCEDURE_DATE_COL] = pd.to_datetime(procedures_df[PROCEDURE_DATE_COL]).dt.date
-    procedures_df[PROCEDURE_SIDE_COL] = procedures_df[PROCEDURE_SIDE_COL].str.replace('\x00', '')  # replace empty byte string with an empty string
-
-    # Replace NaT with NULL.
+    # Replace NaT with NULL
     # REFs: https://stackoverflow.com/a/42818550, https://stackoverflow.com/a/48765738
+    procedures_df[PROCEDURE_DATE_COL] = pd.to_datetime(procedures_df[PROCEDURE_DATE_COL], format='%Y%m%d')
     procedures_df[PROCEDURE_DATE_COL] = procedures_df[PROCEDURE_DATE_COL].astype(object).where(procedures_df[PROCEDURE_DATE_COL].notnull(), null())
 
-    procedures_df = procedures_df.reindex(columns=[AIMEDIC_ID_COL, CODE_COL, PROCEDURE_SIDE_COL, PROCEDURE_DATE_COL, IS_GROUPER_RELEVANT_COL, IS_PRIMARY_COL])
+    # Clear out empty strings
+    procedures_df[PROCEDURE_SIDE_COL] = procedures_df[PROCEDURE_SIDE_COL].str.strip()
+
+    # Remove primary keys from each table
+    revision_df.drop(columns=[REVISION_ID_COL], inplace=True)
+    procedures_df.drop(columns=['procedures_pk'], inplace=True)
 
     return revision_df, diagnoses_df, procedures_df
+
+
+@beartype
+def _get_grouper_output(*,
+                        jar_file_path: str,
+                        cases_string: str,
+                        separator_char: str,
+                        delimiter_char: str
+                        ) -> dict:
+
+    raw_output: bytes = subprocess.check_output([
+        'java', '-cp', jar_file_path, 'ch.aimedic.grouper.apps.BatchGroupMany',
+        cases_string, separator_char, delimiter_char])
+
+    output = _escape_ansi(raw_output.decode('UTF-8'))
+
+    # Split the captured output into lines, and filter only output lines, discarding log messages from the grouer
+    lines = output.split('\n')
+    output_lines = [line for line in lines
+                    if line.startswith('{"' + _aimedic_id_field)]
+
+    grouped_cases = dict()
+    for output_line in output_lines:
+        # Deserialize the output into a dict
+        grouped_case_json = srsly.json_loads(output_line)
+
+        # Get the aimedicId from the top-level dict
+        aimedic_id = grouped_case_json[_aimedic_id_field]
+        # Build a copy of the dict, where we insert the aimedicId in all the sub-dictionaries
+        ext_grouped_case_json = dict()
+
+        for key, value in grouped_case_json.items():
+            if key in _dict_subfields:
+                # This is a sub-dictionary, e.g., `revisions`
+                if isinstance(value, dict):
+                    value[_aimedic_id_field] = aimedic_id  # The sub-dictionary is modified in place
+
+                elif isinstance(value, list):
+                    # This is a list of dictionaries, e.g., `diagnoses` or `procedures`
+                    for row in value:
+                        row[_aimedic_id_field] = aimedic_id  # The sub-dictionary is modified in place
+
+            # Store the modified dictionary
+            ext_grouped_case_json[key] = value
+
+        # Assign the grouped case to its aimedicId
+        grouped_cases[aimedic_id] = ext_grouped_case_json
+
+    return grouped_cases
+
+
+def _escape_ansi(line):
+    ansi_escape = re.compile(r'(?:\x9B|\x1B\[)[0-?]*[ -/]*[@-~]')
+    return ansi_escape.sub('', line)

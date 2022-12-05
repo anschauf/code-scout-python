@@ -20,7 +20,7 @@ ENV AWS_REGION=$AWS_REGION
 
 # -----------------------------------------------------------------------------
 # The grouper version is hard-coded here, so that it can be versioned with git
-ENV AIMEDIC_GROUPER_VERSION=2.0.0_rc3
+ENV AIMEDIC_GROUPER_VERSION=2.0.0_rc4
 # -----------------------------------------------------------------------------
 
 RUN apt-get update -y
@@ -62,7 +62,7 @@ RUN mkdir -p /opt/project/resources/jars
 WORKDIR /opt/project/resources/jars
 COPY --from=AWS-CLI /tmp/jars/aimedic-grouper-assembly.jar .
 
-# Install the python dependenies for code-scout-python
+# Install the python dependencies for code-scout-python
 RUN python3 -m pip install --upgrade pip
 COPY requirements.txt .
 COPY constraints.txt .

@@ -3,7 +3,11 @@ echo "--- Reading environment variables ---"
 export $(xargs < ./.env)
 
 echo "--- Building image ---"
+# --force-rm: Always remove intermediate containers
+# --pull: Always attempt to pull a newer version of the image
 docker build -t code-scout-python \
+    --force-rm \
+    --pull \
     --progress=plain \
     --build-arg AWS_REGION=$AWS_REGION \
     --build-arg AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
