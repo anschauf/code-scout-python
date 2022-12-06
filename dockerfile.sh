@@ -7,6 +7,7 @@ echo "--- Building image ---"
 # --pull: Always attempt to pull a newer version of the image
 docker build -t code-scout-python \
     --force-rm \
+    --no-cache \
     --pull \
     --progress=plain \
     --build-arg AWS_REGION=$AWS_REGION \

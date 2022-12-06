@@ -19,7 +19,7 @@ from src.data_model.diagnosis import Diagnosis
 from src.data_model.hospital import Hospital
 from src.data_model.procedure import Procedure
 from src.data_model.revision import Revision
-from src.data_model.sociodemographics import Sociodemographics
+from src.data_model.sociodemographics import Sociodemographics, SOCIODEMOGRAPHIC_ID_COL
 from src.revised_case_normalization.notebook_functions.global_configs import AIMEDIC_ID_COL, REVISION_DATE_COL, \
     REVISION_ID_COL, PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL, PROCEDURE_DATE_COL, PROCEDURE_SIDE_COL, CODE_COL, \
     PRIMARY_PROCEDURE_COL, IS_PRIMARY_COL, SECONDARY_PROCEDURES_COL, DRG_COL, DRG_COST_WEIGHT_COL, \
@@ -142,18 +142,18 @@ def get_diagnoses_codes(df_revision_ids: Union[pd.DataFrame, Iterator[pd.DataFra
     """
      Retrieve primary and secondary diagnoses of the revised cases from the DB.
      @param session: active DB session
-     @param df_revision_ids: a Dataframe with aimedic_id and revision_id
+     @param df_revision_ids: a Dataframe with sociodemographic_id and revision_id
      @return: a Dataframe containing revision ids, primary and secondary diagnoses
      """
 
-    all_aimedic_ids = set(df_revision_ids[AIMEDIC_ID_COL].values.tolist())
     all_revision_ids = set(df_revision_ids[REVISION_ID_COL].values.tolist())
+    all_sociodemographic_ids = set(df_revision_ids[SOCIODEMOGRAPHIC_ID_COL].values.tolist())
 
     query_diagnoses = (
         session
         .query(Diagnosis)
-        .with_entities(Diagnosis.aimedic_id, Diagnosis.revision_id, Diagnosis.code, Diagnosis.is_primary)
-        .filter(Diagnosis.aimedic_id.in_(all_aimedic_ids))
+        .with_entities(Diagnosis.sociodemographic_id, Diagnosis.revision_id, Diagnosis.code, Diagnosis.is_primary)
+        .filter(Diagnosis.sociodemographic_id.in_(all_sociodemographic_ids))
         .filter(Diagnosis.revision_id.in_(all_revision_ids))
     )
 
@@ -194,14 +194,14 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.
      @return: a dataframe containing revision ids, primary and secondary diagnoses
      """
 
-    all_aimedic_ids = set(df_revision_ids[AIMEDIC_ID_COL].values.tolist())
-    all_revision_ids = set(df_revision_ids['revision_id'].values.tolist())
+    all_revision_ids = set(df_revision_ids[REVISION_ID_COL].values.tolist())
+    all_sociodemographic_ids = set(df_revision_ids[SOCIODEMOGRAPHIC_ID_COL].values.tolist())
 
     query_procedures = (
         session
         .query(Procedure)
-        .with_entities(Procedure.aimedic_id, Procedure.revision_id, Procedure.code, Procedure.side, Procedure.date, Procedure.is_primary)
-        .filter(Procedure.aimedic_id.in_(all_aimedic_ids))
+        .with_entities(Procedure.sociodemographic_id, Procedure.revision_id, Procedure.code, Procedure.side, Procedure.date, Procedure.is_primary)
+        .filter(Procedure.sociodemographic_id.in_(all_sociodemographic_ids))
         .filter(Procedure.revision_id.in_(all_revision_ids))
     )
 
@@ -251,8 +251,8 @@ def get_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
 
     # Drop the aimedic_id column to avoid adding it with a suffix and having to remove it later
     codes_df = (df_revision_ids
-                .merge(diagnoses_df.drop(columns=AIMEDIC_ID_COL), on='revision_id', how='left')
-                .merge(procedures_df.drop(columns=AIMEDIC_ID_COL), on='revision_id', how='left'))
+                .merge(diagnoses_df.drop(columns=SOCIODEMOGRAPHIC_ID_COL), on='revision_id', how='left')
+                .merge(procedures_df.drop(columns=SOCIODEMOGRAPHIC_ID_COL), on='revision_id', how='left'))
 
     return codes_df
 
@@ -455,7 +455,7 @@ def read_cases_in_chunks(session: Session,
      .query(Sociodemographics, Hospital, Clinic, Revision)
      .join(Hospital, Sociodemographics.hospital_id == Hospital.hospital_id, isouter=True)
      .join(Clinic, Sociodemographics.clinic_id == Clinic.clinic_id, isouter=True)
-     .join(Revision, Sociodemographics.aimedic_id == Revision.aimedic_id, isouter=True)
+     .join(Revision, Sociodemographics.sociodemographics_pk == Revision.sociodemographic_id, isouter=True)
      )
 
     if n_rows is not None:

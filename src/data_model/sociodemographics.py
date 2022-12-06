@@ -2,8 +2,8 @@ from sqlalchemy import Column, Integer, String, ForeignKey, CHAR, Date, SmallInt
 from sqlalchemy import MetaData
 from sqlalchemy.orm import declarative_base
 
-from src.models.clinic import Clinic
-from src.models.hospital import Hospital
+from src.data_model.clinic import Clinic
+from src.data_model.hospital import Hospital
 
 metadata_obj = MetaData(schema="case_data")
 Base = declarative_base(metadata=metadata_obj)

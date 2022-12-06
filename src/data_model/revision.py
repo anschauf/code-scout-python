@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, ForeignKey, CHAR, Date, VARCHAR, FLOAT, 
 from sqlalchemy import MetaData
 from sqlalchemy.orm import declarative_base
 
-from src.models.sociodemographics import Sociodemographics, SOCIODEMOGRAPHIC_ID_COL
+from src.data_model.sociodemographics import Sociodemographics, SOCIODEMOGRAPHIC_ID_COL
 
 metadata_obj = MetaData(schema="coding_revision")
 Base = declarative_base(metadata=metadata_obj)

@@ -1,8 +1,8 @@
 from sqlalchemy import MetaData, CHAR, Date, Column, Integer, VARCHAR, ForeignKey, Boolean, DECIMAL
 from sqlalchemy.orm import declarative_base
 
-from src.models.revision import REVISION_ID_COL, Revision
-from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL, Sociodemographics
+from src.data_model.revision import REVISION_ID_COL, Revision
+from src.data_model.sociodemographics import SOCIODEMOGRAPHIC_ID_COL, Sociodemographics
 
 metadata_obj = MetaData(schema='coding_revision')
 Base = declarative_base(metadata=metadata_obj)
