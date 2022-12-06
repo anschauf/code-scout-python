@@ -2,6 +2,7 @@ import pandas as pd
 from beartype import beartype
 from loguru import logger
 
+from src.revised_case_normalization.notebook_functions.global_configs import CASE_ID_COL
 from src.utils.chop_validation import validate_chop_codes_list, split_chop_codes
 from src.utils.icd_validation import validate_icd_codes_list
 
@@ -29,7 +30,6 @@ def remove_duplicated_chops(df: pd.DataFrame,
         row[cleaned_added_chops_col], row[cleaned_removed_chops_col] = _remove_duplicates_case_insensitive(row[added_chops_col], row[removed_chops_col])
         return row
 
-    logger.info(f'Removing duplicated CHOP codes due to different casing ...')
     df = df.apply(_remove_duplicated_chops, axis=1)
 
     return df
@@ -64,9 +64,7 @@ def validate_icd_codes(df: pd.DataFrame,
 
     df = df.apply(_validate_icd_codes, axis=1)
 
-    if len(invalid_rows_info) == 0:
-        logger.info(f"Validated ICD codes in '{icd_codes_col}' and stored them into '{output_icd_codes_col}': All rows contain valid codes")
-    else:
+    if len(invalid_rows_info) > 0:
         log_message = '\n'.join(invalid_rows_info)
         logger.info(f"Validated ICD codes in '{icd_codes_col}' and stored them into '{output_icd_codes_col}': The following {len(invalid_rows_info)} rows were affected:\n{log_message}")
 
@@ -102,9 +100,7 @@ def validate_chop_codes(df: pd.DataFrame,
 
     df = df.apply(_validate_chop_codes, axis=1)
 
-    if len(invalid_rows_info) == 0:
-        logger.info(f"Validated CHOP codes in '{chop_codes_col}' and stored them into '{output_chop_codes_col}': All rows contain valid codes")
-    else:
+    if len(invalid_rows_info) > 0:
         log_message = '\n'.join(invalid_rows_info)
         logger.info(f"Validated CHOP codes in '{chop_codes_col}' and stored them into '{output_chop_codes_col}': The following {len(invalid_rows_info)} rows were affected:\n{log_message}")
 
@@ -140,27 +136,26 @@ def validate_pd_revised_sd(df: pd.DataFrame,
         removed_icds = row[removed_icd_col]
 
         if old_pd != new_pd:
-            invalid_rows_info.append(f'row {row.name}: primary diagnosis {old_pd} => {new_pd}')
+            invalid_rows_info.append(f"CaseID '{row[CASE_ID_COL]}': primary diagnosis was '{old_pd}' before revision and '{new_pd}' after")
 
             if new_pd in added_icds:
-                added_icds.remove(new_pd)  # delete the new_pd from added_icds if it appears in added_icds
+                added_icds.remove(new_pd)
                 row[added_icd_col] = added_icds
 
             if old_pd in removed_icds:
-                removed_icds.remove(old_pd)  # delete the old_pd from removed_icds if it appears in removed_icds
+                removed_icds.remove(old_pd)
                 row[removed_icd_col] = removed_icds
 
         return row
 
     df = df.apply(_validate_pd_revised_sd, axis=1)
 
-    if len(invalid_rows_info) == 0:
-        logger.info(f"Validated redundant PD info in '{added_icd_col}'/'{removed_icd_col}': All rows contain valid codes")
-    else:
+    if len(invalid_rows_info) > 0:
         log_message = '\n'.join(invalid_rows_info)
         logger.info(f"Validated redundant PD info in '{added_icd_col}'/'{removed_icd_col}': The following {len(invalid_rows_info)} rows were affected:\n{log_message}")
 
     return df
+
 
 @beartype
 def _remove_duplicates_case_insensitive(codes_list1: list[str], codes_list2: list[str]) -> tuple[list[str], list[str]]:
@@ -193,6 +188,7 @@ def _remove_duplicates_case_insensitive(codes_list1: list[str], codes_list2: lis
         cleaned_codes_list2 = [':'.join(codes_info) for codes_info in cleaned_codes_list2_split]
         return cleaned_codes_list1, cleaned_codes_list2
 
+
 @beartype
 def _filter_out_codes_from_list(codes_list: list[list[str]], *, codes_to_filter_out: set[str]) -> list[list[str]]:
     """Remove codes from a list of CHOP codes info. The codes are compared all upper-cased.
@@ -208,10 +204,12 @@ def _filter_out_codes_from_list(codes_list: list[list[str]], *, codes_to_filter_
 
     return clean_codes_list
 
+
 @beartype
 def _filter_empty_strings(lst: list[str]) -> list[str]:
     """Remove empty strings from a list."""
     return [item for item in lst if item != '']
+
 
 @beartype
 def _get_list_diff_case_insensitive(list1: list[str], list2: list[str]) -> set[str]:
@@ -221,4 +219,3 @@ def _get_list_diff_case_insensitive(list1: list[str], list2: list[str]) -> set[s
 
     different_items = set(upper_list1).difference(set(upper_list2))
     return different_items
-

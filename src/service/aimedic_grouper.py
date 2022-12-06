@@ -143,18 +143,22 @@ def _get_grouper_output(*,
             _dos_code_field: grouped_case_json[_dos_code_field]
         })
 
-        for diagnosis in grouped_case_json[_diagnoses_field]:
-            diagnosis.update({camel_case_sociodemographic_id_col: sociodemographic_id})
-
-        for procedure in grouped_case_json[_procedures_field]:
-            procedure.update({camel_case_sociodemographic_id_col: sociodemographic_id})
+        grouped_case_json[_diagnoses_field] = [_fix_code_field(diagnosis, camel_case_sociodemographic_id_col, sociodemographic_id) for diagnosis in grouped_case_json[_diagnoses_field]]
+        grouped_case_json[_procedures_field] = [_fix_code_field(procedure, camel_case_sociodemographic_id_col, sociodemographic_id) for procedure in grouped_case_json[_procedures_field]]
 
         grouped_cases[sociodemographic_id] = grouped_case_json
 
     if len(ungrouped_cases) > 0:
-        logger.info(f'There are {len(ungrouped_cases)} cases can not be grouped. The output from grouper is: {ungrouped_cases}')
+        ungrouped_cases_str = '\n'.join(ungrouped_cases)
+        logger.info(f'{len(ungrouped_cases)} cases cannot be grouped. The output from grouper is:\n{ungrouped_cases_str}')
 
     return grouped_cases
+
+
+def _fix_code_field(d: dict, camel_case_sociodemographic_id_col: str, sociodemographic_id: int) -> dict:
+    d[camel_case_sociodemographic_id_col] = sociodemographic_id
+    d = _fix_global_functions_list(d)
+    return d
 
 
 def _fix_global_functions_list(d: dict) -> dict:

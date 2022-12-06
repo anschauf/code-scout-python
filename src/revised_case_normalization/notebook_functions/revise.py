@@ -6,8 +6,7 @@ from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
 from src.revised_case_normalization.notebook_functions.global_configs import *
 from src.revised_case_normalization.notebook_functions.normalize import remove_leading_zeros
 from src.revised_case_normalization.notebook_functions.revised_case_files_info import FileInfo
-from src.service.bfs_cases_db_service import get_sociodemographics_for_hospital_year, \
-    get_earliest_revisions_for_sociodemographic_ids, get_codes
+from src.service.bfs_cases_db_service import get_sociodemographics_for_hospital_year, get_original_revision_id_for_sociodemographic_ids, get_codes
 from src.service.database import Database
 from src.utils.chop_validation import split_chop_codes
 
@@ -43,38 +42,34 @@ def revise(file_info: FileInfo,
         matched_cases = joined[~joined[AIMEDIC_ID_COL].isna()].copy()
         unmatched_cases = joined[joined[AIMEDIC_ID_COL].isna()].copy()
 
-        # Print out how many rows could not be matched
         num_unmatched = unmatched_cases.shape[0]
         if num_unmatched > 0:
-            logger.warning(f'{num_unmatched} rows could not be matched, given {sorted(validation_cols)}')
+            logger.warning(f'{num_unmatched} cases could not be matched, given {sorted(validation_cols)}:\n{unmatched_cases[[PATIENT_ID_COL, CASE_ID_COL]]}')
 
         # Retrieve the codes from the DB
-        original_revision_ids = get_earliest_revisions_for_sociodemographic_ids(matched_cases[SOCIODEMOGRAPHIC_ID_COL].astype(int).values.tolist(), db.session)
+        original_revision_ids = get_original_revision_id_for_sociodemographic_ids(matched_cases[SOCIODEMOGRAPHIC_ID_COL].astype(int).values.tolist(), db.session)
         original_cases = get_codes(original_revision_ids, db.session)
 
-        # Apply the revisions to the cases from the DB
-        revised_cases = apply_revisions(original_cases, matched_cases)
+    # Apply the revisions to the cases from the DB
+    revised_cases = apply_revisions(original_cases, matched_cases)
 
-        # Select only the columns of interest
-        revised_cases = revised_cases[[
-            # IDs
-            SOCIODEMOGRAPHIC_ID_COL, CASE_ID_COL,
-            # codes
-            NEW_PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL, PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL,
-            # sociodemographics
-            GENDER_COL, AGE_COL, AGE_DAYS_COL, GESTATION_AGE_COL, DURATION_OF_STAY_COL, VENTILATION_HOURS_COL,
-            ADMISSION_TYPE_COL, ADMISSION_DATE_COL, ADMISSION_WEIGHT_COL, DISCHARGE_TYPE_COL, DISCHARGE_DATE_COL,
-            MEDICATIONS_COL
-        ]]
+    # Select only the columns of interest
+    revised_cases = revised_cases[[
+        # IDs
+        SOCIODEMOGRAPHIC_ID_COL, CASE_ID_COL,
+        # codes
+        NEW_PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL, PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL,
+        # sociodemographics
+        GENDER_COL, AGE_COL, AGE_DAYS_COL, GESTATION_AGE_COL, DURATION_OF_STAY_COL, VENTILATION_HOURS_COL,
+        ADMISSION_TYPE_COL, ADMISSION_DATE_COL, ADMISSION_WEIGHT_COL, DISCHARGE_TYPE_COL, DISCHARGE_DATE_COL,
+        MEDICATIONS_COL
+    ]]
 
-        # Format columns to integer before calling the group function
+    # Format columns to integer before calling the group function
+    for col in (AGE_DAYS_COL, GESTATION_AGE_COL, VENTILATION_HOURS_COL, ADMISSION_WEIGHT_COL):
+        revised_cases[col] = revised_cases[col].astype(int)
 
-        revised_cases[AGE_DAYS_COL] = revised_cases[AGE_DAYS_COL].astype(int)
-        revised_cases[GESTATION_AGE_COL] = revised_cases[GESTATION_AGE_COL].astype(int)
-        revised_cases[VENTILATION_HOURS_COL] = revised_cases[VENTILATION_HOURS_COL].astype(int)
-        revised_cases[ADMISSION_WEIGHT_COL] = revised_cases[ADMISSION_WEIGHT_COL].astype(int)
-
-        return revised_cases, unmatched_cases
+    return revised_cases, unmatched_cases
 
 
 def __revise_diagnoses_codes(row):

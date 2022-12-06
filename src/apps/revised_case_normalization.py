@@ -1,11 +1,10 @@
 import os
-import sys
-
-from src import ROOT_DIR
-import pandas as pd
-from loguru import logger
 import time
 
+import pandas as pd
+from loguru import logger
+
+from src import ROOT_DIR
 from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
 from src.revised_case_normalization.notebook_functions.global_configs import *
 from src.revised_case_normalization.notebook_functions.group import group
@@ -13,6 +12,8 @@ from src.revised_case_normalization.notebook_functions.normalize import normaliz
 from src.revised_case_normalization.notebook_functions.revise import revise
 from src.revised_case_normalization.notebook_functions.revised_case_files_info import REVISED_CASE_FILES
 from src.revised_case_normalization.notebook_functions.update_db import update_db
+from src.service.bfs_cases_db_service import get_duration_of_stay_df
+from src.service.database import Database
 
 # TODO refactoring the code to read data and save result into s3
 
@@ -30,12 +31,13 @@ all_revision_list = list()
 all_diagnoses_list = list()
 all_procedure_list = list()
 
-for file_info in REVISED_CASE_FILES:
+n_files = len(REVISED_CASE_FILES)
+for idx, file_info in enumerate(REVISED_CASE_FILES):
     # Create an output file name for each based on hospital and year
     hospital_name = '_'.join(file_info.hospital_name_db.lower().split())
     year = file_info.year
 
-    logger.info(f'Working on {hospital_name} {year} ...')
+    logger.info(f"#{idx + 1}/{n_files}: Working on '{hospital_name}' ({year}) ...")
     # handling the sheet using fall number as case_id
     if hospital_name == 'hirslanden_klinik_zurich' and year == '2019':
         columns_to_rename = dict(COLUMNS_TO_RENAME)
@@ -72,56 +74,52 @@ for file_info in REVISED_CASE_FILES:
     # The patient ID is ignored, because it can be encrypted
     cols_to_join.remove(PATIENT_ID_COL)
 
+
     try:
         revised_cases, unmatched = revise(file_info, revised_cases_df, validation_cols=cols_to_join)
     except ValueError:
-        logger.info(f'There is no data for the hospital {hospital_name} in {year}')
+        logger.warning(f'There is no data for the hospital {hospital_name} in {year}')
         continue
 
-    logger.info(f'TYPES:\n{revised_cases.dtypes}')
-    if unmatched.shape[0] > 0:
-        logger.warning(unmatched)
-    num_row = revised_cases.shape[0]
-
-
-    if num_row != revised_cases.shape[0]:
-        num_row_deleted = num_row - revised_cases.shape[0]
-        logger.info(f'{num_row_deleted} can not be grouped')
-
     revisions_update, diagnoses_update, procedures_update = group(revised_cases)
-
-    # temporally set dos_id to 2
-    revisions_update['dos_id'] = 2
 
     all_revision_list.append(revisions_update)
     all_diagnoses_list.append(diagnoses_update)
     all_procedure_list.append(procedures_update)
 
-# concatenate all dataframe to one
+
 all_revision_df = pd.concat(all_revision_list)
 all_diagnoses_df = pd.concat(all_diagnoses_list)
 all_procedure_df = pd.concat(all_procedure_list)
+
+# Get the duration of stay ID from the "legacy code"
+with Database() as db:
+    duration_of_stay_df = get_duration_of_stay_df(db.session)
+
+all_revision_df = pd.merge(
+    all_revision_df.drop(columns='dos_id'),  # Drop the `dos_id` column because it comes from the `duration_of_stay_df` after the join
+    duration_of_stay_df.drop(columns='description'),  # Drop unused column
+    how='left',
+    left_on='duration_of_stay_legacy_code', right_on='dos_legacy_code')
+
+# Remove join keys
+all_revision_df.drop(columns=['duration_of_stay_legacy_code', 'dos_legacy_code'], inplace=True)
 
 # Set all the `reviewed` and `revised` flags to True
 all_revision_df['reviewed'] = True
 all_revision_df['revised'] = True
 
+# TODO Fix the revision date by reading the date from the Excel sheet
+all_revision_df[REVISION_DATE_COL] = '2022-12-31'
+
 num_revision = len(all_revision_df)
 logger.info(f'Number of revised cases: {num_revision}')
 
+unique_revisions_df = all_revision_df.drop_duplicates(subset=SOCIODEMOGRAPHIC_ID_COL)
+num_unique_revisions = unique_revisions_df.shape[0]
+if num_revision > num_unique_revisions:
+    num_dup = num_revision - num_unique_revisions
+    raise Exception(f'There are {num_dup} duplicates / {num_unique_revisions} revised cases')
+
 update_db(all_revision_df, all_diagnoses_df, all_procedure_df)
-
-
-# sys.exit(0)
-
-all_revision_df.drop_duplicates(subset=SOCIODEMOGRAPHIC_ID_COL)
-
-num_revision_drop_duplicate = len(all_revision_df)
-
-if num_revision > num_revision_drop_duplicate:
-    num_dup = num_revision - num_revision_drop_duplicate
-    print(f'The number of revision is {num_revision_drop_duplicate} after deleting {num_dup} of duplicated revision cases.')
-else:
-    print(f'The total number of revision are {num_revision}')
-
-
+logger.success('done')

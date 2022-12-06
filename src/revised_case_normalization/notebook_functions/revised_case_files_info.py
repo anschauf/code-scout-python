@@ -1,6 +1,8 @@
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+
 from src import SRC_DIR
+
 
 @dataclass
 class FileInfo:

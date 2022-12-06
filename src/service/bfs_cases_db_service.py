@@ -11,6 +11,7 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.elements import Null
 
 from src.models.clinic import Clinic
+from src.models.duration_of_stay import DurationOfStay
 from src.models.diagnosis import Diagnosis
 from src.models.hospital import Hospital
 from src.models.procedure import Procedure
@@ -45,12 +46,22 @@ def get_hospital_cases_df(hospital_name: str, session: Session) -> DataFrame:
              .filter(Hospital.hospital_name == hospital_name))
     return pd.read_sql(query.statement, session.bind)
 
+
 @beartype
 def get_clinics(session: Session):
     """
     Get all records from dimension.clinic table
     """
     return session.query(Clinic).all()
+
+
+@beartype
+def get_duration_of_stay_df(session: Session) -> pd.DataFrame:
+    """
+    Get all records from dimension.duration_of_stay table
+    """
+    query = session.query(DurationOfStay)
+    return pd.read_sql(query.statement, session.bind)
 
 
 @beartype
@@ -75,8 +86,6 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int, sessi
     num_cases_in_db = df.shape[0]
     if num_cases_in_db == 0:
         raise ValueError(f"There is no data for the hospital '{hospital_name}' in {year}")
-    else:
-        logger.info(f"Read {num_cases_in_db} rows from the DB, for the hospital '{hospital_name}' in {year}")
 
     return df
 
@@ -116,6 +125,29 @@ def get_earliest_revisions_for_sociodemographic_ids(sociodemographic_ids: list[i
 
 
 @beartype
+def get_original_revision_id_for_sociodemographic_ids(sociodemographic_ids: list[int], session: Session) -> pd.DataFrame:
+    """
+    Get the original revisions of sociodemographic_ids
+    @param session: active DB session
+    @param sociodemographic_ids:
+    @return: a Dataframe containing sociodemographic ids, revision ids and revision dates
+    """
+
+    query_revisions = (
+        session
+        .query(Revision)
+        .with_entities(Revision.revision_id, Revision.sociodemographic_id)
+        .filter(Revision.sociodemographic_id.in_(sociodemographic_ids))
+        .filter(Revision.revised.is_(False))
+        .filter(Revision.reviewed.is_(False))
+    )
+
+    df = pd.read_sql(query_revisions.statement, session.bind)
+
+    return df
+
+
+@beartype
 def get_diagnoses_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
     """
      Retrieve primary and secondary diagnoses of the revised cases from the DB.
@@ -124,14 +156,12 @@ def get_diagnoses_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.D
      @return: a Dataframe containing revision ids, primary and secondary diagnoses
      """
 
-    all_sociodemographic_ids = set(df_revision_ids[SOCIODEMOGRAPHIC_ID_COL].values.tolist())
     all_revision_ids = set(df_revision_ids['revision_id'].values.tolist())
 
     query_diagnoses = (
         session
         .query(Diagnosis)
         .with_entities(Diagnosis.sociodemographic_id, Diagnosis.revision_id, Diagnosis.code, Diagnosis.is_primary)
-        .filter(Diagnosis.sociodemographic_id.in_(all_sociodemographic_ids))
         .filter(Diagnosis.revision_id.in_(all_revision_ids))
     )
 
@@ -169,14 +199,12 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.
      @return: a dataframe containing revision ids, primary and secondary diagnoses
      """
 
-    all_sociodemographic_ids = set(df_revision_ids[SOCIODEMOGRAPHIC_ID_COL].values.tolist())
     all_revision_ids = set(df_revision_ids['revision_id'].values.tolist())
 
     query_procedures = (
         session
         .query(Procedure)
         .with_entities(Procedure.sociodemographic_id, Procedure.revision_id, Procedure.code, Procedure.side, Procedure.date, Procedure.is_primary)
-        .filter(Procedure.sociodemographic_id.in_(all_sociodemographic_ids))
         .filter(Procedure.revision_id.in_(all_revision_ids))
     )
 
@@ -263,7 +291,7 @@ def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, 
             "revision_date": str(revision[REVISION_DATE_COL])
         })
 
-    values_info = [(values_dict["sociodemographic_id"], values_dict['revision_date']) for values_dict in values_to_insert]
+    values_info = [(values_dict[SOCIODEMOGRAPHIC_ID_COL], values_dict[REVISION_DATE_COL]) for values_dict in values_to_insert]
 
     num_rows_before = session.query(Revision).count()
     delete_statement = (Revision.__table__
@@ -274,7 +302,7 @@ def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, 
 
     num_rows_after = session.query(Revision).count()
     if num_rows_after != num_rows_before:
-        logger.info(f'Deleted {num_rows_before - num_rows_after} rows from the "Revisions" table, which is about to be updated')
+        logger.info(f"Deleted {num_rows_before - num_rows_after} rows from the 'Revisions' table, which is about to be updated")
 
     insert_statement = (Revision.__table__
                         .insert()
@@ -316,19 +344,6 @@ def insert_revised_cases_into_diagnoses(revised_case_diagnoses: pd.DataFrame, so
             "is_grouper_relevant": bool(diagnoses[IS_GROUPER_RELEVANT_COL]),
             'global_functions': str(diagnoses['global_functions'])
         })
-
-    values_info = [(values_dict["sociodemographic_id"], values_dict['revision_id']) for values_dict in values_to_insert]
-
-    num_rows_before = session.query(Diagnosis).count()
-    delete_statement = (Diagnosis.__table__
-                        .delete()
-                        .where(tuple_(Diagnosis.sociodemographic_id, Diagnosis.revision_id).in_(values_info)))
-    session.execute(delete_statement)
-    session.commit()
-
-    num_rows_after = session.query(Diagnosis).count()
-    if num_rows_after != num_rows_before:
-        logger.info(f'Deleted {num_rows_before - num_rows_after} rows from the "Diagnoses" table, which is about to be updated')
 
     insert_statement = (Diagnosis.__table__
                         .insert()
@@ -377,19 +392,6 @@ def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame, 
             "supplement_charge_ppu": Decimal(procedure['supplement_charge_ppu']),
 
         })
-
-    values_info = [(values_dict["sociodemographic_id"], values_dict['revision_id']) for values_dict in values_to_insert]
-
-    num_rows_before = session.query(Procedure).count()
-    delete_statement = (Procedure.__table__
-                        .delete()
-                        .where(tuple_(Procedure.sociodemographic_id, Procedure.revision_id).in_(values_info)))
-    session.execute(delete_statement)
-    session.commit()
-
-    num_rows_after = session.query(Procedure).count()
-    if num_rows_after != num_rows_before:
-        logger.info(f"Deleted {num_rows_before - num_rows_after} rows from the 'Procedures' table, which is about to be updated")
 
     insert_statement = (Procedure.__table__
                         .insert()

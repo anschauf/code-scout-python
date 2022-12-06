@@ -36,7 +36,7 @@ def normalize(fi: FileInfo,
     # `string[pyarrow]` is an efficient way of storing strings in a DataFrame
     df = pd.read_excel(fi.path, sheet_name=fi.sheet, dtype='string[pyarrow]')
     n_all_rows = df.shape[0]
-    logger.info(f'Read {n_all_rows} cases for {fi.hospital_name_db} {fi.year}')
+    logger.info(f"Read {n_all_rows} cases for {fi.hospital_name_db} {fi.year} from '{fi.path}' on sheet '{fi.sheet}'")
 
     # Convert all column names to lower-case, so we don't have to deal with columns named `HD Alt` vs `HD alt`
     df.columns = [c.lower() for c in df.columns]
@@ -59,7 +59,7 @@ def normalize(fi: FileInfo,
 
     n_valid_rows = df.shape[0]
     if n_valid_rows < n_all_rows:
-        logger.info(f'{n_all_rows - n_valid_rows}/{n_all_rows} rows were deleted because contained NaNs')
+        logger.warning(f'{n_all_rows - n_valid_rows}/{n_all_rows} rows were deleted because contained NaNs')
 
     # Fix format of some columns
     lstrip_fun = lambda x: x.lstrip("'")
@@ -71,7 +71,6 @@ def normalize(fi: FileInfo,
 
     for col_name, col_type in columns_to_cast.items():
         df[col_name] = df[col_name].astype(col_type)
-    logger.info(f'TYPES:\n{df.dtypes}')
 
     # Split ICD and CHOP columns into list[str]
     for code_col_to_fix in (ADDED_ICD_CODES, REMOVED_ICD_CODES, ADDED_CHOP_CODES, REMOVED_CHOP_CODES):
@@ -107,9 +106,8 @@ def normalize(fi: FileInfo,
     df.drop_duplicates(subset=VALIDATION_COLS, keep=False, inplace=True)
     n_rows_without_duplicates = df.shape[0]
     if n_rows_without_duplicates != n_rows_with_duplicates:
-        logger.info(f'Removed {n_rows_with_duplicates - n_rows_without_duplicates} rows containing duplicates')
+        logger.warning(f'Removed {n_rows_with_duplicates - n_rows_without_duplicates} rows containing duplicates')
 
-    logger.success('Completed validation')
     return df
 
 

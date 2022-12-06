@@ -87,13 +87,11 @@ def format_for_grouper(revised_cases: pd.DataFrame) -> pd.DataFrame:
 
 @beartype
 def group(revised_cases: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-
     """In this function, the previously generated dataframes are formatted and grouped by the SwissDRG grouper.
-        Information is given on how many cases got grouped in a logger info message.
+    Information is given on how many cases got grouped in a logger info message.
 
-       @return: Three dataframes with updates on revisions (grouper output), diagnoses and procedures for the DB.
-       """
-
+    @return: Three dataframes with updates on revisions (grouper output), diagnoses and procedures for the DB.
+    """
     logger.info(f'Grouping {revised_cases.shape[0]} cases ...')
     formatted_revised_cases = format_for_grouper(revised_cases)
     formatted_cases = formatted_revised_cases[GROUPER_FORMAT_COL].values.tolist()
