@@ -10,6 +10,7 @@ from src.revised_case_normalization.notebook_functions.group import group
 from src.revised_case_normalization.notebook_functions.normalize import normalize
 from src.revised_case_normalization.notebook_functions.revise import revise
 from src.revised_case_normalization.notebook_functions.revised_case_files_info import REVISED_CASE_FILES
+from src.revised_case_normalization.notebook_functions.update_db import update_db
 
 # TODO refactoring the code to read data and save result into s3
 
@@ -87,6 +88,8 @@ for file_info in REVISED_CASE_FILES:
 
     revisions_update, diagnoses_update, procedures_update = group(revised_cases)
 
+    # temporally set dos_id to 2
+    revisions_update['dos_id'] = 2
 
     all_revision_list.append(revisions_update)
     all_diagnoses_list.append(diagnoses_update)
@@ -104,15 +107,12 @@ all_revision_df['revised'] = True
 num_revision = len(all_revision_df)
 logger.info(f'Number of revised cases: {num_revision}')
 
+update_db(all_revision_df, all_diagnoses_df, all_procedure_df)
 
-print("")
+
 sys.exit(0)
 
-
-#update_db(revisions_update, diagnoses_update, procedures_update)
-
-
-all_revision_df.drop_duplicates(subset=AIMEDIC_ID_COL)
+all_revision_df.drop_duplicates(subset=SOCIODEMOGRAPHIC_ID_COL)
 
 num_revision_drop_duplicate = len(all_revision_df)
 
@@ -121,3 +121,5 @@ if num_revision > num_revision_drop_duplicate:
     print(f'The number of revision is {num_revision_drop_duplicate} after deleting {num_dup} of duplicated revision cases.')
 else:
     print(f'The total number of revision are {num_revision}')
+
+
