@@ -56,8 +56,7 @@ def load_and_apply_revisions(files_to_import: list[FileInfo] = REVISED_CASE_FILE
             columns_to_rename['fid'] = CASE_ID_COL
             revised_cases_df = normalize(file_info, columns_mapper=columns_to_rename)
             # Replace case_id with mapped case_ids from DtoD
-            case_id_mapped = pd.read_excel(os.path.join(os.getcwd(),
-                                                        '../revised_case_normalization/case_id_mappings/case_id_mapping_KSW_2018.xlsx')).astype(str)
+            case_id_mapped = pd.read_excel(os.path.join(os.getcwd(), '../revised_case_normalization/case_id_mappings/case_id_mapping_KSW_2018.xlsx')).astype(str)
             revised_cases_df = pd.merge(revised_cases_df, case_id_mapped, on="case_id", how="left")
             revised_cases_df = revised_cases_df.drop('case_id_norm', axis=1)
             revised_cases_df.rename(columns={'case_id_mapped': 'case_id_norm'}, inplace=True)
@@ -79,7 +78,7 @@ def load_and_apply_revisions(files_to_import: list[FileInfo] = REVISED_CASE_FILE
         cols_to_join.remove(PATIENT_ID_COL)
 
         try:
-            revised_cases, unmatched = revise(file_info, revised_cases_df, validation_cols=cols_to_join)
+            revised_cases, _ = revise(file_info, revised_cases_df, validation_cols=cols_to_join)
         except ValueError:
             logger.warning(f'There is no data for the hospital {hospital_name} in {year}')
             continue

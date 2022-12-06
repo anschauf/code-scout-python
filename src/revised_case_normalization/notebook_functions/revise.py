@@ -6,9 +6,9 @@ from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
 from src.revised_case_normalization.notebook_functions.global_configs import *
 from src.revised_case_normalization.notebook_functions.normalize import remove_leading_zeros
 from src.revised_case_normalization.notebook_functions.revised_case_files_info import FileInfo
-from src.service.bfs_cases_db_service import get_sociodemographics_for_hospital_year, get_original_revision_id_for_sociodemographic_ids, get_codes
+from src.service.bfs_cases_db_service import get_codes, get_original_revision_id_for_sociodemographic_ids, \
+    get_sociodemographics_for_hospital_year
 from src.service.database import Database
-from src.utils.chop_validation import split_chop_codes
 
 
 @beartype
@@ -34,9 +34,12 @@ def revise(file_info: FileInfo,
 
         # Merge cases in DB with the revised cases
         joined = pd.merge(revised_cases_df, cases_in_db,
-                          how='left',
-                          on=validation_cols,
+                          how='left', on=validation_cols,
                           suffixes=('', '_db'))
+
+        unique_joined = joined.drop_duplicates(validation_cols)
+        if unique_joined.shape[0] != joined.shape[0]:
+            raise ValueError(f'Found duplicates based on {validation_cols}. Make the criteria stricter not to match multiple cases per revised case')
 
         # Split matched from unmatched cases
         matched_cases = joined[~joined[AIMEDIC_ID_COL].isna()].copy()
@@ -81,7 +84,6 @@ def __revise_diagnoses_codes(row):
     - revision_id is not needed
     - the old_pd is not needed, the new_pd is the new PD
     """
-
     if isinstance(row[SECONDARY_DIAGNOSES_COL], float):
         row[SECONDARY_DIAGNOSES_COL] = list()
 
@@ -105,9 +107,7 @@ def __revise_primary_procedure_code(row):
     Update primary procedure for a revised case.
     Delete the primary procedure if it was removed
     """
-
-    primary_chop = split_chop_codes([row[PRIMARY_PROCEDURE_COL]])[0][
-        0]  # [0] because there is only one code, [0] to take only the CHOP code itself
+    primary_chop = row[PRIMARY_PROCEDURE_COL]
 
     if primary_chop in row[REMOVED_CHOP_CODES]:
         row[PRIMARY_PROCEDURE_COL] = ''
@@ -120,35 +120,22 @@ def __revise_secondary_procedure_codes(row):
     Update secondary procedure for a revised case.
     Add & remove CHOP codes from the list of secondary procedures
     """
+    if isinstance(row[SECONDARY_PROCEDURES_COL], float):
+        row[SECONDARY_PROCEDURES_COL] = list()
 
     # Copy the secondary procedures into a new list
     revised_codes = list(row[SECONDARY_PROCEDURES_COL])
 
-    # Add the new codes
     for code_to_add in row[ADDED_CHOP_CODES]:
-        code_to_add_info = split_chop_codes([code_to_add])[
-            0]  # has to be input as list and we take back the only element of the output list
-        if len(code_to_add_info) == 1:  # there was only the code without side and date
-            code_to_add = f'{code_to_add}::'  # append missing information for side and date
-
         revised_codes.append(code_to_add)
 
-    # Split all the codes from their side and date
-    revised_codes = split_chop_codes(revised_codes)
+    for code_to_remove in row[REMOVED_CHOP_CODES]:
+        try:
+            revised_codes.remove(code_to_remove)
+        except Exception as e:
+            print(f'{row[AIMEDIC_ID_COL]=}: {revised_codes=} - {code_to_remove=}: {e}')
 
-    # Get the set of codes to remove
-    codes_to_remove = split_chop_codes(
-        row[REMOVED_CHOP_CODES])  # This also takes care of revised codes in the grouper format
-    codes_to_remove = {code_info[0] for code_info in codes_to_remove}
-
-    # Discard the codes which appear in the set `codes_to_remove`
-    updated_codes = list()
-    for code_info in revised_codes:
-        if code_info[0] not in codes_to_remove:
-            updated_codes.append(code_info)
-
-    # Join the info on each code by `:` once more, and store back into the DataFrame row
-    row[SECONDARY_PROCEDURES_COL] = [':'.join(code_info) for code_info in updated_codes]
+    row[SECONDARY_PROCEDURES_COL] = revised_codes
     return row
 
 

@@ -32,7 +32,7 @@ def validate_chop_codes_list(chop_codes: list[str]) -> list[str]:
             if len(chop_info) > 1:
                 chop_info_to_concatenate = [valid_chop_code] + chop_info[1:]
             else:
-                chop_info_to_concatenate = [valid_chop_code]
+                chop_info_to_concatenate = [valid_chop_code] + ['', '']
 
             valid_chop_code_info = ':'.join(chop_info_to_concatenate)
             valid_chop_codes.append(valid_chop_code_info)

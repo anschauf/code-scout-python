@@ -11,7 +11,7 @@ class FileInfo:
     year: str
     sheet: str
 
-# need to reset to s3
+
 DIR_INPUT_FILE = os.path.join(SRC_DIR, 'revised_case_normalization')
 
 
@@ -101,8 +101,4 @@ REVISED_CASE_FILES = [
 
     FileInfo(os.path.join(DIR_INPUT_FILE, 'raw_data/Winterthur.xlsx'),
         'Kantonsspital Winterthur', '2020', 'Änderungen_Winterthur_2020')
-
-
-
 ]
-

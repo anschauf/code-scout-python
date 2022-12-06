@@ -2,7 +2,6 @@ import pandas as pd
 from beartype import beartype
 from loguru import logger
 
-from src.revised_case_normalization.notebook_functions.global_configs import CASE_ID_COL
 from src.utils.chop_validation import split_chop_codes, validate_chop_codes_list
 from src.utils.icd_validation import validate_icd_codes_list
 
@@ -91,7 +90,7 @@ def validate_chop_codes(df: pd.DataFrame,
         original_codes = _filter_empty_strings(row[chop_codes_col])
         result = validate_chop_codes_list(original_codes)
 
-        different_codes = _get_list_diff_case_insensitive(original_codes, result)
+        different_codes = _get_list_diff_case_insensitive(original_codes, result, codes_are_chops=True)
         if len(different_codes) > 0:
             invalid_rows_info.append(f'row {row.name}: discarded CHOPs after validation {different_codes}')
 
@@ -127,8 +126,6 @@ def validate_pd_revised_sd(df: pd.DataFrame,
     @return: The input DataFrame, with a validated 'pd' (consolidated column with 'pd' and 'pd_new'), 'added_icds',
         'removed_icds', overwriting existing columns
     """
-    invalid_rows_info = list()
-
     def _validate_pd_revised_sd(row):
         old_pd = row[pd_col]
         new_pd = row[pd_new_col]
@@ -136,8 +133,6 @@ def validate_pd_revised_sd(df: pd.DataFrame,
         removed_icds = row[removed_icd_col]
 
         if old_pd != new_pd:
-            invalid_rows_info.append(f"CaseID '{row[CASE_ID_COL]}': primary diagnosis was '{old_pd}' before revision and '{new_pd}' after")
-
             if new_pd in added_icds:
                 added_icds.remove(new_pd)
 
@@ -147,11 +142,6 @@ def validate_pd_revised_sd(df: pd.DataFrame,
         return row
 
     df = df.apply(_validate_pd_revised_sd, axis=1)
-
-    if len(invalid_rows_info) > 0:
-        log_message = '\n'.join(invalid_rows_info)
-        logger.info(f"Validated redundant PD info in '{added_icd_col}'/'{removed_icd_col}': The following {len(invalid_rows_info)} rows were affected:\n{log_message}")
-
     return df
 
 
@@ -210,10 +200,25 @@ def _filter_empty_strings(lst: list[str]) -> list[str]:
 
 
 @beartype
-def _get_list_diff_case_insensitive(list1: list[str], list2: list[str]) -> set[str]:
+def _get_list_diff_case_insensitive(list1: list[str], list2: list[str], *, codes_are_chops: bool = False) -> set[str]:
     """Lists the items which are different between 2 lists, returning them upper-case."""
-    upper_list1 = [item.upper() for item in list1]
-    upper_list2 = [item.upper() for item in list2]
+    def do_fix_list(lst: list, *, add_missing_dots: bool = False) -> set:
+        a_set = set()
+        for item in lst:
+            fixed_item = item.strip().upper()
+
+            if codes_are_chops:
+                item_parts = fixed_item.split(':')
+                if len(item_parts) < 3:
+                    all_parts = item_parts + [''] * (3 - len(item_parts))
+                    fixed_item = ':'.join(all_parts)
+
+            a_set.add(fixed_item)
+
+        return a_set
+
+    upper_list1 = do_fix_list(list1)
+    upper_list2 = do_fix_list(list2)
 
     different_items = set(upper_list1).difference(set(upper_list2))
     return different_items
