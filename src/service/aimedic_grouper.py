@@ -121,6 +121,7 @@ def _get_grouper_output(*,
                     if line.startswith('{"' + _aimedic_id_field)]
 
     grouped_cases = dict()
+    ungrouped_cases = list()
     for i, output_line in enumerate(output_lines):
         # Deserialize the output into a dict
         grouped_case_json = srsly.json_loads(output_line)
@@ -131,12 +132,8 @@ def _get_grouper_output(*,
         ext_grouped_case_json = dict()
 
         if len(grouped_case_json.keys()) != 4:
-            output_lines.pop(i)  # delete invalid case from output
-            camel_case_sociodemographic_id_col = aimedic_id
-            logger.info(f'This case with sociodemographic_id: {camel_case_sociodemographic_id_col} can not be grouped')
-            logger.info(f'Output after grouper: {grouped_case_json}')
+            ungrouped_cases.append(output_lines.pop(i))  # delete invalid case from output
             continue
-
         for key, value in grouped_case_json.items():
             if key in _dict_subfields:
                 # This is a sub-dictionary, e.g., `revisions`
@@ -152,6 +149,7 @@ def _get_grouper_output(*,
 
             # Store the modified dictionary
             ext_grouped_case_json[key] = value
+            logger.info(f'There are {len(ungrouped_cases)} cases can not be grouped. The output from grouper is: {ungrouped_cases}')
 
         # Assign the grouped case to its aimedicId
         grouped_cases[aimedic_id] = ext_grouped_case_json
