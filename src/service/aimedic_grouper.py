@@ -20,9 +20,10 @@ from src.revised_case_normalization.notebook_functions.global_configs import *
 # DataFrame column names
 _aimedic_id_field = 'aimedicId'
 _revision_field = 'revision'
+_dos_code_field = 'durationOfStayLegacyCode'
 _diagnoses_field = 'diagnoses'
 _procedures_field = 'procedures'
-_dict_subfields = (_revision_field, _diagnoses_field, _procedures_field)
+_json_fields = (_aimedic_id_field, _revision_field, _diagnoses_field, _procedures_field, _dos_code_field)
 
 
 @beartype
@@ -93,7 +94,7 @@ def group_batch_group_cases(batch_group_cases: list[str],
     # Remove primary keys from each table
     revision_df.drop(columns=[REVISION_ID_COL], inplace=True)
     diagnoses_df.drop(columns=[REVISION_ID_COL], inplace=True)
-    procedures_df.drop(columns=['procedures_pk', REVISION_ID_COL], inplace=True)
+    procedures_df.drop(columns=[REVISION_ID_COL], inplace=True)
 
     return revision_df, diagnoses_df, procedures_df
 
@@ -110,7 +111,7 @@ def _get_grouper_output(*,
     camel_case_sociodemographic_id_col = humps.camelize(SOCIODEMOGRAPHIC_ID_COL)
 
     raw_output: bytes = subprocess.check_output([
-        'java', '-cp', jar_file_path, 'ch.aimedic.grouper.apps.BatchGroupMany',
+        'java', '-cp', jar_file_path, 'ch.aimedic.grouper.apps.BatchGrouper',
         cases_string, separator_char, delimiter_char])
 
     output = _escape_ansi(raw_output.decode('UTF-8'))
@@ -127,36 +128,31 @@ def _get_grouper_output(*,
         grouped_case_json = srsly.json_loads(output_line)
 
         # Get the aimedicId from the top-level dict
-        aimedic_id = grouped_case_json[_aimedic_id_field]
-        # Build a copy of the dict, where we insert the aimedicId in all the sub-dictionaries
-        ext_grouped_case_json = dict()
+        sociodemographic_id = grouped_case_json[_aimedic_id_field]
 
-        if len(grouped_case_json.keys()) != 4:
-            ungrouped_case = output_lines.pop(i) # delete ungrouped case from output
+        if len(grouped_case_json) != len(_json_fields):
             # aimedicId is actually sociodemographic_id
-            ungrouped_case.replace('aimedicId', 'sociodemographic_id')
+            ungrouped_case = output_line.replace(_aimedic_id_field, SOCIODEMOGRAPHIC_ID_COL)
             ungrouped_cases.append(ungrouped_case)
             continue
-        for key, value in grouped_case_json.items():
-            if key in _dict_subfields:
-                # This is a sub-dictionary, e.g., `revisions`
-                if isinstance(value, dict):
-                    value[camel_case_sociodemographic_id_col] = aimedic_id  # The sub-dictionary is modified in place
 
-                elif isinstance(value, list):
-                    # This is a list of dictionaries, e.g., `diagnoses` or `procedures`
-                    for row in value:
-                        row[camel_case_sociodemographic_id_col] = aimedic_id  # The sub-dictionary is modified in place
-                        row = _fix_global_functions_list(row)
+        # Update dictionary in-place
+        grouped_case_json[_revision_field].update({
+            camel_case_sociodemographic_id_col: sociodemographic_id,
+            # Append the Duration-of-stay code, so that it can be mapped later to a DoS ID
+            _dos_code_field: grouped_case_json[_dos_code_field]
+        })
 
+        for diagnosis in grouped_case_json[_diagnoses_field]:
+            diagnosis.update({camel_case_sociodemographic_id_col: sociodemographic_id})
 
-            # Store the modified dictionary
-            ext_grouped_case_json[key] = value
+        for procedure in grouped_case_json[_procedures_field]:
+            procedure.update({camel_case_sociodemographic_id_col: sociodemographic_id})
 
-        grouped_cases[aimedic_id] = ext_grouped_case_json
+        grouped_cases[sociodemographic_id] = grouped_case_json
+
     if len(ungrouped_cases) > 0:
-        logger.info(
-            f'There are {len(ungrouped_cases)} cases can not be grouped. The output from grouper is: {ungrouped_cases}')
+        logger.info(f'There are {len(ungrouped_cases)} cases can not be grouped. The output from grouper is: {ungrouped_cases}')
 
     return grouped_cases
 

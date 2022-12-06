@@ -2,7 +2,7 @@ import pandas as pd
 from beartype import beartype
 from loguru import logger
 
-from src.models.sociodemographics import SOCIODEMOGRAPHIC_PK_COL, SOCIODEMOGRAPHIC_ID_COL
+from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
 from src.revised_case_normalization.notebook_functions.global_configs import *
 from src.revised_case_normalization.notebook_functions.normalize import remove_leading_zeros
 from src.revised_case_normalization.notebook_functions.revised_case_files_info import FileInfo
@@ -49,7 +49,7 @@ def revise(file_info: FileInfo,
             logger.warning(f'{num_unmatched} rows could not be matched, given {sorted(validation_cols)}')
 
         # Retrieve the codes from the DB
-        original_revision_ids = get_earliest_revisions_for_sociodemographic_ids(matched_cases[SOCIODEMOGRAPHIC_PK_COL].astype(int).values.tolist(), db.session)
+        original_revision_ids = get_earliest_revisions_for_sociodemographic_ids(matched_cases[SOCIODEMOGRAPHIC_ID_COL].astype(int).values.tolist(), db.session)
         original_cases = get_codes(original_revision_ids, db.session)
 
         # Apply the revisions to the cases from the DB
@@ -165,10 +165,6 @@ def apply_revisions(cases_df: pd.DataFrame, revisions_df: pd.DataFrame) -> pd.Da
     @param revisions_df: A pandas DataFrame contains codes to be revised, i.e. added and removed diagonoses and procedure codes
     @return: a pandas DataFrame: contains revised cases after updating diagonoses and procedure codes
     """
-
-    # TODO Remove this line after the column has been renamed in the DB
-    revisions_df.rename(columns={SOCIODEMOGRAPHIC_PK_COL: SOCIODEMOGRAPHIC_ID_COL}, inplace=True)
-
     revised_cases = pd.merge(cases_df, revisions_df, on=SOCIODEMOGRAPHIC_ID_COL, how='left')
 
     # Apply all the revisions

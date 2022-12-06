@@ -14,7 +14,7 @@ class Revision(Base):
     __tablename__ = 'revisions'
 
     revision_id = Column(REVISION_ID_COL, Integer, primary_key=True, autoincrement=True)
-    sociodemographic_id = Column(SOCIODEMOGRAPHIC_ID_COL, Integer, ForeignKey(Sociodemographics.sociodemographics_pk), nullable=False)
+    sociodemographic_id = Column(SOCIODEMOGRAPHIC_ID_COL, Integer, ForeignKey(Sociodemographics.sociodemographic_id), nullable=False)
     dos_id = Column('dos_id',Integer, nullable=False)
     mdc = Column('mdc',VARCHAR(3), nullable=False)
     mdc_partition = Column('mdc_partition',CHAR)
