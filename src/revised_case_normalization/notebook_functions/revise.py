@@ -132,8 +132,8 @@ def __revise_secondary_procedure_codes(row):
     for code_to_remove in row[REMOVED_CHOP_CODES]:
         try:
             revised_codes.remove(code_to_remove)
-        except Exception as e:
-            print(f'{row[AIMEDIC_ID_COL]=}: {revised_codes=} - {code_to_remove=}: {e}')
+        except ValueError:
+            logger.error(f'{row[CASE_ID_COL]=}: Cannot remove [{code_to_remove}] from [{revised_codes}]')
 
     row[SECONDARY_PROCEDURES_COL] = revised_codes
     return row
