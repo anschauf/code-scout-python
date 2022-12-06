@@ -7,7 +7,7 @@ from src.revised_case_normalization.notebook_functions.global_configs import *
 from src.revised_case_normalization.notebook_functions.normalize import remove_leading_zeros
 from src.revised_case_normalization.notebook_functions.revised_case_files_info import FileInfo
 from src.service.bfs_cases_db_service import get_sociodemographics_for_hospital_year, \
-    get_earliest_revisions_for_aimedic_ids, get_codes
+    get_earliest_revisions_for_sociodemographic_ids, get_codes
 from src.service.database import Database
 from src.utils.chop_validation import split_chop_codes
 
@@ -49,7 +49,7 @@ def revise(file_info: FileInfo,
             logger.warning(f'{num_unmatched} rows could not be matched, given {sorted(validation_cols)}')
 
         # Retrieve the codes from the DB
-        original_revision_ids = get_earliest_revisions_for_aimedic_ids(matched_cases[SOCIODEMOGRAPHIC_PK_COL].astype(int).values.tolist(), db.session)
+        original_revision_ids = get_earliest_revisions_for_sociodemographic_ids(matched_cases[SOCIODEMOGRAPHIC_PK_COL].astype(int).values.tolist(), db.session)
         original_cases = get_codes(original_revision_ids, db.session)
 
         # Apply the revisions to the cases from the DB

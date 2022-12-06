@@ -16,6 +16,6 @@ def update_db(revised_cases: pd.DataFrame, diagnoses_df: pd.DataFrame, procedure
     @return:
     """
     with Database() as db:
-        aimedic_id_with_revision_id = insert_revised_cases_into_revisions(revised_cases, db.session)
-        insert_revised_cases_into_diagnoses(diagnoses_df, aimedic_id_with_revision_id, db.session)
-        insert_revised_cases_into_procedures(procedures_df, aimedic_id_with_revision_id, db.session)
+        sociodemographic_id_with_revision_id = insert_revised_cases_into_revisions(revised_cases, db.session)
+        insert_revised_cases_into_diagnoses(diagnoses_df, sociodemographic_id_with_revision_id, db.session)
+        insert_revised_cases_into_procedures(procedures_df, sociodemographic_id_with_revision_id, db.session)

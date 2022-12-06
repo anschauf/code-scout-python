@@ -1,3 +1,5 @@
+from decimal import *
+
 import numpy as np
 import pandas as pd
 from beartype import beartype
@@ -14,10 +16,7 @@ from src.models.hospital import Hospital
 from src.models.procedure import Procedure
 from src.models.revision import Revision
 from src.models.sociodemographics import Sociodemographics, SOCIODEMOGRAPHIC_ID_COL
-from src.revised_case_normalization.notebook_functions.global_configs import AIMEDIC_ID_COL, REVISION_DATE_COL, \
-    REVISION_ID_COL, PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL, PROCEDURE_DATE_COL, PROCEDURE_SIDE_COL, CODE_COL, \
-    PRIMARY_PROCEDURE_COL, IS_PRIMARY_COL, SECONDARY_PROCEDURES_COL, DRG_COL, DRG_COST_WEIGHT_COL, \
-    EFFECTIVE_COST_WEIGHT_COL, PCCL_COL, CCL_COL, IS_GROUPER_RELEVANT_COL
+from src.revised_case_normalization.notebook_functions.global_configs import *
 
 
 @beartype
@@ -83,12 +82,12 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int, sessi
 
 
 @beartype
-def get_earliest_revisions_for_aimedic_ids(sociodemographic_ids: list[int], session: Session) -> pd.DataFrame:
+def get_earliest_revisions_for_sociodemographic_ids(sociodemographic_ids: list[int], session: Session) -> pd.DataFrame:
     """
-     Get the earliest revisions of aimedic_ids
+     Get the earliest revisions of sociodemographic_ids
      @param session: active DB session
      @param sociodemographic_ids:
-     @return: a Dataframe containing aimedic ids, revision ids and revision dates
+     @return: a Dataframe containing sociodemographic ids, revision ids and revision dates
      """
 
     query_revisions = (
@@ -234,12 +233,12 @@ def get_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
 
 
 @beartype
-def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, session: Session) -> dict:
+def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, session: Session, DOS_COL=None) -> dict:
     """
     Insert revised cases into the table coding_revision.revisions
     @param session: active DB session
     @param revised_case_revision_df: a Dataframe of revised cases after grouping
-    @return: a dictionary with aimedic_ids as keys and revision_ids as values created after insert into the DB
+    @return: a dictionary with sociodemographic_ids as keys and revision_ids as values created after insert into the DB
     """
     logger.info(f"Trying to insert {revised_case_revision_df.shape[0]} cases into the 'Revisions' table ...")
     revision_list = revised_case_revision_df.to_dict(orient='records')
@@ -248,20 +247,28 @@ def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, 
 
     for revision in revision_list:
         values_to_insert.append({
-            "aimedic_id": int(revision[AIMEDIC_ID_COL]),
+            "sociodemographic_id": int(revision[SOCIODEMOGRAPHIC_ID_COL]),
             "drg": str(revision[DRG_COL]),
             "drg_cost_weight": float(revision[DRG_COST_WEIGHT_COL]),
             "effective_cost_weight": float(revision[EFFECTIVE_COST_WEIGHT_COL]),
             "pccl": int(revision[PCCL_COL]),
+            'dos_id': int(revision['dos_id']),
+            'mdc': str(revision['mdc']),
+            'mdc_partition': str(revision['mdc_partition']),
+            'raw_pccl': float(revision['raw_pccl']),
+            'supplement_charge': Decimal(revision['supplement_charge']),
+            'supplement_charge_ppu': Decimal(revision['supplement_charge_ppu']),
+            'reviewed': bool(revision['reviewed']),
+            'revised': bool(revision['revised']),
             "revision_date": str(revision[REVISION_DATE_COL])
         })
 
-    values_info = [(values_dict["aimedic_id"], values_dict['revision_date']) for values_dict in values_to_insert]
+    values_info = [(values_dict["sociodemographic_id"], values_dict['revision_date']) for values_dict in values_to_insert]
 
     num_rows_before = session.query(Revision).count()
     delete_statement = (Revision.__table__
                         .delete()
-                        .where(tuple_(Revision.aimedic_id, Revision.revision_date).in_(values_info)))
+                        .where(tuple_(Revision.sociodemographic_id, Revision.revision_date).in_(values_info)))
     session.execute(delete_statement)
     session.commit()
 
@@ -272,23 +279,23 @@ def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, 
     insert_statement = (Revision.__table__
                         .insert()
                         .values(values_to_insert)
-                        .returning(Revision.aimedic_id, Revision.revision_id))
+                        .returning(Revision.sociodemographic_id, Revision.revision_id))
 
     result = session.execute(insert_statement).fetchall()
     session.commit()
 
-    aimedic_id_with_revision_id = {aimedic_id: revision_id for aimedic_id, revision_id in result}
+    sociodemographic_id_with_revision_id = {sociodemographic_id: revision_id for sociodemographic_id, revision_id in result}
     logger.success(f"Inserted {len(result)} cases into the 'Revisions' table")
-    return aimedic_id_with_revision_id
+    return sociodemographic_id_with_revision_id
 
 
 @beartype
-def insert_revised_cases_into_diagnoses(revised_case_diagnoses: pd.DataFrame, aimedic_id_with_revision_id: dict, session: Session):
+def insert_revised_cases_into_diagnoses(revised_case_diagnoses: pd.DataFrame, sociodemographic_id_with_revision_id: dict, session: Session):
     """
     Insert revised cases into the table coding_revision.diagnoses
     @param session: active DB session
     @param revised_case_diagnoses: a Dataframe of revised cases for diagnoses after grouping
-    @param aimedic_id_with_revision_id: a dictionary with aimedic_ids as keys and revision_ids as values which are created
+    @param sociodemographic_id_with_revision_id: a dictionary with sociodemographic_ids as keys and revision_ids as values which are created
         after insert into the DB
     """
     logger.info(f"Trying to insert {revised_case_diagnoses.shape[0]} rows into the 'Diagnoses' table ...")
@@ -298,23 +305,24 @@ def insert_revised_cases_into_diagnoses(revised_case_diagnoses: pd.DataFrame, ai
     values_to_insert = list()
 
     for diagnoses in diagnosis_list:
-        aimedic_id = int(diagnoses[AIMEDIC_ID_COL])
+        sociodemographic_id = int(diagnoses[SOCIODEMOGRAPHIC_ID_COL])
 
         values_to_insert.append({
-            "aimedic_id": aimedic_id,
-            "revision_id": int(aimedic_id_with_revision_id[aimedic_id]),
+            "sociodemographic_id": sociodemographic_id,
+            "revision_id": int(sociodemographic_id_with_revision_id[sociodemographic_id]),
             "code": str(diagnoses[CODE_COL]),
             "ccl": int(diagnoses[CCL_COL]),
             "is_primary": bool(diagnoses[IS_PRIMARY_COL]),
-            "is_grouper_relevant": bool(diagnoses[IS_GROUPER_RELEVANT_COL])
+            "is_grouper_relevant": bool(diagnoses[IS_GROUPER_RELEVANT_COL]),
+            'global_functions': str(diagnoses['global_functions'])
         })
 
-    values_info = [(values_dict["aimedic_id"], values_dict['revision_id']) for values_dict in values_to_insert]
+    values_info = [(values_dict["sociodemographic_id"], values_dict['revision_id']) for values_dict in values_to_insert]
 
     num_rows_before = session.query(Diagnosis).count()
     delete_statement = (Diagnosis.__table__
                         .delete()
-                        .where(tuple_(Diagnosis.aimedic_id, Diagnosis.revision_id).in_(values_info)))
+                        .where(tuple_(Diagnosis.sociodemographic_id, Diagnosis.revision_id).in_(values_info)))
     session.execute(delete_statement)
     session.commit()
 
@@ -333,11 +341,11 @@ def insert_revised_cases_into_diagnoses(revised_case_diagnoses: pd.DataFrame, ai
 
 
 @beartype
-def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame, aimedic_id_with_revision_id: dict, session: Session):
+def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame, sociodemographic_id_with_revision_id: dict, session: Session):
     """Insert revised cases into table coding_revision.procedures.
 
     @param revised_case_procedures: a Dataframe of revised case for procedures after grouping.
-    @param aimedic_id_with_revision_id: a dictionary with aimedic_id as keys and revision_id as values which are created
+    @param sociodemographic_id_with_revision_id: a dictionary with sociodemographic_id as keys and revision_id as values which are created
     after insert into the DB.
     """
     logger.info(f"Trying to insert {revised_case_procedures.shape[0]} rows into the 'Procedures' table ...")
@@ -347,7 +355,7 @@ def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame, 
     values_to_insert = list()
 
     for procedure in procedure_list:
-        aimedic_id = int(procedure[AIMEDIC_ID_COL])
+        sociodemographic_id = int(procedure[SOCIODEMOGRAPHIC_ID_COL])
 
         # Get the procedure date as None or as a string
         procedure_date = procedure[PROCEDURE_DATE_COL]
@@ -357,21 +365,25 @@ def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame, 
             procedure_date = str(procedure_date)
 
         values_to_insert.append({
-            "aimedic_id": aimedic_id,
-            "revision_id": int(aimedic_id_with_revision_id[aimedic_id]),
+            "sociodemographic_id": sociodemographic_id,
+            "revision_id": int(sociodemographic_id_with_revision_id[sociodemographic_id]),
             "code": str(procedure[CODE_COL]),
             "side": str(procedure[PROCEDURE_SIDE_COL]),
             "date": procedure_date,
             "is_primary": bool(procedure[IS_PRIMARY_COL]),
-            "is_grouper_relevant": bool(procedure[IS_GROUPER_RELEVANT_COL])
+            "is_grouper_relevant": bool(procedure[IS_GROUPER_RELEVANT_COL]),
+            "global_functions": str(procedure['global_functions']),
+            "supplement_charge": Decimal(procedure['supplement_charge']),
+            "supplement_charge_ppu": Decimal(procedure['supplement_charge_ppu']),
+
         })
 
-    values_info = [(values_dict["aimedic_id"], values_dict['revision_id']) for values_dict in values_to_insert]
+    values_info = [(values_dict["sociodemographic_id"], values_dict['revision_id']) for values_dict in values_to_insert]
 
     num_rows_before = session.query(Procedure).count()
     delete_statement = (Procedure.__table__
                         .delete()
-                        .where(tuple_(Procedure.aimedic_id, Procedure.revision_id).in_(values_info)))
+                        .where(tuple_(Procedure.sociodemographic_id, Procedure.revision_id).in_(values_info)))
     session.execute(delete_statement)
     session.commit()
 

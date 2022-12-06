@@ -6,6 +6,7 @@ AGE_COL = 'age_years'
 CLINIC_COL = 'bfs_code'  # After joining `bfs_cases` to `clinics`, the clinic code will be stored in `bfs_code`
 DURATION_OF_STAY_COL = 'duration_of_stay'
 PCCL_COL = 'pccl'
+RAW_PCCL_COL = 'raw_pccl'
 CCL_COL = 'ccl'
 PRIMARY_DIAGNOSIS_COL = 'old_pd'  # After joining `bfs_cases` to `icd_codes`, the primary diagnosis is renamed from `code` to `PD`
 DRG_COL = 'drg'
@@ -18,6 +19,7 @@ PROCEDURE_SIDE_COL = 'side'
 PROCEDURE_DATE_COL = 'date'
 IS_PRIMARY_COL = 'is_primary'
 IS_GROUPER_RELEVANT_COL = 'is_grouper_relevant'
+
 
 # List of Sociodemographic columns necessary to retrieve SwissDRG Batchgrouper Format 2017
 AGE_DAYS_COL = 'age_days'
