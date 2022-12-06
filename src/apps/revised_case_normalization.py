@@ -5,6 +5,8 @@ from src import ROOT_DIR
 import pandas as pd
 from loguru import logger
 import time
+
+from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
 from src.revised_case_normalization.notebook_functions.global_configs import *
 from src.revised_case_normalization.notebook_functions.group import group
 from src.revised_case_normalization.notebook_functions.normalize import normalize
@@ -110,7 +112,7 @@ logger.info(f'Number of revised cases: {num_revision}')
 update_db(all_revision_df, all_diagnoses_df, all_procedure_df)
 
 
-sys.exit(0)
+# sys.exit(0)
 
 all_revision_df.drop_duplicates(subset=SOCIODEMOGRAPHIC_ID_COL)
 
