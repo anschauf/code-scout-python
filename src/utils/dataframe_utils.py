@@ -3,7 +3,7 @@ from beartype import beartype
 from loguru import logger
 
 from src.revised_case_normalization.notebook_functions.global_configs import CASE_ID_COL
-from src.utils.chop_validation import validate_chop_codes_list, split_chop_codes
+from src.utils.chop_validation import split_chop_codes, validate_chop_codes_list
 from src.utils.icd_validation import validate_icd_codes_list
 
 
@@ -140,11 +140,9 @@ def validate_pd_revised_sd(df: pd.DataFrame,
 
             if new_pd in added_icds:
                 added_icds.remove(new_pd)
-                row[added_icd_col] = added_icds
 
             if old_pd in removed_icds:
                 removed_icds.remove(old_pd)
-                row[removed_icd_col] = removed_icds
 
         return row
 
