@@ -132,7 +132,10 @@ def _get_grouper_output(*,
         ext_grouped_case_json = dict()
 
         if len(grouped_case_json.keys()) != 4:
-            ungrouped_cases.append(output_lines.pop(i))  # delete invalid case from output
+            ungrouped_case = output_lines.pop(i) # delete ungrouped case from output
+            # aimedicId is actually sociodemographic_id
+            ungrouped_case.replace('aimedicId', 'sociodemographic_id')
+            ungrouped_cases.append(ungrouped_case)
             continue
         for key, value in grouped_case_json.items():
             if key in _dict_subfields:
@@ -149,10 +152,11 @@ def _get_grouper_output(*,
 
             # Store the modified dictionary
             ext_grouped_case_json[key] = value
-            logger.info(f'There are {len(ungrouped_cases)} cases can not be grouped. The output from grouper is: {ungrouped_cases}')
 
-        # Assign the grouped case to its aimedicId
         grouped_cases[aimedic_id] = ext_grouped_case_json
+    if len(ungrouped_cases) > 0:
+        logger.info(
+            f'There are {len(ungrouped_cases)} cases can not be grouped. The output from grouper is: {ungrouped_cases}')
 
     return grouped_cases
 
