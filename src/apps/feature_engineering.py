@@ -86,5 +86,5 @@ def create_all_features(*, chunksize: int, n_rows: Optional[int] = None):
 if __name__ == '__main__':
     create_all_features(
         chunksize=1000,
-        n_rows=1000
+        n_rows=1200000
     )

@@ -39,7 +39,7 @@ class FeatureEngineering(Base):
 
     # Define a dummy primary key, and the foreign keys to identify the case
     feateng_pk = Column(Integer, primary_key=True)
-    sociodemographic_id = Column(Integer, ForeignKey(Sociodemographics.sociodemographics_pk))
+    sociodemographic_id = Column(Integer, ForeignKey(Sociodemographics.sociodemographic_id))
     revision_id = Column(Integer, ForeignKey(Revision.revision_id))
 
     # --- Features ---

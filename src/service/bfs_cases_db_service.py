@@ -455,7 +455,7 @@ def read_cases_in_chunks(session: Session,
      .query(Sociodemographics, Hospital, Clinic, Revision)
      .join(Hospital, Sociodemographics.hospital_id == Hospital.hospital_id, isouter=True)
      .join(Clinic, Sociodemographics.clinic_id == Clinic.clinic_id, isouter=True)
-     .join(Revision, Sociodemographics.sociodemographics_pk == Revision.sociodemographic_id, isouter=True)
+     .join(Revision, Sociodemographics.sociodemographic_id == Revision.sociodemographic_id, isouter=True)
      )
 
     if n_rows is not None:
