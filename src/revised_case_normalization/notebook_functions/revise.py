@@ -129,11 +129,12 @@ def __revise_secondary_procedure_codes(row):
     for code_to_add in row[ADDED_CHOP_CODES]:
         revised_codes.append(code_to_add)
 
-    for code_to_remove in row[REMOVED_CHOP_CODES]:
-        try:
-            revised_codes.remove(code_to_remove)
-        except ValueError:
-            logger.error(f'{row[CASE_ID_COL]=}: Cannot remove [{code_to_remove}] from [{revised_codes}]')
+    if len(revised_codes) > 0:
+        for code_to_remove in row[REMOVED_CHOP_CODES]:
+            try:
+                revised_codes.remove(code_to_remove)
+            except ValueError:
+                logger.error(f'{row[CASE_ID_COL]=}: Cannot remove [{code_to_remove}] from [{revised_codes}]')
 
     row[SECONDARY_PROCEDURES_COL] = revised_codes
     return row

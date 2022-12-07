@@ -27,6 +27,6 @@ def validate_icd_codes_list(icd_codes: list[str]) -> list[str]:
             valid_icd_codes.append(valid_icd_code)
 
         else:
-            raise ValueError(f'Expected one match. Got >= 1')
+            continue
 
     return valid_icd_codes

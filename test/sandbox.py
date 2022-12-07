@@ -8,8 +8,7 @@ with Database() as db:
     revised_cases_query = (
         db.session
         .query(Revision)
-        .filter(Revision.revised)
-        .filter(Revision.supplement_charge > 0)
+        .filter(Revision.revised.is_(True))
     )
     revised_cases = pd.read_sql(revised_cases_query.statement, db.session.bind)
 
@@ -18,7 +17,6 @@ with Database() as db:
     original_cases_query = (
         db.session
         .query(Revision)
-        .filter(Revision.revised.is_(False))
         .filter(Revision.reviewed.is_(False))
         .filter(Revision.sociodemographic_id.in_(sociodemo_ids))
     )
@@ -43,6 +41,7 @@ with Database() as db:
 
     df2 = df.copy()
     df2['delta_supp_charge'] = df2['supplement_charge_rev'] - df2['supplement_charge']
+    df2 = df2[df2['delta_supp_charge'] != 0]
     df2.sort_values('delta_supp_charge', ascending=False, inplace=True)
 
     print(df2)

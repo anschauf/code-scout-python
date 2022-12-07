@@ -54,7 +54,8 @@ def validate_icd_codes(df: pd.DataFrame,
         original_codes = _filter_empty_strings(row[icd_codes_col])
         result = validate_icd_codes_list(original_codes)
 
-        different_codes = _get_list_diff_case_insensitive(original_codes, result)
+        original_codes_for_comparison = [icd.replace('.', '').upper() for icd in original_codes]
+        different_codes = _get_list_diff_case_insensitive(original_codes_for_comparison, result)
         if len(different_codes) > 0:
             invalid_rows_info.append(f'row {row.name}: discarded ICDs after validation {different_codes}')
 
