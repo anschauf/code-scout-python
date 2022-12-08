@@ -57,7 +57,7 @@ def store_features_in_db(data: pd.DataFrame, chunksize: int, session: Session):
 
     connection = session.connection(execution_options={'stream_results': True})
 
-    num_rows_inserted = pd.to_sql(
+    num_rows_inserted = data.to_sql(
             name=FeatureEngineering.__tablename__, schema=FeatureEngineering.__table__.schema,
             con=connection, if_exists='append', index=False, method='multi',
             chunksize=chunksize
