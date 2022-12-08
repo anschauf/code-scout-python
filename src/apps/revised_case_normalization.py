@@ -1,6 +1,8 @@
 import os
 import time
 
+import awswrangler as wr
+import boto3
 import pandas as pd
 from beartype import beartype
 from loguru import logger
@@ -11,17 +13,18 @@ from src.revised_case_normalization.notebook_functions.global_configs import *
 from src.revised_case_normalization.notebook_functions.group import group
 from src.revised_case_normalization.notebook_functions.normalize import normalize
 from src.revised_case_normalization.notebook_functions.revise import revise
-from src.revised_case_normalization.notebook_functions.revised_case_files_info import FileInfo, REVISED_CASE_FILES
+from src.revised_case_normalization.notebook_functions.revised_case_files_info import FileInfo, REVISED_CASE_FILES, \
+    DIR_REVISED_CASES, FILES_FALL_NUMMER, FILES_FID
 from src.revised_case_normalization.notebook_functions.update_db import update_db
 from src.service.bfs_cases_db_service import get_duration_of_stay_df
 from src.service.database import Database
+from src.utils.general_utils import __remove_prefix_and_bucket_if_exists
 
-
-# TODO Refactor to read data from and save log to s3
 
 @beartype
-def load_and_apply_revisions(files_to_import: list[FileInfo] = REVISED_CASE_FILES):
-    # Create a new log file at the root of the project
+def load_and_apply_revisions(files_to_import: list[FileInfo] = REVISED_CASE_FILES,
+                             s3_bucket: str = 'aimedic-patient-data'):
+    # Create a new local log file at the root of the project
     log_path = os.path.join(ROOT_DIR, 'logs')
     if not os.path.exists(log_path):
         os.mkdir(log_path)
@@ -43,30 +46,26 @@ def load_and_apply_revisions(files_to_import: list[FileInfo] = REVISED_CASE_FILE
 
         logger.info(f"#{idx + 1}/{n_files}: Working on '{hospital_name}' ({year}) ...")
         # handling the sheet using fall number as case_id
-        if hospital_name == 'hirslanden_klinik_zurich' and year == '2019':
+        if {hospital_name: year} in FILES_FALL_NUMMER:
             columns_to_rename = dict(COLUMNS_TO_RENAME)
             columns_to_rename.pop("admno")
             columns_to_rename['fall nummer'] = CASE_ID_COL
             revised_cases_df = normalize(file_info, columns_mapper=columns_to_rename)
 
         # handling sheets using fid as case_id
-        elif hospital_name == 'kantonsspital_winterthur' and year == '2018':
-            columns_to_rename = dict(COLUMNS_TO_RENAME)
-            columns_to_rename.pop("admno")
-            columns_to_rename['fid'] = CASE_ID_COL
-            revised_cases_df = normalize(file_info, columns_mapper=columns_to_rename)
-            # Replace case_id with mapped case_ids from DtoD
-            case_id_mapped = pd.read_excel(os.path.join(os.getcwd(), '../revised_case_normalization/case_id_mappings/case_id_mapping_KSW_2018.xlsx')).astype(str)
-            revised_cases_df = pd.merge(revised_cases_df, case_id_mapped, on="case_id", how="left")
-            revised_cases_df = revised_cases_df.drop('case_id_norm', axis=1)
-            revised_cases_df.rename(columns={'case_id_mapped': 'case_id_norm'}, inplace=True)
-
-        elif hospital_name == 'kantonsspital_winterthur' and year == '2019':
+        elif {hospital_name: year} in FILES_FID:
             columns_to_rename = dict(COLUMNS_TO_RENAME)
             columns_to_rename.pop("admno")
             columns_to_rename['fid'] = CASE_ID_COL
             revised_cases_df = normalize(file_info, columns_mapper=columns_to_rename)
 
+            # Replace case_id with mapped case_ids from DtoD for kantonsspital winterthur 2018'
+            if year == '2018':
+                case_id_mapped = wr.s3.read_excel(
+                    os.path.join(DIR_REVISED_CASES, 'case_id_mapping/case_id_mapping_KSW_2018.xlsx')).astype(str)
+                revised_cases_df = pd.merge(revised_cases_df, case_id_mapped, on="case_id", how="left")
+                revised_cases_df = revised_cases_df.drop('case_id_norm', axis=1)
+                revised_cases_df.rename(columns={'case_id_mapped': 'case_id_norm'}, inplace=True)
         # sheets using admno as case_id
         else:
             revised_cases_df = normalize(file_info)
@@ -98,7 +97,8 @@ def load_and_apply_revisions(files_to_import: list[FileInfo] = REVISED_CASE_FILE
         duration_of_stay_df = get_duration_of_stay_df(db.session)
 
     all_revision_df = pd.merge(
-        all_revision_df.drop(columns='dos_id'),  # Drop the `dos_id` column because it comes from the `duration_of_stay_df` after the join
+        # Drop the `dos_id` column because it comes from the `duration_of_stay_df` after the join
+        all_revision_df.drop(columns='dos_id'),
         duration_of_stay_df.drop(columns='description'),  # Drop unused column
         how='left',
         left_on='duration_of_stay_legacy_code', right_on='dos_legacy_code')
@@ -124,6 +124,25 @@ def load_and_apply_revisions(files_to_import: list[FileInfo] = REVISED_CASE_FILE
 
     update_db(all_revision_df, all_diagnoses_df, all_procedure_df)
     logger.success('done')
+
+    # upload log file to s3
+    s3 = boto3.resource('s3')
+    log_path_s3 = os.path.join(DIR_REVISED_CASES, 'logs')
+    log_filename_s3 = log_filename.replace(log_path, log_path_s3)
+    filename = __remove_prefix_and_bucket_if_exists(log_filename_s3)
+    s3_object = s3.Object(s3_bucket, filename)
+    s3_object.put(Body=open(log_filename, 'rb'))
+
+    # delete local log_file
+    # if os.path.exists(log_filename):
+    #     os.remove(log_filename)
+    # else:
+    #     print("The logger file was not created properly")
+    # # delete the local log folder after uploading log_file to s3
+    # try:
+    #     os.rmdir(log_path)
+    # except OSError:
+    #     raise Warning('Your local log folder can not be deleted because it was not empty')
 
 
 if __name__ == '__main__':

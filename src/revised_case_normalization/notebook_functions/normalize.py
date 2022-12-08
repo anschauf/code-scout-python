@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import awswrangler as wr
 from beartype import beartype
 from loguru import logger
 
@@ -34,7 +35,7 @@ def normalize(fi: FileInfo,
     """
     # Read the Excel file and sheet. Cast all columns to strings, so we can format / cast the columns ourselves later on.
     # `string[pyarrow]` is an efficient way of storing strings in a DataFrame
-    df = pd.read_excel(fi.path, sheet_name=fi.sheet, dtype='string[pyarrow]')
+    df = wr.s3.read_excel(fi.path, sheet_name=fi.sheet, dtype='string[pyarrow]')
     n_all_rows = df.shape[0]
     logger.info(f"Read {n_all_rows} cases for {fi.hospital_name_db} {fi.year} from '{fi.path}' on sheet '{fi.sheet}'")
 
