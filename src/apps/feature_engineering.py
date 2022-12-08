@@ -10,7 +10,7 @@ from src.data_model.feature_engineering import HAS_VENTILATION_HOURS_COL, AGE_BI
     HAS_IMC_EFFORT_POINTS_COL
 from revised_case_normalization.notebook_functions.global_configs import VENTILATION_HOURS_COL
 from src.apps.feature_engineering.ccl_sensitivity import calculate_delta_pccl
-from src.apps.feature_engineering.utils import create_feature_engineering_table, store_features_in_db, validate_app_args
+from src.apps.feature_engineering.utils import create_feature_engineering_table, store_features_in_db, validate_app_args, store_features_in_db_chunks
 from src.service.bfs_cases_db_service import read_cases_in_chunks
 from src.service.database import Database
 
@@ -79,12 +79,12 @@ def create_all_features(*, chunksize: int, n_rows: Optional[int] = None):
 
     # --- Store the data in the DB ---
     with Database() as db:
-        store_features_in_db(all_features, columns_to_select, db.session)
+        # store_features_in_db(all_features, columns_to_select, db.session)
 
     logger.success('completed')
 
 if __name__ == '__main__':
     create_all_features(
-        chunksize=1000,
-        n_rows=858597
+        chunksize=100,
+        n_rows=100
     )

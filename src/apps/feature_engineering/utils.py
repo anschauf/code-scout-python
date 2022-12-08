@@ -61,3 +61,17 @@ def store_features_in_db(data: pd.DataFrame, column_names: list, session: Sessio
     insert_statement = FeatureEngineering.__table__.insert().values(data_to_store)
     session.execute(insert_statement)
     session.commit()
+
+
+def store_features_in_db_chunks(data: pd.DataFrame, column_names: list, session: Session):
+    logger.info(f"Storing {data.shape[0]} rows to '{FEATURE_ENGINEERING_TABLE_NAME}' ...")
+
+    # Select columns in the DataFrame which also appear in the DB table
+    data_to_store = (data[column_names]
+                     .sort_values(REVISION_ID_COL, ascending=True)
+                     .to_dict(orient='records'))
+
+    insert_statement = data_to_store.to_sql('users', con=Session, if_exists='replace', chunksize=100)
+    # insert_statement = FeatureEngineering.__table__.insert().values(data_to_store)
+    session.execute(insert_statement)
+    session.commit()
