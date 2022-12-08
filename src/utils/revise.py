@@ -3,9 +3,9 @@ from beartype import beartype
 from loguru import logger
 
 from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
-from src.revised_case_normalization.notebook_functions.global_configs import *
-from src.revised_case_normalization.notebook_functions.normalize import remove_leading_zeros
-from src.revised_case_normalization.notebook_functions.revised_case_files_info import FileInfo
+from src.utils.global_configs import *
+from src.utils.normalize import remove_leading_zeros
+from src.utils.revised_case_files_info import FileInfo
 from src.service.bfs_cases_db_service import get_codes, get_original_revision_id_for_sociodemographic_ids, \
     get_sociodemographics_for_hospital_year
 from src.service.database import Database

@@ -17,7 +17,7 @@ from src.models.hospital import Hospital
 from src.models.procedure import Procedure
 from src.models.revision import Revision
 from src.models.sociodemographics import Sociodemographics, SOCIODEMOGRAPHIC_ID_COL
-from src.revised_case_normalization.notebook_functions.global_configs import *
+from src.utils.global_configs import *
 
 
 @beartype

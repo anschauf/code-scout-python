@@ -3,8 +3,8 @@ import unittest
 import pandas as pd
 
 from src.service.aimedic_grouper import group_batch_group_cases
-from src.revised_case_normalization.notebook_functions.group import format_for_grouper
-from src.revised_case_normalization.notebook_functions.global_configs import GROUPER_FORMAT_COL
+from src.utils.group import format_for_grouper
+from src.utils.global_configs import GROUPER_FORMAT_COL
 
 
 class AimedicGrouperTest(unittest.TestCase):

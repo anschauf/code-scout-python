@@ -15,7 +15,7 @@ from sqlalchemy.sql import null
 from src import ROOT_DIR
 from src.models.revision import REVISION_ID_COL
 from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
-from src.revised_case_normalization.notebook_functions.global_configs import *
+from src.utils.global_configs import *
 
 # DataFrame column names
 _aimedic_id_field = 'aimedicId'

@@ -3,15 +3,15 @@ from beartype import beartype
 from loguru import logger
 
 from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
-from src.revised_case_normalization.notebook_functions.global_configs import *
+from src.utils.global_configs import *
 from src.service.aimedic_grouper import group_batch_group_cases
 
 
 @beartype
 def format_for_grouper_one_case(row: pd.Series) -> pd.Series:
-    """This function formats a single case for the SwissDRG grouper and is applied to the previously generated dataframes
-       in function 'format_for_grouper'.
-       Documentation on the grouper format: https://grouper-docs.swissdrg.org/batchgrouper2017-format.html
+    """This function formats a single case for the SwissDRG grouper and is applied to the previously generated
+     dataframes in function 'format_for_grouper'.
+    Documentation on the grouper format: https://grouper-docs.swissdrg.org/batchgrouper2017-format.html
 
        @return: A series of a single revised case in the SwissDRG grouper format 2017.
     """
@@ -67,9 +67,9 @@ def format_for_grouper_one_case(row: pd.Series) -> pd.Series:
     if len(medications) > 0:
         medications = medications.replace(';', ':')
 
-    row[GROUPER_FORMAT_COL] = ';'.join([str(sociodemographic_id), str(case_id), str(age_years), str(age_days), baby_data, gender,
-                                        admission_date, admission_type, discharge_date, str(discharge_type),
-                                        str(duration_of_stay), str(ventilation_hours),
+    row[GROUPER_FORMAT_COL] = ';'.join([str(sociodemographic_id), str(case_id), str(age_years), str(age_days),
+                                        baby_data, gender, admission_date, admission_type, discharge_date,
+                                        str(discharge_type), str(duration_of_stay), str(ventilation_hours),
                                         diagnoses, procedures, medications])
     return row
 

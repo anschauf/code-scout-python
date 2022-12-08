@@ -9,13 +9,13 @@ from loguru import logger
 
 from src import ROOT_DIR
 from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
-from src.revised_case_normalization.notebook_functions.global_configs import *
-from src.revised_case_normalization.notebook_functions.group import group
-from src.revised_case_normalization.notebook_functions.normalize import normalize
-from src.revised_case_normalization.notebook_functions.revise import revise
-from src.revised_case_normalization.notebook_functions.revised_case_files_info import FileInfo, REVISED_CASE_FILES, \
+from src.utils.global_configs import *
+from src.utils.group import group
+from src.utils.normalize import normalize
+from src.utils.revise import revise
+from src.utils.revised_case_files_info import FileInfo, REVISED_CASE_FILES, \
     DIR_REVISED_CASES, FILES_FALL_NUMMER, FILES_FID
-from src.revised_case_normalization.notebook_functions.update_db import update_db
+from src.utils.update_db import update_db
 from src.service.bfs_cases_db_service import get_duration_of_stay_df
 from src.service.database import Database
 from src.utils.general_utils import __remove_prefix_and_bucket_if_exists

@@ -4,8 +4,8 @@ import awswrangler as wr
 from beartype import beartype
 from loguru import logger
 
-from src.revised_case_normalization.notebook_functions.revised_case_files_info import  FileInfo
-from src.revised_case_normalization.notebook_functions.global_configs import  COLUMNS_TO_RENAME, \
+from src.utils.revised_case_files_info import FileInfo
+from src.utils.global_configs import COLUMNS_TO_RENAME, \
     COLUMNS_TO_LSTRIP, COLUMNS_TO_CAST, DURATION_OF_STAY_COL, NORM_CASE_ID_COL, VALIDATION_COLS, ADDED_ICD_CODES, \
     REMOVED_ICD_CODES, ADDED_CHOP_CODES, REMOVED_CHOP_CODES, PRIMARY_DIAGNOSIS_COL, NEW_PRIMARY_DIAGNOSIS_COL, \
     COLS_TO_SELECT, CASE_ID_COL
@@ -33,7 +33,7 @@ def normalize(fi: FileInfo,
 
     @return: A pandas DataFrame, with the normalized column names and data. If any row is discarded, it is logged.
     """
-    # Read the Excel file and sheet. Cast all columns to strings, so we can format / cast the columns ourselves later on.
+    # Read the Excel file and sheet. Cast all columns to strings, so we can format/cast the columns ourselves later on.
     # `string[pyarrow]` is an efficient way of storing strings in a DataFrame
     df = wr.s3.read_excel(fi.path, sheet_name=fi.sheet, dtype='string[pyarrow]')
     n_all_rows = df.shape[0]
@@ -45,7 +45,8 @@ def normalize(fi: FileInfo,
     # Renaming columns that don't exist is a no-op. Make sure that all names actually exist
     non_existing_columns_to_rename = set(columns_mapper.keys()).difference(df.columns)
     if len(non_existing_columns_to_rename) > 0:
-        raise ValueError(f'The following columns to rename did not exist: {sorted(list(non_existing_columns_to_rename))}. Available columns are {list(df.columns)}')
+        raise ValueError(
+            f'The following columns to rename did not exist: {sorted(list(non_existing_columns_to_rename))}. Available columns are {list(df.columns)}')
     df.rename(columns=columns_mapper, inplace=True)
 
     # Fix unavailable duration of stay
@@ -54,7 +55,8 @@ def normalize(fi: FileInfo,
     # Discard rows where any value on any validation col is empty
     non_existing_validation_cols = set(VALIDATION_COLS).difference(df.columns)
     if len(non_existing_validation_cols) > 0:
-        raise ValueError(f'The following columns to validate did not exist: {sorted(list(non_existing_validation_cols))}')
+        raise ValueError(
+            f'The following columns to validate did not exist: {sorted(list(non_existing_validation_cols))}')
 
     df.dropna(subset=VALIDATION_COLS, inplace=True)
 
@@ -98,7 +100,8 @@ def normalize(fi: FileInfo,
     # Select columns
     non_existing_columns_to_select = set(COLS_TO_SELECT).difference(df.columns)
     if len(non_existing_columns_to_select) > 0:
-        raise ValueError(f'The following columns to select did not exist: {sorted(list(non_existing_columns_to_select))}')
+        raise ValueError(
+            f'The following columns to select did not exist: {sorted(list(non_existing_columns_to_select))}')
     df = df[COLS_TO_SELECT]
 
     # Remove duplicated cases
@@ -114,4 +117,3 @@ def normalize(fi: FileInfo,
 
 def remove_leading_zeros(s: str) -> str:
     return s.lstrip('0')
-
