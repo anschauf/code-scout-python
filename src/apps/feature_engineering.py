@@ -5,12 +5,11 @@ import pandas as pd
 from loguru import logger
 
 from apps.feature_engineering.medications import get_atc_codes
-from src.data_model.feature_engineering import HAS_VENTILATION_HOURS_COL, AGE_BINNED_COL, VENTILATION_HOURS_BINNED_COL, \
-    VENTILATION_HOURS_ADRG_NO_A_COL, EMERGENCY_COL, HAS_HOURS_IN_ICU_COL, HAS_NEMS_POINTS_COL, ATC_CODES_COL, \
-    HAS_IMC_EFFORT_POINTS_COL
 from revised_case_normalization.notebook_functions.global_configs import VENTILATION_HOURS_COL
 from src.apps.feature_engineering.ccl_sensitivity import calculate_delta_pccl
-from src.apps.feature_engineering.utils import create_feature_engineering_table, store_features_in_db, validate_app_args, store_features_in_db_chunks
+from src.apps.feature_engineering.utils import create_feature_engineering_table, store_features_in_db, validate_app_args
+from src.data_model.feature_engineering import AGE_BINNED_COL, EMERGENCY_COL, HAS_HOURS_IN_ICU_COL, \
+    HAS_IMC_EFFORT_POINTS_COL, HAS_NEMS_POINTS_COL, HAS_VENTILATION_HOURS_COL, VENTILATION_HOURS_ADRG_NO_A_COL
 from src.service.bfs_cases_db_service import read_cases_in_chunks
 from src.service.database import Database
 
@@ -73,15 +72,16 @@ def create_all_features(*, chunksize: int, n_rows: Optional[int] = None):
 
             # --- Store the data in memory ---
             if all_features is None:
-                all_features = cases.copy()
+                all_features = cases.copy()[columns_to_select]
             else:
-                all_features = pd.concat((all_features, cases), axis='index', copy=False)
+                all_features = pd.concat((all_features, cases[columns_to_select]), axis='index', copy=False)
 
     # --- Store the data in the DB ---
     with Database() as db:
-        # store_features_in_db(all_features, columns_to_select, db.session)
+        store_features_in_db(all_features, chunksize, db.session)
 
     logger.success('completed')
+
 
 if __name__ == '__main__':
     create_all_features(

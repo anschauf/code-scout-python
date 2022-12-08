@@ -1,3 +1,4 @@
+import math
 from typing import Optional
 
 import pandas as pd
@@ -7,10 +8,8 @@ from sqlalchemy.orm import Session
 
 from src.data_model.feature_engineering import FeatureEngineering
 from src.data_model.sociodemographics import Sociodemographics
-from src.revised_case_normalization.notebook_functions.global_configs import REVISION_ID_COL
 from src.service.bfs_cases_db_service import create_table
 from src.service.database import Database
-
 
 FEATURE_ENGINEERING_TABLE_NAME = f'{FeatureEngineering.__table__.schema}.{FeatureEngineering.__tablename__}'
 
@@ -50,28 +49,18 @@ def create_feature_engineering_table() -> list:
 
 
 @beartype
-def store_features_in_db(data: pd.DataFrame, column_names: list, session: Session):
-    logger.info(f"Storing {data.shape[0]} rows to '{FEATURE_ENGINEERING_TABLE_NAME}' ...")
+def store_features_in_db(data: pd.DataFrame, chunksize: int, session: Session):
+    n_rows = data.shape[0]
+    n_chunks = math.ceil(float(n_rows) / chunksize)
 
-    # Select columns in the DataFrame which also appear in the DB table
-    data_to_store = (data[column_names]
-                     .sort_values(REVISION_ID_COL, ascending=True)
-                     .to_dict(orient='records'))
+    logger.info(f"Storing {n_rows} rows to '{FEATURE_ENGINEERING_TABLE_NAME}', in {n_chunks} of {chunksize} rows at a time ...")
 
-    insert_statement = FeatureEngineering.__table__.insert().values(data_to_store)
-    session.execute(insert_statement)
-    session.commit()
+    connection = session.connection(execution_options={'stream_results': True})
 
+    num_rows_inserted = pd.to_sql(
+            name=FeatureEngineering.__tablename__, schema=FeatureEngineering.__table__.schema,
+            con=connection, if_exists='append', index=False, method='multi',
+            chunksize=chunksize
+    )
 
-def store_features_in_db_chunks(data: pd.DataFrame, column_names: list, session: Session):
-    logger.info(f"Storing {data.shape[0]} rows to '{FEATURE_ENGINEERING_TABLE_NAME}' ...")
-
-    # Select columns in the DataFrame which also appear in the DB table
-    data_to_store = (data[column_names]
-                     .sort_values(REVISION_ID_COL, ascending=True)
-                     .to_dict(orient='records'))
-
-    insert_statement = data_to_store.to_sql('users', con=Session, if_exists='replace', chunksize=100)
-    # insert_statement = FeatureEngineering.__table__.insert().values(data_to_store)
-    session.execute(insert_statement)
-    session.commit()
+    logger.success(f'Inserted {num_rows_inserted} rows')
