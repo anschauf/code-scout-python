@@ -35,7 +35,7 @@ def validate_app_args(chunksize: int, n_rows: Optional[int]):
 def create_feature_engineering_table() -> list:
     with Database() as db:
         # noinspection PyTypeChecker
-        create_table(FeatureEngineering, db.session, overwrite=True)
+        create_table(FeatureEngineering, db.session, overwrite=False)
 
     # List the columns in the DB table
     columns = FeatureEngineering.__table__.columns.values()
@@ -55,7 +55,7 @@ def store_features_in_db(data: pd.DataFrame, chunksize: int, session: Session):
 
     logger.info(f"Storing {n_rows} rows to '{FEATURE_ENGINEERING_TABLE_NAME}', in {n_chunks} of {chunksize} rows at a time ...")
 
-    connection = session.connection(execution_options={'stream_results': True})
+    connection = session.connection()
 
     num_rows_inserted = data.to_sql(
             name=FeatureEngineering.__tablename__, schema=FeatureEngineering.__table__.schema,
