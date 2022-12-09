@@ -82,13 +82,28 @@ def load_and_apply_revisions(files_to_import: list[FileInfo] = REVISED_CASE_FILE
             logger.warning(f'There is no data for the hospital {hospital_name} in {year}')
             continue
 
+        # get revision date for each sociodemographic_id
+
+        # Convert datetime from datetime64[ns] to string type
+        revision_date = revised_cases[REVISION_DATE_COL].astype(str).values.tolist()
+        sociodemo_id = revised_cases[SOCIODEMOGRAPHIC_ID_COL].values.tolist()
+        sociodemo_id_revision_date = dict(zip(sociodemo_id, revision_date))
+
         revisions_update, diagnoses_update, procedures_update = group(revised_cases)
+
+        # get the original revision date after group the cases
+        # revisions_update[SOCIODEMOGRAPHIC_ID_COL] = revisions_update[SOCIODEMOGRAPHIC_ID_COL].astype(int)
+        # sociodemo_id_revision_date[SOCIODEMOGRAPHIC_ID_COL] = sociodemo_id_revision_date[SOCIODEMOGRAPHIC_ID_COL].astype(int)
+        # revisions_update_new = pd.merge(revisions_update.drop(REVISION_DATE_COL), sociodemo_id_revision_date, how='left', on=SOCIODEMOGRAPHIC_ID_COL)
+        # revisions_update.drop(columns=REVISION_DATE_COL, inplace=True)
+        revisions_update[REVISION_DATE_COL] = revisions_update[SOCIODEMOGRAPHIC_ID_COL].astype(int).map(lambda x: sociodemo_id_revision_date.get(x))
 
         all_revision_list.append(revisions_update)
         all_diagnoses_list.append(diagnoses_update)
         all_procedure_list.append(procedures_update)
 
     all_revision_df = pd.concat(all_revision_list)
+    all_revision_df[REVISION_DATE_COL].isna().sum()
     all_diagnoses_df = pd.concat(all_diagnoses_list)
     all_procedure_df = pd.concat(all_procedure_list)
 
@@ -109,9 +124,6 @@ def load_and_apply_revisions(files_to_import: list[FileInfo] = REVISED_CASE_FILE
     # Set all the `reviewed` and `revised` flags to True
     all_revision_df['reviewed'] = True
     all_revision_df['revised'] = True
-
-    # TODO Fix the revision date by reading the date from the Excel sheet
-    all_revision_df[REVISION_DATE_COL] = '2022-12-31'
 
     num_revision = len(all_revision_df)
     logger.info(f'Number of revised cases: {num_revision}')

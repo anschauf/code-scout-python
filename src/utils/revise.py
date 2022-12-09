@@ -65,7 +65,7 @@ def revise(file_info: FileInfo,
         # sociodemographics
         GENDER_COL, AGE_COL, AGE_DAYS_COL, GESTATION_AGE_COL, DURATION_OF_STAY_COL, VENTILATION_HOURS_COL,
         ADMISSION_TYPE_COL, ADMISSION_DATE_COL, ADMISSION_WEIGHT_COL, DISCHARGE_TYPE_COL, DISCHARGE_DATE_COL,
-        MEDICATIONS_COL
+        MEDICATIONS_COL, REVISION_DATE_COL
     ]]
 
     # Format columns to integer before calling the group function
