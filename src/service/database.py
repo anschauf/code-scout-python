@@ -1,5 +1,6 @@
 import boto3
 from decouple import config
+from loguru import logger
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import sessionmaker
@@ -34,13 +35,16 @@ class Database:
                  ):
         self._client = boto3.client('rds', region_name=region_name, aws_access_key_id=aws_access_key_id,
                                     aws_secret_access_key=aws_secret_access_key)
-        engine = create_engine(f'postgresql://{db_user}@{db_host}:{port}/{db_name}')  # NOSONAR
+        engine = create_engine(f'postgresql://{db_user}@{db_host}:{port}/{db_name}', pool_pre_ping=True)  # NOSONAR
+
+        def _generate_token() -> str:
+            token = self._client.generate_db_auth_token(DBHostname=db_host, Port=port, DBUsername=db_user, Region=region_name)
+            logger.info('Got a token from AWS')
+            return token
 
         @event.listens_for(engine, "do_connect")
         def receive_do_connect(dialect, conn_rec, cargs, cparams):
-            token = self._client.generate_db_auth_token(DBHostname=db_host, Port=port,
-                                                        DBUsername=db_user, Region=region_name)
-            cparams["password"] = token
+            cparams["password"] = _generate_token()
 
         self._session_class = sessionmaker(bind=engine)
         self.session = None
