@@ -7,47 +7,48 @@ from beartype import beartype
 
 
 @beartype
-def engineer_features(row: pd.DataFrame) -> pd.DataFrame:
+def engineer_features(cases: pd.DataFrame) -> pd.DataFrame:
+
     # Ventilation hours
-    row[VENTILATION_HOURS_COL] = row[VENTILATION_HOURS_COL].fillna(0)
-    row[HAS_VENTILATION_HOURS_COL] = row[VENTILATION_HOURS_COL] > 0
+    cases[VENTILATION_HOURS_COL] = cases[VENTILATION_HOURS_COL].fillna(0)
+    cases[HAS_VENTILATION_HOURS_COL] = cases[VENTILATION_HOURS_COL] > 0
 
     # 'has_ventilation_hours' (boolean) * aDRG not starting with "A"
-    row['adrg_no_A'] = row['adrg'].str[0]
-    row['adrg_no_A'] = row['adrg_no_A'] != "A"
-    row[VENTILATION_HOURS_ADRG_NO_A_COL] = row['adrg_no_A'] * row[HAS_VENTILATION_HOURS_COL]
+    cases['adrg_no_A'] = cases['adrg'].str[0]
+    cases['adrg_no_A'] = cases['adrg_no_A'] != "A"
+    cases[VENTILATION_HOURS_ADRG_NO_A_COL] = cases['adrg_no_A'] * cases[HAS_VENTILATION_HOURS_COL]
 
     # Emergency Boolean
-    row[EMERGENCY_COL] = row['admission_type'] == "1"
+    cases[EMERGENCY_COL] = cases['admission_type'] == "1"
 
     # Hours in ICU Boolean
-    row[HAS_HOURS_IN_ICU_COL] = row['hours_in_icu'] > 0
+    cases[HAS_HOURS_IN_ICU_COL] = cases['hours_in_icu'] > 0
 
     # Has IMC effort points boolean
-    row[HAS_IMC_EFFORT_POINTS_COL] = row['imc_effort_points'] > 0
+    cases[HAS_IMC_EFFORT_POINTS_COL] = cases['imc_effort_points'] > 0
 
     # create age bins
     age_bins = [0, 1, 2, 5, 9, 10, 15, 16, 19, 20, 29, 30, 40, 49, 50, 59, 60, 69, 70, 79, 80, 89, 90, 99, 100, 120]
-    row[AGE_BINNED_COL] = pd.cut(row['age_years'], age_bins)
-    row[AGE_BINNED_COL] = row[AGE_BINNED_COL].astype(str).str.replace('nan', '0')
+    cases[AGE_BINNED_COL] = pd.cut(cases['age_years'], age_bins)
+    cases[AGE_BINNED_COL] = cases[AGE_BINNED_COL].astype(str).str.replace('nan', '0')
 
     # Nems Boolean
-    row[HAS_NEMS_POINTS_COL] = row['nems_total'] > 0
+    cases[HAS_NEMS_POINTS_COL] = cases['nems_total'] > 0
 
     # Weekday from date admission
-    row['admission_date'] = pd.to_datetime(row['admission_date'])
-    row['admission_date_weekday'] = row['admission_date'].dt.day_name()
+    cases['admission_date'] = pd.to_datetime(cases['admission_date'])
+    cases['admission_date_weekday'] = cases['admission_date'].dt.day_name()
 
     # Month of admission date
-    row['admission_date_month'] = row['admission_date'].dt.month_name()
+    cases['admission_date_month'] = cases['admission_date'].dt.month_name()
 
     # Weekday from discharge date
-    row['discharge_date'] = pd.to_datetime(row['discharge_date'])
-    row['discharge_date_weekday'] = row['discharge_date'].dt.day_name()
+    cases['discharge_date'] = pd.to_datetime(cases['discharge_date'])
+    cases['discharge_date_weekday'] = cases['discharge_date'].dt.day_name()
 
     # Month of admission date
-    row['discharge_date_month'] = row['discharge_date'].dt.month_name()
+    cases['discharge_date_month'] = cases['discharge_date'].dt.month_name()
 
-    row = get_atc_codes(row)
+    cases = get_atc_codes(cases)
 
-    return row
+    return cases

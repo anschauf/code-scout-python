@@ -43,7 +43,6 @@ def create_all_features(*, chunksize: int, n_rows: Optional[int] = None):
 
     logger.success('completed')
 
-
 if __name__ == '__main__':
     create_all_features(
         chunksize=10,
