@@ -134,7 +134,7 @@ def extract_revision_date(df):
 
     # Using 2022-12-31 when datum column all empty
     if df[REVISION_DATE_COL].isna().sum() == df.shape[0]:
-        df[REVISION_DATE_COL] = '2022-12-31'
+        df[REVISION_DATE_COL] = '2022-12-31 00:00:00'
     else:
         # get the row index of non and not non
         index_non = df.loc[pd.isna(df[REVISION_DATE_COL]), :].index
