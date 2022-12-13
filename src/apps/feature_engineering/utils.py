@@ -35,7 +35,7 @@ def validate_app_args(chunksize: int, n_rows: Optional[int]):
 def create_feature_engineering_table() -> list:
     with Database() as db:
         # noinspection PyTypeChecker
-        create_table(FeatureEngineering, db.session, overwrite=False)
+        create_table(FeatureEngineering, db.session, overwrite=True)
 
     # List the columns in the DB table
     columns = FeatureEngineering.__table__.columns.values()
