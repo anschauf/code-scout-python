@@ -9,7 +9,6 @@ class FileInfo:
     sheet: str
 
 
-# DIR_REVISED_CASES = os.path.join(SRC_DIR, 'revised_case_normalization') # local path
 DIR_REVISED_CASES = 's3://aimedic-patient-data/revised_cases' # s3 path
 
 # Files with fall number as case_id
