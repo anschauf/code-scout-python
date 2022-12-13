@@ -18,12 +18,12 @@ from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
 from src.utils.global_configs import *
 
 # DataFrame column names
-_aimedic_id_field = 'aimedicId'
+_sociodemographic_id_field = 'aimedicId'
 _revision_field = 'revision'
 _dos_code_field = 'durationOfStayLegacyCode'
 _diagnoses_field = 'diagnoses'
 _procedures_field = 'procedures'
-_json_fields = (_aimedic_id_field, _revision_field, _diagnoses_field, _procedures_field, _dos_code_field)
+_json_fields = (_sociodemographic_id_field, _revision_field, _diagnoses_field, _procedures_field, _dos_code_field)
 
 
 @beartype
@@ -55,7 +55,7 @@ def group_batch_group_cases(batch_group_cases: list[str],
     # Check for unique sociodemographic IDs
     sociodemographic_ids = [bgc.split(delimiter_char)[0] for bgc in batch_group_cases]
     if len(set(sociodemographic_ids)) != (len(sociodemographic_ids)):
-        raise ValueError('Provided cases have not unique aimedic IDs. Make sure you pass only one revision case for one patient case.')
+        raise ValueError('The provided cases don''t have unique sociodemographic IDs. Make sure you pass only one revision case for one patient case.')
 
     # Make a string out of all the cases
     cases_string = separator_char.join(batch_group_cases)
@@ -119,7 +119,7 @@ def _get_grouper_output(*,
     # Split the captured output into lines, and filter only output lines, discarding log messages from the grouer
     lines = output.split('\n')
     output_lines = [line for line in lines
-                    if line.startswith('{"' + _aimedic_id_field)]
+                    if line.startswith('{"' + _sociodemographic_id_field)]
 
     grouped_cases = dict()
     ungrouped_cases = list()
@@ -127,12 +127,11 @@ def _get_grouper_output(*,
         # Deserialize the output into a dict
         grouped_case_json = srsly.json_loads(output_line)
 
-        # Get the aimedicId from the top-level dict
-        sociodemographic_id = grouped_case_json[_aimedic_id_field]
+        # Get the `sociodemographic_id` from the top-level dict
+        sociodemographic_id = grouped_case_json[_sociodemographic_id_field]
 
         if len(grouped_case_json) != len(_json_fields):
-            # aimedicId is actually sociodemographic_id
-            ungrouped_case = output_line.replace(_aimedic_id_field, SOCIODEMOGRAPHIC_ID_COL)
+            ungrouped_case = output_line.replace(_sociodemographic_id_field, SOCIODEMOGRAPHIC_ID_COL)
             ungrouped_cases.append(ungrouped_case)
             continue
 
