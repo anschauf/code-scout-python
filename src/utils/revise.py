@@ -3,12 +3,12 @@ from beartype import beartype
 from loguru import logger
 
 from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
-from src.utils.global_configs import *
-from src.utils.normalize import remove_leading_zeros
-from src.utils.revised_case_files_info import FileInfo
 from src.service.bfs_cases_db_service import get_codes, get_original_revision_id_for_sociodemographic_ids, \
     get_sociodemographics_for_hospital_year
 from src.service.database import Database
+from src.utils.global_configs import *
+from src.utils.normalize import remove_leading_zeros
+from src.utils.revised_case_files_info import FileInfo
 
 
 @beartype
@@ -17,16 +17,16 @@ def revise(file_info: FileInfo,
            *,
            validation_cols: list[str] = VALIDATION_COLS
            ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Match revised cases with Database and return revised cases with aimedic_id and other columns of interests after matching.
+    """Lookup the revised cases in our DB, and return them with additional infos, such as the primary keys which are
+    used to insert these new cases and link them to the existing cases to which they refer.
 
     @param file_info: An instance of FileInfo, which contains the name and path of filename, hospital name and year and
-                    the sheet name to analyze.
-    @param revised_cases_df: a dataframe of revised cases after normalization
+        the sheet name to analyze.
+    @param revised_cases_df: A dataframe of revised cases after normalization..
     @param validation_cols: List of column's names used to validate the revised cases with database cases.
-    @return: Two pandas DataFrame: one contains matched revised cases with DB, one contains unmatched revises cases;
 
+    @return: Two pandas DataFrame: one contains matched revised cases with DB, one contains unmatched revises cases.
     """
-
     with Database() as db:
         # Read the sociodemographics from the DB, and normalize the case ID by removing leading zeros
         cases_in_db = get_sociodemographics_for_hospital_year(file_info.hospital_name_db, int(file_info.year), db.session)
