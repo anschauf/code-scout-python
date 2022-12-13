@@ -129,7 +129,7 @@ def load_and_apply_revisions(files_to_import: list[FileInfo] = REVISED_CASE_FILE
         num_dup = num_revision - num_unique_revisions
         raise Exception(f'There are {num_dup} duplicates / {num_unique_revisions} revised cases')
 
-    update_db(all_revision_df, all_diagnoses_df, all_procedure_df)
+    # update_db(all_revision_df, all_diagnoses_df, all_procedure_df)
     logger.success('done')
 
     # upload log file to s3
