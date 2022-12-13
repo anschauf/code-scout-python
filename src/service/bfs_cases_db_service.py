@@ -449,7 +449,8 @@ def read_cases_in_chunks(session: Session,
                          n_rows: Optional[int] = None,
                          chunksize: Optional[int] = None,
                          ) -> Iterator[pd.DataFrame]:
-    connection = session.connection(execution_options={'stream_results': True})
+
+    connection = session.connection()
 
     socio_query = (session
      .query(Sociodemographics, Hospital, Clinic, Revision)
