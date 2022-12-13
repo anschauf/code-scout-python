@@ -18,6 +18,7 @@ from src.utils.normalize import normalize
 from src.utils.revise import revise
 from src.utils.revised_case_files_info import DIR_REVISED_CASES, FileInfo, FILES_FALL_NUMMER, FILES_FID, \
     REVISED_CASE_FILES
+from src.utils.update_db import update_db
 
 
 @beartype
@@ -130,7 +131,7 @@ def load_and_apply_revisions(*,
         num_dup = num_revision - num_unique_revisions
         raise Exception(f'There are {num_dup} duplicates / {num_unique_revisions} revised cases')
 
-    # update_db(all_revision_df, all_diagnoses_df, all_procedure_df)
+    update_db(all_revision_df, all_diagnoses_df, all_procedure_df)
     logger.success('done')
 
     # upload log file to s3
@@ -142,15 +143,15 @@ def load_and_apply_revisions(*,
     s3_object.put(Body=open(log_filename, 'rb'))
 
     # delete local log_file
-    # if os.path.exists(log_filename):
-    #     os.remove(log_filename)
-    # else:
-    #     print("The logger file was not created properly")
-    # # delete the local log folder after uploading log_file to s3
-    # try:
-    #     os.rmdir(log_path)
-    # except OSError:
-    #     raise Warning('Your local log folder can not be deleted because it was not empty')
+    if os.path.exists(log_filename):
+        os.remove(log_filename)
+    else:
+        print("The logger file was not created properly")
+    # delete the local log folder after uploading log_file to s3
+    try:
+        os.rmdir(log_path)
+    except OSError:
+        raise Warning('Your local log folder can not be deleted because it was not empty')
 
 
 if __name__ == '__main__':
