@@ -63,11 +63,12 @@ def get_hospital_cases_df(hospital_name: str, session: Session) -> DataFrame:
 
 
 @beartype
-def get_clinics(session: Session):
+def get_clinics(session: Session) -> pd.DataFrame:
     """
-    Get all records from dimension.clinic table
+    Get all records from dimension.clinic as a pandas dataframe
     """
-    return session.query(Clinic).all()
+    query = session.query(Clinic)
+    return pd.read_sql(query.statement, session.bind)
 
 
 @beartype
@@ -120,10 +121,41 @@ def get_all_revised_cases(session: Session) -> pd.DataFrame:
 
 
 @beartype
+def get_all_revised_cases_before_revision(session: Session) -> pd.DataFrame:
+    """
+    Get all orginal revised cases from revision table before revision
+    @return: a dataframe with all revised cases from revision table
+    """
+    query_revised_case = (
+        session.query(Revision).
+        filter(Revision.revised.is_(True)))
+    revised_case_df = pd.read_sql(query_revised_case.statement, session.bind)
+    revised_case_revision_ids = revised_case_df[REVISION_ID_COL].values.tolist()
+    return revised_case_revision_ids
+
+def query_revised_case_before_revision(revised_case_revision_ids, session: Session) -> pd.DataFrame:
+    query = (
+        session.query(Revision)
+        .filter(Revision.revision_id.in_(revised_case_revision_ids))
+        .filter(Revision.revised.is_(False)))
+
+    revised_case_before_revision_df = pd.read_sql(query.statement, session.bind)
+    return revised_case_before_revision_df
+
+@beartype
+def sociodemographics_revised_cases(session: Session):
+    revised_cases_all = get_all_revised_cases(session)
+    revised_case_sociodemographic_ids = revised_cases_all['sociodemographic_id'].values.tolist()
+    sociodemographics_revised_cases = get_sociodemographics_by_sociodemographics_ids(revised_case_sociodemographic_ids,
+                                                                                     session)
+    return sociodemographics_revised_cases
+
+
+@beartype
 def get_original_revision_id_for_sociodemographic_ids(sociodemographic_ids: list[int],
                                                       session: Session) -> pd.DataFrame:
     """
-    Get the original revisions of sociodemographic_ids
+    Get the original revisions ids of sociodemographic_ids
     @param session: active DB session
     @param sociodemographic_ids:
     @return: a Dataframe containing sociodemographic ids, revision ids
@@ -136,6 +168,25 @@ def get_original_revision_id_for_sociodemographic_ids(sociodemographic_ids: list
         .filter(Revision.sociodemographic_id.in_(sociodemographic_ids))
         .filter(Revision.revised.is_(False))
         .filter(Revision.reviewed.is_(False))
+    )
+
+    df = pd.read_sql(query_revisions.statement, session.bind)
+
+    return df
+
+def get_original_revision_for_revision_ids(revision_ids: list[int],
+                                                      session: Session) -> pd.DataFrame:
+    """
+    Get the original revisions ids of sociodemographic_ids
+    @param session: active DB session
+    @param sociodemographic_ids:
+    @return: a Dataframe containing sociodemographic ids, revision ids
+    """
+
+    query_revisions = (
+        session
+        .query(Revision)
+        .filter(Revision.revision_id.in_(revision_ids))
     )
 
     df = pd.read_sql(query_revisions.statement, session.bind)
