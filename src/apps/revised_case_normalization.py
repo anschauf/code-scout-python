@@ -24,7 +24,7 @@ from src.utils.update_db import update_db
 @beartype
 def load_and_apply_revisions(*,
                              files_to_import: list[FileInfo],
-                             s3_bucket: str = 'aimedic-patient-data'
+                             s3_bucket_logs: str = 'code-scout'
                              ):
     # Create a new local log file at the root of the project
     log_path = os.path.join(ROOT_DIR, 'logs')
@@ -92,7 +92,8 @@ def load_and_apply_revisions(*,
         revisions_update, diagnoses_update, procedures_update = group(revised_cases)
 
         # get the original revision date after group the cases
-        revisions_update[REVISION_DATE_COL] = revisions_update[SOCIODEMOGRAPHIC_ID_COL].astype(int).map(lambda x: sociodemo_id_revision_date.get(x))
+        revisions_update[REVISION_DATE_COL] = revisions_update[SOCIODEMOGRAPHIC_ID_COL].astype(int).map(
+            lambda x: sociodemo_id_revision_date.get(x))
         if revisions_update[REVISION_DATE_COL].isna().sum() > 0:
             raise ValueError(f'There is null values in revision date column for {hospital_name} {year}')
 
@@ -134,13 +135,14 @@ def load_and_apply_revisions(*,
     update_db(all_revision_df, all_diagnoses_df, all_procedure_df)
     logger.success('done')
 
-    # upload log file to s3
+    # upload log file to s3：folder: s3://code-scout/
     s3 = boto3.resource('s3')
-    log_path_s3 = os.path.join(DIR_REVISED_CASES, 'logs')
+    log_path_s3 = 'revised_cases_import_logs'
     log_filename_s3 = log_filename.replace(log_path, log_path_s3)
     filename = __remove_prefix_and_bucket_if_exists(log_filename_s3)
-    s3_object = s3.Object(s3_bucket, filename)
+    s3_object = s3.Object(s3_bucket_logs, filename)
     s3_object.put(Body=open(log_filename, 'rb'))
+
 
     # delete local log_file
     if os.path.exists(log_filename):
