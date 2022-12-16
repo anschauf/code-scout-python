@@ -31,7 +31,7 @@ def read_all_bfs_files(*,
     @note The `bfs_files_path` will be searched recursively in all its sub-folders.
     @note All BfS files are expected to have the following pattern: `<hospital-name>_<year>.dat`
     @note The files are processed one at a time, to avoid out-of-memory errors in the java subprocess. The files are
-        concatenated locally.
+        not concatenated because otherwise pandas will run out of memory.
     @note A column containing the abbreviated name of the hospital is appended to each dataset.
     """
     root_path = f's3://{s3_bucket}/{bfs_files_path}/'
@@ -50,9 +50,6 @@ def read_all_bfs_files(*,
     env_vars = dict(os.environ)  # TODO Copy only JAVA_HOME instead of passing all the vars
     env_vars['AWS_ACCESS_KEY_ID'] = config('AWS_ACCESS_KEY_ID')
     env_vars['AWS_SECRET_ACCESS_KEY'] = config('AWS_SECRET_ACCESS_KEY')
-
-    # Collect the names of the temporary files, so that they can be concatenated and deleted at the end
-    output_files = list()
 
     for idx, bfs_filename in enumerate(bfs_filenames):
         logger.info(f"{idx + 1}/{num_files}: Reading '{bfs_filename}' ...")
@@ -80,21 +77,6 @@ def read_all_bfs_files(*,
         output_path = os.path.join(output_dir, f'{filename_wo_ext}.json')
         logger.info(f"Writing {df.shape[0]} cases to '{output_path}' ...")
         df.to_json(output_path, orient='records', lines=True)
-        output_files.append(output_path)
-
-    # TODO: The output_file is hardcoded
-    output_file = os.path.join(output_dir, f'bfs_data.json')
-    logger.info(f"Concatenating all the files in '{output_file}' ...")
-
-    # Concatenate all the files into one. REF: https://stackoverflow.com/a/27077437
-    with open(output_file, 'wb') as wfd:
-        for f in output_files:
-            with open(f, 'rb') as fd:
-                shutil.copyfileobj(fd, wfd)
-
-    logger.info('Deleting all the temporary files ...')
-    for f in output_files:
-        os.remove(f)
 
     logger.success('done')
 
