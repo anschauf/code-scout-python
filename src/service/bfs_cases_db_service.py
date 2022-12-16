@@ -145,7 +145,7 @@ def get_original_revision_id_for_sociodemographic_ids(sociodemographic_ids: list
 def get_revision_for_revision_ids(revision_ids: list[int],
                                   session: Session) -> pd.DataFrame:
     """
-    Get revisions ids of revision_ids
+    Get revisions for revision_ids
     @param session: active DB session
     @param revision_ids:
     @return: a Dataframe from all columns from revision table
@@ -429,7 +429,7 @@ def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame,
 
 def get_revised_case_with_codes_after_revision(session: Session) -> pd.DataFrame:
     """
-    Get revised case with diagnoses and procedures
+    Get all revised cases with diagnoses and procedures
     @param session:
     @return: a dataframe
     """
@@ -452,7 +452,7 @@ def get_revised_case_with_codes_after_revision(session: Session) -> pd.DataFrame
 
 def get_revised_case_with_codes_before_revision(session: Session) -> pd.DataFrame:
     """
-    Get original cases with diagnoses and procedures for revised cases
+    Get original cases with diagnoses and procedures for all revised cases
     @param session:
     @return: a dataframe
     """
