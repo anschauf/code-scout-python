@@ -280,7 +280,7 @@ def get_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
 
 
 @beartype
-def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, session: Session, DOS_COL=None) -> dict:
+def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, session: Session) -> dict:
     """
     Insert revised cases into the table coding_revision.revisions
     @param session: active DB session
