@@ -135,14 +135,13 @@ def load_and_apply_revisions(*,
     update_db(all_revision_df, all_diagnoses_df, all_procedure_df)
     logger.success('done')
 
-    # upload log file to s3：folder: s3://code-scout/
+    # upload log file to s3
     s3 = boto3.resource('s3')
     log_path_s3 = 'revised_cases_import_logs'
     log_filename_s3 = log_filename.replace(log_path, log_path_s3)
     filename = __remove_prefix_and_bucket_if_exists(log_filename_s3)
     s3_object = s3.Object(s3_bucket_logs, filename)
     s3_object.put(Body=open(log_filename, 'rb'))
-
 
     # delete local log_file
     if os.path.exists(log_filename):
