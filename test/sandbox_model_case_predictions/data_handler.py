@@ -82,9 +82,9 @@ def load_data(dir_data = join(ROOT_DIR, 'resources', 'data')):
     for idx, file in enumerate(all_files):
         logger.info(f'{(idx+1)}/{len(all_files)}: Reading {file}')
         all_dfs.append(pd.read_json(path_or_buf=join(dir_data, file), lines=True, dtype=DTYPES))
-    return __set_dtypes(pd.concat(all_dfs))
+    return __preprocess_data(pd.concat(all_dfs))
 
-def __set_dtypes(df: pd.DataFrame):
+def __preprocess_data(df: pd.DataFrame):
     # remove decimals
     df['birthDate'] = df['birthDate'].apply(lambda x: x.replace('.0', '') if isinstance(x, str) else x)
     df['GeburtsdatumDerMutter'] = df['GeburtsdatumDerMutter'].apply(lambda x: x.replace('.0', '') if isinstance(x, str) else x)
