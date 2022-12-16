@@ -1,17 +1,3 @@
-import os
-from dataclasses import dataclass, field
-
-ROOT_DIR = '/home/jovyan/work/src/revised_case_normalization'
-
-
-@dataclass
-class FileInfo:
-    path: str
-    hospital_name_db: str
-    year: str
-    sheet: str
-    
-
 # List the columns to match in the DB
 CASE_ID_COL = 'case_id'
 PATIENT_ID_COL = 'patient_id'
@@ -20,6 +6,7 @@ AGE_COL = 'age_years'
 CLINIC_COL = 'bfs_code'  # After joining `bfs_cases` to `clinics`, the clinic code will be stored in `bfs_code`
 DURATION_OF_STAY_COL = 'duration_of_stay'
 PCCL_COL = 'pccl'
+RAW_PCCL_COL = 'raw_pccl'
 CCL_COL = 'ccl'
 PRIMARY_DIAGNOSIS_COL = 'old_pd'  # After joining `bfs_cases` to `icd_codes`, the primary diagnosis is renamed from `code` to `PD`
 DRG_COL = 'drg'
@@ -33,6 +20,7 @@ PROCEDURE_DATE_COL = 'date'
 IS_PRIMARY_COL = 'is_primary'
 IS_GROUPER_RELEVANT_COL = 'is_grouper_relevant'
 
+
 # List of Sociodemographic columns necessary to retrieve SwissDRG Batchgrouper Format 2017
 AGE_DAYS_COL = 'age_days'
 ADMISSION_WEIGHT_COL = 'admission_weight'
@@ -42,6 +30,7 @@ ADMISSION_TYPE_COL = 'grouper_admission_type'
 DISCHARGE_DATE_COL = 'discharge_date'
 DISCHARGE_TYPE_COL = 'grouper_discharge_type'
 VENTILATION_HOURS_COL = 'ventilation_hours'
+MEDICATIONS_COL = 'medications'
 
 # List of variables of the revised cases from DtoD for the SwissDRG Batchgrouper
 SECONDARY_DIAGNOSES_COL = 'secondary_diagnoses'

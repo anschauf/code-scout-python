@@ -3,37 +3,27 @@ import os.path
 import os.path
 import re
 import subprocess
-import itertools
+
 # noinspection PyPackageRequirements
 import humps  # its pypi name is pyhumps
 import pandas as pd
 import srsly
 from beartype import beartype
+from loguru import logger
 from sqlalchemy.sql import null
 
 from src import ROOT_DIR
 from src.models.revision import REVISION_ID_COL
-from src.revised_case_normalization.notebook_functions.global_configs import AIMEDIC_ID_COL, REVISION_DATE_COL, \
-    IS_GROUPER_RELEVANT_COL, IS_PRIMARY_COL, CCL_COL, CODE_COL, \
-    PROCEDURE_DATE_COL, PROCEDURE_SIDE_COL
+from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
+from src.utils.global_configs import *
 
 # DataFrame column names
-_aimedic_id_field = 'aimedicId'
+_sociodemographic_id_field = 'aimedicId'
 _revision_field = 'revision'
+_dos_code_field = 'durationOfStayLegacyCode'
 _diagnoses_field = 'diagnoses'
 _procedures_field = 'procedures'
-_dict_subfields = (_revision_field, _diagnoses_field, _procedures_field)
-
-col_grouper_result = 'grouperResult'
-col_drg_cost_weight = 'drgCostWeight'
-col_effective_cost_weight = 'effectiveCostWeight'
-col_revision_date = 'revisionDate'
-col_status = 'status'
-col_used = 'used'
-col_is_used = 'isUsed'
-col_is_primary = 'isPrimary'
-col_date_valid = 'dateValid'
-col_side_valid = 'sideValid'
+_json_fields = (_sociodemographic_id_field, _revision_field, _diagnoses_field, _procedures_field, _dos_code_field)
 
 
 @beartype
@@ -62,10 +52,10 @@ def group_batch_group_cases(batch_group_cases: list[str],
     if not os.path.exists(jar_file_path):
         raise IOError(f"The aimedic-grouper JAR file is not available at '{jar_file_path}")
 
-    # Check for unique aimedic IDs
-    aimedic_ids = [bgc.split(delimiter_char)[0] for bgc in batch_group_cases]
-    if len(set(aimedic_ids)) != (len(aimedic_ids)):
-        raise ValueError('Provided cases have not unique aimedic IDs. Make sure you pass only one revision case for one patient case.')
+    # Check for unique sociodemographic IDs
+    sociodemographic_ids = [bgc.split(delimiter_char)[0] for bgc in batch_group_cases]
+    if len(set(sociodemographic_ids)) != (len(sociodemographic_ids)):
+        raise ValueError('The provided cases don''t have unique sociodemographic IDs. Make sure you pass only one revision case for one patient case.')
 
     # Make a string out of all the cases
     cases_string = separator_char.join(batch_group_cases)
@@ -93,9 +83,9 @@ def group_batch_group_cases(batch_group_cases: list[str],
     procedures_df = pd.json_normalize(itertools.chain.from_iterable(all_procedure_rows))
     procedures_df.columns = [humps.decamelize(col) for col in procedures_df.columns]
 
+    procedures_df[PROCEDURE_DATE_COL] = pd.to_datetime(procedures_df[PROCEDURE_DATE_COL], format='%Y%m%d', errors='coerce')
     # Replace NaT with NULL
     # REFs: https://stackoverflow.com/a/42818550, https://stackoverflow.com/a/48765738
-    procedures_df[PROCEDURE_DATE_COL] = pd.to_datetime(procedures_df[PROCEDURE_DATE_COL], format='%Y%m%d')
     procedures_df[PROCEDURE_DATE_COL] = procedures_df[PROCEDURE_DATE_COL].astype(object).where(procedures_df[PROCEDURE_DATE_COL].notnull(), null())
 
     # Clear out empty strings
@@ -103,7 +93,8 @@ def group_batch_group_cases(batch_group_cases: list[str],
 
     # Remove primary keys from each table
     revision_df.drop(columns=[REVISION_ID_COL], inplace=True)
-    procedures_df.drop(columns=['procedures_pk'], inplace=True)
+    diagnoses_df.drop(columns=[REVISION_ID_COL], inplace=True)
+    procedures_df.drop(columns=[REVISION_ID_COL], inplace=True)
 
     return revision_df, diagnoses_df, procedures_df
 
@@ -116,8 +107,11 @@ def _get_grouper_output(*,
                         delimiter_char: str
                         ) -> dict:
 
+    # Convert to camel-case so that we can replace the field in place
+    camel_case_sociodemographic_id_col = humps.camelize(SOCIODEMOGRAPHIC_ID_COL)
+
     raw_output: bytes = subprocess.check_output([
-        'java', '-cp', jar_file_path, 'ch.aimedic.grouper.apps.BatchGroupMany',
+        'java', '-cp', jar_file_path, 'ch.aimedic.grouper.apps.BatchGrouper',
         cases_string, separator_char, delimiter_char])
 
     output = _escape_ansi(raw_output.decode('UTF-8'))
@@ -125,36 +119,52 @@ def _get_grouper_output(*,
     # Split the captured output into lines, and filter only output lines, discarding log messages from the grouer
     lines = output.split('\n')
     output_lines = [line for line in lines
-                    if line.startswith('{"' + _aimedic_id_field)]
+                    if line.startswith('{"' + _sociodemographic_id_field)]
 
     grouped_cases = dict()
-    for output_line in output_lines:
+    ungrouped_cases = list()
+    for i, output_line in enumerate(output_lines):
         # Deserialize the output into a dict
         grouped_case_json = srsly.json_loads(output_line)
 
-        # Get the aimedicId from the top-level dict
-        aimedic_id = grouped_case_json[_aimedic_id_field]
-        # Build a copy of the dict, where we insert the aimedicId in all the sub-dictionaries
-        ext_grouped_case_json = dict()
+        # Get the `sociodemographic_id` from the top-level dict
+        sociodemographic_id = grouped_case_json[_sociodemographic_id_field]
 
-        for key, value in grouped_case_json.items():
-            if key in _dict_subfields:
-                # This is a sub-dictionary, e.g., `revisions`
-                if isinstance(value, dict):
-                    value[_aimedic_id_field] = aimedic_id  # The sub-dictionary is modified in place
+        if len(grouped_case_json) != len(_json_fields):
+            ungrouped_case = output_line.replace(_sociodemographic_id_field, SOCIODEMOGRAPHIC_ID_COL)
+            ungrouped_cases.append(ungrouped_case)
+            continue
 
-                elif isinstance(value, list):
-                    # This is a list of dictionaries, e.g., `diagnoses` or `procedures`
-                    for row in value:
-                        row[_aimedic_id_field] = aimedic_id  # The sub-dictionary is modified in place
+        # Update dictionary in-place
+        grouped_case_json[_revision_field].update({
+            camel_case_sociodemographic_id_col: sociodemographic_id,
+            # Append the Duration-of-stay code, so that it can be mapped later to a DoS ID
+            _dos_code_field: grouped_case_json[_dos_code_field]
+        })
 
-            # Store the modified dictionary
-            ext_grouped_case_json[key] = value
+        grouped_case_json[_diagnoses_field] = [_fix_code_field(diagnosis, camel_case_sociodemographic_id_col, sociodemographic_id) for diagnosis in grouped_case_json[_diagnoses_field]]
+        grouped_case_json[_procedures_field] = [_fix_code_field(procedure, camel_case_sociodemographic_id_col, sociodemographic_id) for procedure in grouped_case_json[_procedures_field]]
 
-        # Assign the grouped case to its aimedicId
-        grouped_cases[aimedic_id] = ext_grouped_case_json
+        grouped_cases[sociodemographic_id] = grouped_case_json
+
+    if len(ungrouped_cases) > 0:
+        ungrouped_cases_str = '\n'.join(ungrouped_cases)
+        logger.info(f'{len(ungrouped_cases)} cases cannot be grouped. The output from grouper is:\n{ungrouped_cases_str}')
 
     return grouped_cases
+
+
+def _fix_code_field(d: dict, camel_case_sociodemographic_id_col: str, sociodemographic_id: int) -> dict:
+    d[camel_case_sociodemographic_id_col] = sociodemographic_id
+    d = _fix_global_functions_list(d)
+    return d
+
+
+def _fix_global_functions_list(d: dict) -> dict:
+    global_functions_serialized = d.pop('globalFunctionsSerialized')
+    global_functions = ' | '.join(global_functions_serialized)
+    d['global_functions'] = global_functions
+    return d
 
 
 def _escape_ansi(line):
