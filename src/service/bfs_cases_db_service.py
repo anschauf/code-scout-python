@@ -1,18 +1,16 @@
 from decimal import *
 
-import numpy as np
 import pandas as pd
 from beartype import beartype
 from loguru import logger
 from pandas import DataFrame
-from sqlalchemy import func
 from sqlalchemy import tuple_
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.elements import Null
 
 from src.models.clinic import Clinic
-from src.models.duration_of_stay import DurationOfStay
 from src.models.diagnosis import Diagnosis
+from src.models.duration_of_stay import DurationOfStay
 from src.models.hospital import Hospital
 from src.models.procedure import Procedure
 from src.models.revision import Revision
@@ -33,6 +31,21 @@ def get_bfs_cases_by_ids(case_ids: list, session: Session) -> DataFrame:
 
     return pd.read_sql(query.statement, session.bind)
 
+
+@beartype
+def get_sociodemographics_by_sociodemographics_ids(sociodemographics_ids: list, session: Session) -> DataFrame:
+    """
+     Get records from case_data.Sociodemographics table using sociodemographics_ids
+     @param sociodemographics_ids: a list of sociodemographics_ids
+     @return: a Dataframe from sociodemographic table
+     """
+    query = (session
+             .query(Sociodemographics)
+             .filter(Sociodemographics.sociodemographic_id.in_(sociodemographics_ids)))
+
+    return pd.read_sql(query.statement, session.bind)
+
+
 @beartype
 def get_hospital_cases_df(hospital_name: str, session: Session) -> DataFrame:
     """
@@ -48,11 +61,12 @@ def get_hospital_cases_df(hospital_name: str, session: Session) -> DataFrame:
 
 
 @beartype
-def get_clinics(session: Session):
+def get_clinics(session: Session) -> pd.DataFrame:
     """
-    Get all records from dimension.clinic table
+    Get all records from dimension.clinic as a pandas dataframe
     """
-    return session.query(Clinic).all()
+    query = session.query(Clinic)
+    return pd.read_sql(query.statement, session.bind)
 
 
 @beartype
@@ -91,46 +105,27 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int, sessi
 
 
 @beartype
-def get_earliest_revisions_for_sociodemographic_ids(sociodemographic_ids: list[int], session: Session) -> pd.DataFrame:
+def get_all_revised_cases(session: Session) -> pd.DataFrame:
     """
-     Get the earliest revisions of sociodemographic_ids
-     @param session: active DB session
-     @param sociodemographic_ids:
-     @return: a Dataframe containing sociodemographic ids, revision ids and revision dates
-     """
+    Get all revised cases from revision table
+    @return: a dataframe with all revised cases from revision table
+    """
+    query_revised_case = (
+        session.query(Revision).
+        filter(Revision.revised.is_(True)))
+    df = pd.read_sql(query_revised_case.statement, session.bind)
 
-    query_revisions = (
-        session
-        .query(
-            func.array_agg(Revision.sociodemographic_id).label(SOCIODEMOGRAPHIC_ID_COL),
-            func.array_agg(Revision.revision_date).label(REVISION_DATE_COL),
-            func.array_agg(Revision.revision_id).label(REVISION_ID_COL),
-        )
-        .filter(Revision.sociodemographic_id.in_(sociodemographic_ids))
-        .group_by(Revision.sociodemographic_id)
-    )
-
-    df = pd.read_sql(query_revisions.statement, session.bind)
-
-    def get_earliest_revision_id(row):
-        row[SOCIODEMOGRAPHIC_ID_COL] = row[SOCIODEMOGRAPHIC_ID_COL][0]  # pick only the first one as they are all the same (because of the group-by)
-        revision_dates = row[REVISION_DATE_COL]
-        min_idx = np.argmin(revision_dates)
-        row[REVISION_ID_COL] = row[REVISION_ID_COL][min_idx]
-        return row
-
-    df = df.apply(get_earliest_revision_id, axis=1)
-    df.drop(columns=[REVISION_DATE_COL], inplace=True)
     return df
 
 
 @beartype
-def get_original_revision_id_for_sociodemographic_ids(sociodemographic_ids: list[int], session: Session) -> pd.DataFrame:
+def get_original_revision_id_for_sociodemographic_ids(sociodemographic_ids: list[int],
+                                                      session: Session) -> pd.DataFrame:
     """
-    Get the original revisions of sociodemographic_ids
+    Get the original revisions ids of sociodemographic_ids
     @param session: active DB session
     @param sociodemographic_ids:
-    @return: a Dataframe containing sociodemographic ids, revision ids and revision dates
+    @return: a Dataframe containing sociodemographic ids, revision ids
     """
 
     query_revisions = (
@@ -140,6 +135,26 @@ def get_original_revision_id_for_sociodemographic_ids(sociodemographic_ids: list
         .filter(Revision.sociodemographic_id.in_(sociodemographic_ids))
         .filter(Revision.revised.is_(False))
         .filter(Revision.reviewed.is_(False))
+    )
+
+    df = pd.read_sql(query_revisions.statement, session.bind)
+
+    return df
+
+
+def get_revision_for_revision_ids(revision_ids: list[int],
+                                  session: Session) -> pd.DataFrame:
+    """
+    Get revisions for revision_ids
+    @param session: active DB session
+    @param revision_ids:
+    @return: a Dataframe from all columns from revision table
+    """
+
+    query_revisions = (
+        session
+        .query(Revision)
+        .filter(Revision.revision_id.in_(revision_ids))
     )
 
     df = pd.read_sql(query_revisions.statement, session.bind)
@@ -185,7 +200,8 @@ def get_diagnoses_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.D
         raise ValueError(f'There are {n_cases_no_pd} cases without a Primary Diagnosis')
 
     # Replace NaNs with an empty list
-    codes_df[SECONDARY_DIAGNOSES_COL] = codes_df[SECONDARY_DIAGNOSES_COL].apply(lambda x: x if isinstance(x, list) else [])
+    codes_df[SECONDARY_DIAGNOSES_COL] = codes_df[SECONDARY_DIAGNOSES_COL].apply(
+        lambda x: x if isinstance(x, list) else [])
 
     return codes_df
 
@@ -204,7 +220,8 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.
     query_procedures = (
         session
         .query(Procedure)
-        .with_entities(Procedure.sociodemographic_id, Procedure.revision_id, Procedure.code, Procedure.side, Procedure.date, Procedure.is_primary)
+        .with_entities(Procedure.sociodemographic_id, Procedure.revision_id, Procedure.code, Procedure.side,
+                       Procedure.date, Procedure.is_primary)
         .filter(Procedure.revision_id.in_(all_revision_ids))
     )
 
@@ -227,7 +244,8 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.
     secondary_procedures = df[~df[IS_PRIMARY_COL]][[REVISION_ID_COL, CODE_COL]]
     secondary_procedures.rename(columns={CODE_COL: SECONDARY_PROCEDURES_COL}, inplace=True)
 
-    secondary_procedures = secondary_procedures.groupby(REVISION_ID_COL, group_keys=True)[SECONDARY_PROCEDURES_COL].apply(list)
+    secondary_procedures = secondary_procedures.groupby(REVISION_ID_COL, group_keys=True)[
+        SECONDARY_PROCEDURES_COL].apply(list)
 
     codes_df = (df_revision_ids
                 .merge(primary_procedure, on=REVISION_ID_COL, how='left')
@@ -235,7 +253,8 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.
 
     # Fill NaNs
     codes_df[PRIMARY_PROCEDURE_COL] = codes_df[PRIMARY_PROCEDURE_COL].fillna('')
-    codes_df[SECONDARY_PROCEDURES_COL] = codes_df[SECONDARY_PROCEDURES_COL].apply(lambda x: x if isinstance(x, list) else [])
+    codes_df[SECONDARY_PROCEDURES_COL] = codes_df[SECONDARY_PROCEDURES_COL].apply(
+        lambda x: x if isinstance(x, list) else [])
 
     return codes_df
 
@@ -261,7 +280,7 @@ def get_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
 
 
 @beartype
-def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, session: Session, DOS_COL=None) -> dict:
+def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, session: Session) -> dict:
     """
     Insert revised cases into the table coding_revision.revisions
     @param session: active DB session
@@ -291,7 +310,8 @@ def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, 
             "revision_date": str(revision[REVISION_DATE_COL])
         })
 
-    values_info = [(values_dict[SOCIODEMOGRAPHIC_ID_COL], values_dict[REVISION_DATE_COL]) for values_dict in values_to_insert]
+    values_info = [(values_dict[SOCIODEMOGRAPHIC_ID_COL], values_dict[REVISION_DATE_COL]) for values_dict in
+                   values_to_insert]
 
     num_rows_before = session.query(Revision).count()
     delete_statement = (Revision.__table__
@@ -302,7 +322,8 @@ def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, 
 
     num_rows_after = session.query(Revision).count()
     if num_rows_after != num_rows_before:
-        logger.info(f"Deleted {num_rows_before - num_rows_after} rows from the 'Revisions' table, which is about to be updated")
+        logger.info(
+            f"Deleted {num_rows_before - num_rows_after} rows from the 'Revisions' table, which is about to be updated")
 
     insert_statement = (Revision.__table__
                         .insert()
@@ -312,13 +333,15 @@ def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, 
     result = session.execute(insert_statement).fetchall()
     session.commit()
 
-    sociodemographic_id_with_revision_id = {sociodemographic_id: revision_id for sociodemographic_id, revision_id in result}
+    sociodemographic_id_with_revision_id = {sociodemographic_id: revision_id for sociodemographic_id, revision_id in
+                                            result}
     logger.success(f"Inserted {len(result)} cases into the 'Revisions' table")
     return sociodemographic_id_with_revision_id
 
 
 @beartype
-def insert_revised_cases_into_diagnoses(revised_case_diagnoses: pd.DataFrame, sociodemographic_id_with_revision_id: dict, session: Session):
+def insert_revised_cases_into_diagnoses(revised_case_diagnoses: pd.DataFrame,
+                                        sociodemographic_id_with_revision_id: dict, session: Session):
     """
     Insert revised cases into the table coding_revision.diagnoses
     @param session: active DB session
@@ -356,7 +379,8 @@ def insert_revised_cases_into_diagnoses(revised_case_diagnoses: pd.DataFrame, so
 
 
 @beartype
-def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame, sociodemographic_id_with_revision_id: dict, session: Session):
+def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame,
+                                         sociodemographic_id_with_revision_id: dict, session: Session):
     """Insert revised cases into table coding_revision.procedures.
 
     @param revised_case_procedures: a Dataframe of revised case for procedures after grouping.
@@ -401,3 +425,54 @@ def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame, 
     session.commit()
 
     logger.success(f"Inserted {len(values_to_insert)} rows into the 'Procedures' table")
+
+
+def get_revised_case_with_codes_after_revision(session: Session) -> pd.DataFrame:
+    """
+    Get all revised cases with diagnoses and procedures
+    @param session:
+    @return: a dataframe
+    """
+    revised_case = get_all_revised_cases(session)
+    df_diagnoses = get_diagnoses_codes(revised_case, session)
+    df_procedures = get_procedures_codes(revised_case, session)
+
+    #  reset index as revision_id
+    revised_case.set_index(REVISION_ID_COL, inplace=True)
+    df_diagnoses.set_index(REVISION_ID_COL, inplace=True)
+    df_procedures.set_index(REVISION_ID_COL, inplace=True)
+
+    #  merge all data using revision_id
+    revised_cases_df = pd.concat([revised_case, df_diagnoses[[PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL]],
+                                  df_procedures[[PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL]]], axis=1)
+    revised_cases_df.rename(columns={'old_pd': 'pd'}, inplace=True)
+
+    return revised_cases_df
+
+
+def get_revised_case_with_codes_before_revision(session: Session) -> pd.DataFrame:
+    """
+    Get original cases with diagnoses and procedures for all revised cases
+    @param session:
+    @return: a dataframe
+    """
+    revised_cases = get_all_revised_cases(session)
+    revised_case_sociodemographic_ids = revised_cases[SOCIODEMOGRAPHIC_ID_COL].values.tolist()
+    revised_case_all_df = get_original_revision_id_for_sociodemographic_ids(revised_case_sociodemographic_ids)
+    revision_ids = revised_case_all_df[REVISION_ID_COL].values.tolist()
+
+    revised_case_orig = get_revision_for_revision_ids(revision_ids, session)
+    df_diagnoses = get_diagnoses_codes(revised_case_orig, session)
+    df_procedures = get_procedures_codes(revised_case_orig, session)
+
+    #  reset index as revision_id
+    revised_case_orig.set_index(REVISION_ID_COL, inplace=True)
+    df_diagnoses.set_index(REVISION_ID_COL, inplace=True)
+    df_procedures.set_index(REVISION_ID_COL, inplace=True)
+
+    #  merge all data using revision_id
+    revised_cases_before_revision = pd.concat(
+        [revised_case_orig, df_diagnoses[[PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL]],
+         df_procedures[[PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL]]], axis=1)
+    revised_cases_before_revision.rename(columns={'old_pd': 'pd'}, inplace=True)
+    return revised_cases_before_revision

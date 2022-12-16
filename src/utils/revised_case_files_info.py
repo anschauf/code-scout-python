@@ -16,8 +16,10 @@ FILES_FALL_NUMMER = ({'hirslanden_klinik_zurich': '2019'},)
 # Files with fid as case_id
 FILES_FID = ({'kantonsspital_winterthur': '2018'}, {'kantonsspital_winterthur': '2019'})
 
+### The files are commented out because they are already successfully inserted into DB
+
 REVISED_CASE_FILES = [
-   FileInfo(os.path.join(DIR_REVISED_CASES, 'raw_data/HI_Aarau_Birshof_ST. Anna.xlsx'),
+    FileInfo(os.path.join(DIR_REVISED_CASES, 'raw_data/HI_Aarau_Birshof_ST. Anna.xlsx'),
                      'Hirslanden Klinik Aarau', '2017', 'Aarau_2017'),
 
     FileInfo(os.path.join(DIR_REVISED_CASES, 'raw_data/HI_Aarau_Birshof_ST. Anna.xlsx'),
