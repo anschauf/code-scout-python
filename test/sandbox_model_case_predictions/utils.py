@@ -1,421 +1,213 @@
+import os.path
+import pickle
 from datetime import datetime
 from itertools import chain, combinations
+from typing import Optional
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+from beartype import beartype
+from humps import decamelize
 from loguru import logger
-from sklearn.preprocessing import MultiLabelBinarizer
+from pandas.api.types import is_numeric_dtype
+from sklearn.preprocessing import MultiLabelBinarizer, OneHotEncoder, OrdinalEncoder
+
+FEATURE_TYPE = np.float32
+
+ONE_HOT_ENCODED_FEATURE_SUFFIX = 'OHE'
+RAW_FEATURE_SUFFIX = 'RAW'
 
 
-def get_list_of_all_predictors(data):
-    # define predictors from data
-    list_X = list()
-    list_X_labels = list()
-    list_x_labels_predictor_title = list()
+def get_list_of_all_predictors(data: pd.DataFrame, feature_folder: str, *, overwrite: bool = True) -> (dict, dict):
+    # Store a memory-mapped file for each feature
+    features_filenames = dict()
+    encoders = dict()
 
-    # IMC effort points
-    list_X.append(data['ErfassungDerAufwandpunkteFuerIMC'].values.reshape(-1, 1))
-    list_X_labels.append(['erfassung_der_aufwandpunkte_fuer_IMC'])
-    list_x_labels_predictor_title.append(['erfassung_der_aufwandpunkte_fuer_IMC'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+    # -------------------------------------------------------------------------
+    # HELPER FUNCTIONS
+    # -------------------------------------------------------------------------
+    def __make_feature_filename(standard_name: str, suffix: str) -> str:
+        feature_filename = os.path.join(feature_folder, f'{standard_name}_{suffix}.npy')
+        features_filenames[f'{standard_name}_{suffix}'] = feature_filename
+        return feature_filename
 
-    # Ventilation hours
-    list_X.append(data['hoursMechanicalVentilation'].values.reshape(-1, 1))
-    list_X_labels.append(['hours_mechanical_ventilation'])
-    list_x_labels_predictor_title.append(['hours_mechanical_ventilation'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
 
-    # Ventilation hours boolean
-    ventilation_hours_boolean = np.asarray([int(x) for x in (data['hoursMechanicalVentilation'].apply(__int_to_bool))]).reshape(-1, 1)
-    list_X.append(ventilation_hours_boolean)
-    list_X_labels.append(['hours_mechanical_ventilation_boolean'])
-    list_x_labels_predictor_title.append(['hours_mechanical_ventilation_boolean'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+    @beartype
+    def store_engineered_feature(standard_name: str,
+                                 feature: np.ndarray,
+                                 feature_filename: Optional[str] = None,
+                                 ):
+        if feature_filename is None:
+            feature_filename = __make_feature_filename(standard_name, RAW_FEATURE_SUFFIX)
 
-    # Ventilation hours bins
-    # left out, because not much data for ventilation hours
+        if overwrite or not os.path.exists(feature_filename):
+            if feature.ndim == 1:
+                feature = feature.reshape(-1, 1)
 
-    # Ventilation hours (as a boolean) multiplied by ${DRG does not start with “A”}
-    drg_starts_with_a = np.asarray([int(x) for x in data['drg'].apply(lambda x: True if (x.startswith('A')) else False).values]).reshape(-1, 1)
-    list_X.append(ventilation_hours_boolean * drg_starts_with_a)
-    list_X_labels.append(['ventilation_hours_boolean_multiplied_with_DRG_starts_with_A'])
-    list_x_labels_predictor_title.append(['ventilation_hours_boolean_multiplied_with_DRG_starts_with_A'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+            np.save(feature_filename, feature.astype(FEATURE_TYPE), allow_pickle=False, fix_imports=False)
+            logger.info(f"Stored the feature '{standard_name}'")
+        else:
+            logger.debug(f"Ignored existing feature '{standard_name}'")
 
-    # Notfall/ Emergency boolean
-    emergency = np.asarray([1 if (x=='1') else 0 for x in data['Eintrittsart'].values]).reshape(-1,1)
-    list_X.append(emergency)
-    list_X_labels.append(['emergency_boolean'])
-    list_x_labels_predictor_title.append(['emergency_boolean'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
 
-    # Admission type
-    admission_type, admisstion_type_label, _ = categorize_variable(data, 'Eintrittsart')
-    list_X.append(admission_type)
-    list_X_labels.append(admisstion_type_label)
-    list_x_labels_predictor_title.append(['admission_type'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+    @beartype
+    def store_engineered_feature_and_sklearn_encoder(standard_name: str,
+                                                     feature: np.ndarray,
+                                                     encoder,
+                                                     feature_filename: Optional[str] = None
+                                                     ):
+        if feature_filename is None:
+            feature_filename = __make_feature_filename(standard_name, RAW_FEATURE_SUFFIX)
 
-    # discharge type
-    discharge_type, discharge_type_label, _ = categorize_variable(data, 'EntscheidFuerAustritt')
-    list_X.append(discharge_type)
-    list_X_labels.append(discharge_type_label)
-    list_x_labels_predictor_title.append(['discharge_type'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+        encoder_filename = f'{os.path.splitext(feature_filename)[0]}_encoder.pkl'
 
-    # hours in ICU
-    list_X.append(data['AufenthaltIntensivstation'].values.reshape(-1,1))
-    list_X_labels.append(['aufenthalt_intensivstation'])
-    list_x_labels_predictor_title.append(['aufenthalt_intensivstation'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+        if overwrite or not os.path.exists(feature_filename) or not os.path.exists(encoder_filename):
+            np.save(feature_filename, feature.astype(FEATURE_TYPE), allow_pickle=False, fix_imports=False)
 
-    # hours in ICU boolean
-    hours_in_icu_boolean = np.asarray([int(x) for x in data['AufenthaltIntensivstation'].apply(__int_to_bool).values]).reshape(-1,1)
-    list_X.append(hours_in_icu_boolean)
-    list_X_labels.append(['aufenthalt_intensivstation_boolean'])
-    list_x_labels_predictor_title.append(['aufenthalt_intensivstation_boolean'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+            with open(encoder_filename, 'wb') as f:
+                pickle.dump(encoder, f)
 
-    # Does ADRG has PCCL-split boolean
-    #TODO need infos
+            logger.info(f"Stored the feature '{standard_name}' and its corresponding '{encoder.__class__.__name__}'")
 
-    # CCL sensitivity
-    #TODO ask paolo for code
+        else:
+            with open(encoder_filename, 'rb') as f:
+                encoders[__get_full_feature_name(feature_filename)] = pickle.load(f)
 
-    # NEMS boolean
-    nems_boolean = np.asarray([int(x) for x in data['NEMSTotalAllerSchichten'].apply(__int_to_bool).values]).reshape(-1,1)
-    list_X.append(nems_boolean)
-    list_X_labels.append(['nems_total_aller_schichten_boolean'])
-    list_x_labels_predictor_title.append(['nems_total_aller_schichten_boolean'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+            logger.debug(f"Ignored existing feature '{standard_name}'")
 
-    # NEMS
-    list_X.append(data['NEMSTotalAllerSchichten'].values.reshape(-1,1))
-    list_X_labels.append(['nems_total_aller_schichten'])
-    list_x_labels_predictor_title.append(['nems_total_aller_schichten'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
 
-    # IMC effort points boolean
-    #TODO check if it has a true boolean with all data
-    imc_effort_points_boolean = np.asarray([int(x) for x in data['ErfassungDerAufwandpunkteFuerIMC'].apply(__int_to_bool).values]).reshape(-1,1)
-    list_X.append(imc_effort_points_boolean)
-    list_X_labels.append(['erfassung_der_aufwandpunkte_fuer_imc'])
-    list_x_labels_predictor_title.append(['erfassung_der_aufwandpunkte_fuer_imc'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+    @beartype
+    def store_raw_feature(column_name: str):
+        standard_name = decamelize(column_name)
+        feature_filename = __make_feature_filename(standard_name, RAW_FEATURE_SUFFIX)
 
-    # Medication ATC-code
-    #TODO think about reducing ATC codes by for example just taking first 3 letters
-    # e.g. see here: https://www.wido.de/publikationen-produkte/arzneimittel-klassifikation/
-    data['medications_atc'] = data['medications'].apply(lambda all_meds: set([x.split(':')[0] for x in all_meds]))
-    medication_atc_codes_binary, medication_atc_codes_labels, _ = categorize_variable(data, 'medications_atc')
-    list_X.append(medication_atc_codes_binary)
-    list_X_labels.append(medication_atc_codes_labels)
-    list_x_labels_predictor_title.append(['medications'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+        if is_numeric_dtype(data[column_name]):
+            store_engineered_feature(standard_name, data[column_name].values, feature_filename)
 
-    # Medication kind
-    data['medications_kind'] = data['medications'].apply(lambda all_meds: set([x.split(':')[2] for x in all_meds]))
-    medication_kind_binar, medication_kind_labels, _ = categorize_variable(data, 'medications_kind')
-    list_X.append(medication_kind_binar)
-    list_X_labels.append(medication_kind_labels)
-    list_x_labels_predictor_title.append(['medication_kind'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+        else:
+            encoder = OrdinalEncoder(dtype=FEATURE_TYPE, handle_unknown='use_encoded_value', unknown_value=-2, encoded_missing_value=-1)
+            encoders[__get_full_feature_name(feature_filename)] = encoder
+            feature_values = encoder.fit_transform(data[column_name].values.reshape(-1, 1)).ravel()
 
-    # medication rate
-    #TODO difficult to compare with different units
+            store_engineered_feature_and_sklearn_encoder(standard_name, feature_values, encoder, feature_filename)
 
-    # medication frequency
-    #TODO not sure how to get the frequency
+    @beartype
+    def one_hot_encode(colum_name: str, *, is_data_uniform: bool = True):
+        standard_name = decamelize(colum_name)
+        feature_filename = __make_feature_filename(standard_name, ONE_HOT_ENCODED_FEATURE_SUFFIX)
 
-    # month admission
-    data['month_admission'] = data['entryDate'].apply(lambda date: date[4:6])
-    month_admission_binary, month_admission_label, _ = categorize_variable(data, 'month_admission')
-    list_X.append(month_admission_binary)
-    list_X_labels.append(month_admission_label)
-    list_x_labels_predictor_title.append(['month_admission'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+        if overwrite or not os.path.exists(feature_filename):
+            if is_data_uniform:
+                encoder = OneHotEncoder(sparse_output=False, dtype=FEATURE_TYPE, handle_unknown='ignore')
+                feature_values = encoder.fit_transform(data[colum_name].values.reshape(-1, 1))
 
-    # month admission
-    data['month_discharge'] = data['exitDate'].apply(lambda date: date[4:6])
-    month_discharge_binary, month_discharge_label, _ = categorize_variable(data, 'month_discharge')
-    list_X.append(month_discharge_binary)
-    list_X_labels.append(month_discharge_label)
-    list_x_labels_predictor_title.append(['month_discharge'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+            else:
+                encoder = MultiLabelBinarizer(sparse_output=False)
+                feature_values = encoder.fit_transform(data[colum_name].values.tolist())
 
-    # day admission
-    data['day_admission'] = data['entryDate'].apply(lambda date: datetime(int(date[:4]), int(date[4:6]), int(date[6:])).weekday())
-    day_admission_binary, day_admission_label, _ = categorize_variable(data, 'day_admission')
-    list_X.append(day_admission_binary)
-    list_X_labels.append(day_admission_label)
-    list_x_labels_predictor_title.append(['day_admission'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+            encoders[__get_full_feature_name(feature_filename)] = encoder
+            store_engineered_feature_and_sklearn_encoder(standard_name, feature_values, encoder, feature_filename)
 
-    # day discharge
-    data['day_discharge'] = data['exitDate'].apply(lambda date: datetime(int(date[:4]), int(date[4:6]), int(date[6:])).weekday())
-    day_discharge_binary, day_discharge_label, _ = categorize_variable(data, 'day_discharge')
-    list_X.append(day_discharge_binary)
-    list_X_labels.append(day_discharge_label)
-    list_x_labels_predictor_title.append(['day_discharge'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+        else:
+            logger.debug(f"Ignoring existing feature '{standard_name}'")
 
-    # has complex procedure
-    #TODO find out how to figure out whether a procedure is complex
 
-    # year of discharge
-    #TODO probably not a good predictor, we any only predict always for cases from the same year
+    # -------------------------------------------------------------------------
+    # FEATURE ENGINEERING
+    # -------------------------------------------------------------------------
+    # The following features are stored as-is
+    for col_name in (
+        # Sociodemographics
+        'ageYears', 'ErfassungDerAufwandpunkteFuerIMC', 'hoursMechanicalVentilation', 'AufenthaltIntensivstation',
+        'NEMSTotalAllerSchichten', 'durationOfStay', 'leaveDays',
+        # DRG-related
+        'drgCostWeight', 'effectiveCostWeight', 'NumDrgRelevantDiagnoses', 'NumDrgRelevantProcedures', 'rawPccl',
+        'supplementCharges'
+        ):
+        store_raw_feature(col_name)
 
-    # age of patient
-    list_X.append(data['ageYears'].values.reshape(-1,1))
-    list_X_labels.append(['age_years'])
-    list_x_labels_predictor_title.append(['age_years'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+    # The following features are stored as raw values as well as one-hot encoded
+    for col_name in ('pccl', ):
+        store_raw_feature(col_name)
+        one_hot_encode(col_name)
+
+    # The following features are only one-hot encoded
+    for col_name in ('gender', 'Hauptkostenstelle', 'mdc', 'mdcPartition', 'durationOfStayCaseType',
+                     'AufenthaltNachAustritt', 'AufenthaltsKlasse', 'Eintrittsart', 'EntscheidFuerAustritt',
+                     'AufenthaltsortVorDemEintritt', 'BehandlungNachAustritt', 'EinweisendeInstanz',
+                     'EntscheidFuerAustritt', 'HauptkostentraegerFuerGrundversicherungsleistungen', ):
+        one_hot_encode(col_name)
+
+    # The following features are booleans
+    for col_name in ('AufenthaltIntensivstation', 'NEMSTotalAllerSchichten', 'ErfassungDerAufwandpunkteFuerIMC'):
+        has_value = data[col_name].apply(__int_to_bool).values
+        store_engineered_feature(decamelize(col_name), has_value)
+
+    # Get the "used" status from the flag columns
+    for col_name in ('ageFlag', 'genderFlag', 'durationOfStayFlag', 'grouperAdmissionCodeFlag', 'grouperDischargeCodeFlag', 'hoursMechanicalVentilationFlag', 'gestationAgeFlag'):
+        is_used = data[col_name].str.contains('used').values.astype(FEATURE_TYPE)
+        store_engineered_feature(decamelize(col_name), is_used)
+
+    admission_weight_flag = (~(data['admissionWeightFlag'].str.endswith('_not_used'))).values.astype(FEATURE_TYPE)
+    store_engineered_feature(decamelize('admissionWeightFlag'), admission_weight_flag)
+
+    # Other features
+    is_emergency_case = (data['Eintrittsart'] == '1').values.astype(FEATURE_TYPE)
+    store_engineered_feature('is_emergency_case', is_emergency_case)
+
+    delta_effective_to_base_drg_cost_weight = data['effectiveCostWeight'] - data['drgCostWeight']
+    store_engineered_feature('delta_effective_to_base_drg_cost_weight', delta_effective_to_base_drg_cost_weight.values.astype(FEATURE_TYPE))
+
+    data['number_of_chops'] = data['procedures'].apply(lambda x: len(x))
+    store_raw_feature('number_of_chops')
+    data['number_of_diags'] = data['secondaryDiagnoses'].apply(lambda x: len(x) + 1)
+    store_raw_feature('number_of_diags')
+    data['number_of_diags_ccl_greater_0'] = data['diagnosesExtendedInfo'].apply(__extract_number_of_ccl_greater_null)
+    store_raw_feature('number_of_diags_ccl_greater_0')
+
+    # Ventilation hours and interactions with it
+    has_ventilation_hours = data['hoursMechanicalVentilation'].apply(__int_to_bool).values.astype(FEATURE_TYPE)
+    store_engineered_feature('has_ventilation_hours', has_ventilation_hours)
+    is_drg_in_pre_mdc = (data['mdc'].str.lower() == 'prae').values.astype(FEATURE_TYPE)
+    store_engineered_feature('has_ventilation_hours_AND_in_pre_mdc', has_ventilation_hours * is_drg_in_pre_mdc)
+
+    # Medication information
+    data['medications_atc'] = data['medications'].apply(lambda all_meds: tuple([x.split(':')[0] for x in all_meds]))
+    data['medications_kind'] = data['medications'].apply(lambda all_meds: tuple([x.split(':')[2] for x in all_meds]))
+    one_hot_encode('medications_atc', is_data_uniform=False)
+    one_hot_encode('medications_kind', is_data_uniform=False)
+
+    data['adrg'] = data['drg'].apply(lambda x: x[:3])
+    one_hot_encode('adrg')
 
     # age bins of patient
     age_bin, age_bin_label = categorize_age(data['ageYears'].values, data['ageDays'].values)
-    list_X.append(age_bin)
-    list_X_labels.append(age_bin_label)
-    list_x_labels_predictor_title.append(['age_bins'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+    store_engineered_feature('binned_age', age_bin)
 
-    # clinic id
-    clinic_id_binary, clinic_id_label, _ = categorize_variable(data, 'Hauptkostenstelle')
-    list_X.append(clinic_id_binary)
-    list_X_labels.append(clinic_id_label)
-    list_x_labels_predictor_title.append(['clinic_id'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+    # TODO Ventilation hours bins: left out, because not much data for ventilation hours
+    # TODO Does ADRG has PCCL-split boolean
+    # TODO CCL sensitivity
+    # TODO think about reducing ATC codes by for example just taking first 3 letters
+    #  e.g. see here: https://www.wido.de/publikationen-produkte/arzneimittel-klassifikation/
+    # TODO difficult to compare medication rate with different units
+    # TODO not sure how to get the medication frequency
+    # TODO has complex procedure
 
-    # drg cost weight
-    list_X.append(data['drgCostWeight'].values.reshape(-1,1))
-    list_X_labels.append(['drg_cost_weight'])
-    list_x_labels_predictor_title.append(['drg_cost_weight'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+    # Noisy features, which are very unlikely to be correlated but they can be used to evaluate training performance
+    data['day_admission'] = data['entryDate'].apply(lambda date: datetime(int(date[:4]), int(date[4:6]), int(date[6:])).weekday())
+    data['day_discharge'] = data['exitDate'].apply(lambda date: datetime(int(date[:4]), int(date[4:6]), int(date[6:])).weekday())
+    data['month_admission'] = data['entryDate'].apply(lambda date: date[4:6])
+    data['month_discharge'] = data['exitDate'].apply(lambda date: date[4:6])
+    data['year_discharge'] = data['exitDate'].apply(lambda date: date[:4])
+    one_hot_encode('day_admission')
+    one_hot_encode('day_discharge')
+    one_hot_encode('month_admission')
+    one_hot_encode('month_discharge')
+    one_hot_encode('year_discharge')
 
-    # effective cost weight
-    list_X.append(data['effectiveCostWeight'].values.reshape(-1,1))
-    list_X_labels.append(['effective_cost_weight'])
-    list_x_labels_predictor_title.append(['effective_cost_weight'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
+    return features_filenames, encoders
 
-    # difference effective cost weight minus drg cost weight
-    list_X.append(data['effectiveCostWeight'].values.reshape(-1,1) - data['drgCostWeight'].values.reshape(-1,1))
-    list_X_labels.append(['effective_cost_weight_minus_drg_cost_weight'])
-    list_x_labels_predictor_title.append(['effective_cost_weight_minus_drg_cost_weight'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # mdc
-    mdc_binary, mdc_labels, _ = categorize_variable(data, 'mdc')
-    list_X.append(mdc_binary)
-    list_X_labels.append(mdc_labels)
-    list_x_labels_predictor_title.append(['mdc'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # mdc partition
-    mdc_partition_binary, mdc_partition_labels, _ = categorize_variable(data, 'mdcPartition')
-    list_X.append(mdc_partition_binary)
-    list_X_labels.append(mdc_partition_labels)
-    list_x_labels_predictor_title.append(['mdc_partition'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # number of relevant diags
-    list_X.append(data['NumDrgRelevantDiagnoses'].values.reshape(-1,1))
-    list_X_labels.append(['num_drg_relevant_diagnoses'])
-    list_x_labels_predictor_title.append(['num_drg_relevant_diagnoses'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # number of relevant chops
-    list_X.append(data['NumDrgRelevantProcedures'].values.reshape(-1,1))
-    list_X_labels.append(['num_drg_relevant_procedures'])
-    list_x_labels_predictor_title.append(['num_drg_relevant_procedures'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # number of chops
-    data['number_of_chops'] = data['procedures'].apply(lambda x: len(x))
-    list_X.append(data['number_of_chops'].values.reshape(-1,1))
-    list_X_labels.append(['number_of_chops'])
-    list_x_labels_predictor_title.append(['number_of_chops'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # number of diags
-    data['number_of_diags'] = data['secondaryDiagnoses'].apply(lambda x: len(x) + 1)
-    list_X.append(data['number_of_diags'].values.reshape(-1,1))
-    list_X_labels.append(['number_of_diags'])
-    list_x_labels_predictor_title.append(['number_of_diags'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # number diagnoses with ccl > ß
-    data['number_of_diags_ccl_greater_0'] = data['diagnosesExtendedInfo'].apply(__extract_number_of_ccl_greater_null)
-    list_X.append(data['number_of_diags_ccl_greater_0'].values.reshape(-1,1))
-    list_X_labels.append(['number_of_diags_ccl_greater_0'])
-    list_x_labels_predictor_title.append(['number_of_diags_ccl_greater_0'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # pccl
-    pccl_binary, pccl_label, _ = categorize_variable(data, 'pccl')
-    list_X.append(pccl_binary)
-    list_X_labels.append(pccl_label)
-    list_x_labels_predictor_title.append(['pccl'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # raw pccl
-    list_X.append(data['rawPccl'].values.reshape(-1,1))
-    list_X_labels.append(['raw_pccl'])
-    list_x_labels_predictor_title.append(['raw_pccl'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # duration of say
-    list_X.append(data['durationOfStay'].values.reshape(-1,1))
-    list_X_labels.append(['duration_of_stay'])
-    list_x_labels_predictor_title.append(['duration_of_stay'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # gender
-    gender_binary, gender_labels, _ = categorize_variable(data, 'gender')
-    list_X.append(gender_binary)
-    list_X_labels.append(gender_labels)
-    list_x_labels_predictor_title.append(['gender'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # leave days
-    list_X.append(data['leaveDays'].values.reshape(-1,1))
-    list_X_labels.append(['leave_days'])
-    list_x_labels_predictor_title.append(['leave_days'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # age flag
-    list_X.append(data['ageFlag'].values.reshape(-1,1))
-    list_X_labels.append(['age_flag'])
-    list_x_labels_predictor_title.append(['age_flag'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # age flag
-    list_X.append(data['admissionWeightFlag'].values.reshape(-1,1))
-    list_X_labels.append(['admission_weight_flag'])
-    list_x_labels_predictor_title.append(['admission_weight_flag'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # age flag
-    list_X.append(data['genderFlag'].values.reshape(-1,1))
-    list_X_labels.append(['gender_flag'])
-    list_x_labels_predictor_title.append(['gender_flag'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # age flag
-    list_X.append(data['grouperAdmissionCodeFlag'].values.reshape(-1,1))
-    list_X_labels.append(['grouper_admission_code_flag'])
-    list_x_labels_predictor_title.append(['grouper_admission_code_flag'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # age flag
-    list_X.append(data['grouperDischargeCodeFlag'].values.reshape(-1,1))
-    list_X_labels.append(['grouper_discharge_code_flag'])
-    list_x_labels_predictor_title.append(['grouper_discharge_code_flag'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # age flag
-    list_X.append(data['durationOfStayFlag'].values.reshape(-1,1))
-    list_X_labels.append(['duration_of_stay_flag'])
-    list_x_labels_predictor_title.append(['duration_of_stay_flag'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # age flag
-    list_X.append(data['hoursMechanicalVentilationFlag'].values.reshape(-1,1))
-    list_X_labels.append(['hours_mechanical_ventilation_flag'])
-    list_x_labels_predictor_title.append(['hours_mechanical_ventilation_flag'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # age flag
-    list_X.append(data['gestationAgeFlag'].values.reshape(-1,1))
-    list_X_labels.append(['gestation_age_Flag'])
-    list_x_labels_predictor_title.append(['gestation_age_Flag'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # duration of stay case type
-    duration_of_stay_case_type_binary, duration_of_stay_case_type_label, _ = categorize_variable(data, 'durationOfStayCaseType')
-    list_X.append(duration_of_stay_case_type_binary)
-    list_X_labels.append(duration_of_stay_case_type_label)
-    list_x_labels_predictor_title.append(['duration_of_stay_case_type'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # grouper status
-    grouper_status_binary, grouper_status_label, _ = categorize_variable(data, 'grouperStatus')
-    list_X.append(grouper_status_binary)
-    list_X_labels.append(grouper_status_label)
-    list_x_labels_predictor_title.append(['grouper_status'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # adrg
-    data['adrg'] = data['drg'].apply(lambda x: x[:3])
-    adrg_binary, adrg_labels, _ = categorize_variable(data, 'adrg')
-    list_X.append(adrg_binary)
-    list_X_labels.append(adrg_labels)
-    list_x_labels_predictor_title.append(['adrg'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # supplement charges
-    list_X.append(data['supplementCharges'].values.reshape(-1,1))
-    list_X_labels.append(['supplement_charges'])
-    list_x_labels_predictor_title.append(['supplement_charges'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # Aufenthalt Nach Austritt
-    stay_after_discharge_binary, stay_after_discharge_label, _ = categorize_variable(data, 'AufenthaltNachAustritt')
-    list_X.append(stay_after_discharge_binary)
-    list_X_labels.append(stay_after_discharge_label)
-    list_x_labels_predictor_title.append(['stay_after_discharge'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # Aufenthalts Klasse
-    stay_class_binary, stay_class_label, _ = categorize_variable(data, 'AufenthaltsKlasse')
-    list_X.append(stay_class_binary)
-    list_X_labels.append(stay_class_label)
-    list_x_labels_predictor_title.append(['stay_class'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # Aufenthaltsort Vor Dem Eintritt
-    place_before_admission_binary, place_before_admission_label, _ = categorize_variable(data, 'AufenthaltsortVorDemEintritt')
-    list_X.append(place_before_admission_binary)
-    list_X_labels.append(place_before_admission_label)
-    list_x_labels_predictor_title.append(['place_before_admission'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # Behandlung Nach Austritt
-    treatment_after_discharge_binary, treatment_after_discharge_label, _ = categorize_variable(data, 'BehandlungNachAustritt')
-    list_X.append(treatment_after_discharge_binary)
-    list_X_labels.append(treatment_after_discharge_label)
-    list_x_labels_predictor_title.append(['treatment_after_discharge'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # Eintrittsart
-    type_of_admission_binary, type_of_admission_label, _ = categorize_variable(data, 'Eintrittsart')
-    list_X.append(type_of_admission_binary)
-    list_X_labels.append(type_of_admission_label)
-    list_x_labels_predictor_title.append(['type_of_admission'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # Einweisende Instanz
-    instructing_instance_binary, instructing_instance_label, _ = categorize_variable(data, 'EinweisendeInstanz')
-    list_X.append(instructing_instance_binary)
-    list_X_labels.append(instructing_instance_label)
-    list_x_labels_predictor_title.append(['instructing_instance'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # Entscheid Fuer Austritt
-    discharge_reason_binary, discharge_reason_label, _ = categorize_variable(data, 'EntscheidFuerAustritt')
-    list_X.append(discharge_reason_binary)
-    list_X_labels.append(discharge_reason_label)
-    list_x_labels_predictor_title.append(['discharge_reason'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    # Hauptkostentraeger Fuer Grundversicherungsleistungen
-    main_cost_unit_insurance_binary, main_cost_unit_insurance_label, _ = categorize_variable(data, 'HauptkostentraegerFuerGrundversicherungsleistungen')
-    list_X.append(main_cost_unit_insurance_binary)
-    list_X_labels.append(main_cost_unit_insurance_label)
-    list_x_labels_predictor_title.append(['main_cost_unit_insurance'])
-    logger.info(f'Extracted {list_x_labels_predictor_title[-1]}')
-
-    return list_X, list_X_labels, list_x_labels_predictor_title
 
 def __int_to_bool(row):
     if isinstance(row, int):
@@ -431,33 +223,6 @@ def __extract_number_of_ccl_greater_null(row: dict):
             num_ccl_greater_null += 1
     return num_ccl_greater_null
 
-
-def categorize_variable(data: pd.DataFrame, variable: str, encoder: object = None) -> (npt.ArrayLike, list, object):
-    """ Categorize a variable in the DataFrame while training the encoder or using a given encoder.
-
-    @param data: The DataFrame containing the variable which should be categorized.
-    @param variable: The variable name which should be categorized.
-    @param encoder: If given, the encoder is used to categorize.
-    @return: (the categorized variable, the list of class labels, the encoder)
-    """
-    assert variable in data.columns, "Variable not contained in the given DataFrame."
-    logger.info(f'Start categorizing variable {variable}.')
-    input_is_set = isinstance(data[variable].values[0], set)
-    if encoder is None:
-        logger.info(f'Fitting a new encoder for variable {variable}.')
-        if input_is_set:
-            sorted_classes = None
-            encoder = MultiLabelBinarizer(classes=sorted_classes).fit(data[variable].values.tolist())
-        else:
-            sorted_classes = np.sort(data[variable].unique())
-            encoder = MultiLabelBinarizer(classes=sorted_classes).fit(data[variable].values.reshape((-1,1)))
-
-    if input_is_set:
-        encoded_variable = encoder.transform(data[variable].values.tolist())
-    else:
-        encoded_variable = encoder.transform(data[variable].values.reshape((-1, 1)))
-    logger.info(f'Categorized variable {variable}. Shape of encoded variable is {encoded_variable.shape}')
-    return encoded_variable, [f'{variable}_{x}' for x in encoder.classes_], encoder
 
 
 def categorize_age(ages_years: npt.ArrayLike, ages_days: npt.ArrayLike):
@@ -499,6 +264,9 @@ def categorize_age(ages_years: npt.ArrayLike, ages_days: npt.ArrayLike):
     return categories_age, agebins_labels
 
 
-def all_subsets(ss):
+def list_all_subsets(ss):
     return chain(*map(lambda x: combinations(ss, x), range(0, len(ss)+1)))
 
+
+def __get_full_feature_name(feature_filename: str) -> str:
+    return os.path.splitext(os.path.basename(feature_filename))[0]

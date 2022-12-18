@@ -20,7 +20,7 @@ ENV AWS_REGION=$AWS_REGION
 
 # -----------------------------------------------------------------------------
 # The grouper version is hard-coded here, so that it can be versioned with git
-ENV AIMEDIC_GROUPER_VERSION=2.0.0_rc4
+ENV AIMEDIC_GROUPER_VERSION=2.0.0_rc24
 # -----------------------------------------------------------------------------
 
 RUN apt-get update -y
