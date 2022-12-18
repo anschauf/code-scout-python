@@ -1,19 +1,15 @@
 import os
 import shutil
-import subprocess
 from pathlib import Path
 
 import awswrangler.s3 as wr
-import pandas as pd
 # noinspection PyPackageRequirements
 from decouple import config
 from loguru import logger
 
 from src import ROOT_DIR
 # noinspection PyProtectedMember
-from src.service.aimedic_grouper import _escape_ansi
-
-JAR_FILE_PATH = f'{ROOT_DIR}/resources/jars/aimedic-grouper-assembly.jar'
+from src.service.aimedic_grouper import AIMEDIC_GROUPER
 
 
 def read_all_bfs_files(*,
@@ -53,19 +49,7 @@ def read_all_bfs_files(*,
 
     for idx, bfs_filename in enumerate(bfs_filenames):
         logger.info(f"{idx + 1}/{num_files}: Reading '{bfs_filename}' ...")
-
-        # Parse the file
-        raw_output = subprocess.check_output([
-            'java', '-cp', JAR_FILE_PATH, 'ch.aimedic.grouper.apps.AimedicGrouperApp',
-            'bfs-file', '--input', bfs_filename,
-            '--all-vars'
-        ], env=env_vars)
-
-        # Read the data from the JSON format into a DataFrame
-        output = _escape_ansi(raw_output.decode('UTF-8'))
-        lines = output.split('\n')
-        output_lines = [line for line in lines if line.startswith('{"')]
-        df = pd.read_json('\n'.join(output_lines), orient='records', typ='frame', lines=True)
+        df = AIMEDIC_GROUPER.run_bfs_file_parser(bfs_filename)
 
         # Append the name of the hospital
         filename = os.path.basename(bfs_filename)

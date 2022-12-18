@@ -13,7 +13,7 @@ from src.service.bfs_cases_db_service import get_duration_of_stay_df
 from src.service.database import Database
 from src.utils.general_utils import __remove_prefix_and_bucket_if_exists
 from src.utils.global_configs import *
-from src.utils.group import group
+from src.utils.group import group_revised_cases_for_db
 from src.utils.normalize import normalize
 from src.utils.revise import revise
 from src.utils.revised_case_files_info import DIR_REVISED_CASES, FileInfo, FILES_FALL_NUMMER, FILES_FID, \
@@ -89,7 +89,7 @@ def load_and_apply_revisions(*,
         sociodemo_id = revised_cases[SOCIODEMOGRAPHIC_ID_COL].values.tolist()
         sociodemo_id_revision_date = dict(zip(sociodemo_id, revision_date))
 
-        revisions_update, diagnoses_update, procedures_update = group(revised_cases)
+        revisions_update, diagnoses_update, procedures_update = group_revised_cases_for_db(revised_cases)
 
         # get the original revision date after group the cases
         revisions_update[REVISION_DATE_COL] = revisions_update[SOCIODEMOGRAPHIC_ID_COL].astype(int).map(
