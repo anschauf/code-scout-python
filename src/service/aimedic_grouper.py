@@ -38,10 +38,13 @@ class AimedicGrouper:
 
         self._ansi_escape = re.compile(r'(?:\x9B|\x1B\[)[0-?]*[ -/]*[@-~]')
 
-    def _run_java_grouper_and_collect_output(self, mode: str, input: list[str]) -> pd.DataFrame:
+    def _run_java_grouper_and_collect_output(self, mode: str, grouper_input: str | list[str]) -> pd.DataFrame:
+        if isinstance(grouper_input, list):
+            grouper_input = ','.join(grouper_input)
+
         raw_output = subprocess.check_output([
             'java', '-cp', self.jar_file_path, 'ch.aimedic.grouper.apps.AimedicGrouperApp',
-            mode, '--input', ','.join(input),
+            mode, '--input', grouper_input,
             '--all-vars'
         ], env=self.env_vars)
 
@@ -53,14 +56,14 @@ class AimedicGrouper:
         return df
 
     @beartype
-    def run_batch_grouper(self, cases: list[str]) -> pd.DataFrame:
+    def run_batch_grouper(self, cases: str | list[str]) -> pd.DataFrame:
         if len(cases) == 0:
             raise ValueError('You must pass some cases to group')
 
         return self._run_java_grouper_and_collect_output('batch-grouper-string', cases)
 
     @beartype
-    def run_bfs_file_parser(self, bfs_filenames: list[str]) -> pd.DataFrame:
+    def run_bfs_file_parser(self, bfs_filenames: str | list[str]) -> pd.DataFrame:
         if len(bfs_filenames) == 0:
             raise ValueError('You must pass some BfS files to parse')
 

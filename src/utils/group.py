@@ -145,7 +145,7 @@ def group_revised_cases_for_db(revised_cases: pd.DataFrame) -> tuple[pd.DataFram
         row['ccl'] = [info[code]['ccl'] for code in codes]
         row['is_primary'] = [info[code]['is_primary'] for code in codes]
         row['is_grouper_relevant'] = [code in drg_relevant_diagnoses for code in codes]
-        row['global_functions'] = [tuple(info[code]['globalFunctions']) for code in codes]
+        row['global_functions'] = [tuple(info[code]['global_functions']) for code in codes]
 
         return row
 
@@ -172,9 +172,9 @@ def group_revised_cases_for_db(revised_cases: pd.DataFrame) -> tuple[pd.DataFram
         row['date'] = [info[code]['date'] for code in codes]
         row['is_grouper_relevant'] = [code in drg_relevant_procedures for code in codes]
         row['is_primary'] = [info[code]['is_primary'] for code in codes]
-        row['global_functions'] = [tuple(info[code]['globalFunctions']) for code in codes]
-        row['supplement_charge'] = [info[code]['supplementCharges'] for code in codes]
-        row['supplement_charge_ppu'] = [info[code]['supplementChargesPPU'] for code in codes]
+        row['global_functions'] = [tuple(info[code]['global_functions']) for code in codes]
+        row['supplement_charge'] = [info[code]['supplement_charge'] for code in codes]
+        row['supplement_charge_ppu'] = [info[code]['supplement_charge_ppu'] for code in codes]
 
         return row
 

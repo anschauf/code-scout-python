@@ -8,7 +8,6 @@ from decouple import config
 from loguru import logger
 
 from src import ROOT_DIR
-# noinspection PyProtectedMember
 from src.service.aimedic_grouper import AIMEDIC_GROUPER
 
 
