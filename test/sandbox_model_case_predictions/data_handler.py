@@ -89,7 +89,7 @@ def load_data(dir_data = join(ROOT_DIR, 'resources', 'data'), *, only_2_rows: bo
             all_dfs.append(pd.read_json(path_or_buf=join(dir_data, file), lines=True, dtype=DTYPES))
 
         logger.info(f'Concatenating {len(all_dfs)} DataFrames ...')
-        all_data = pd.concat(all_dfs, ignore_index=True, copy=False)
+        all_data = pd.concat(all_dfs, ignore_index=True)
         logger.success(f'Loaded {all_data.shape[0]} rows')
 
     return __preprocess_data(all_data)

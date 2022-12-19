@@ -1,6 +1,5 @@
 import os.path
 import pickle
-from datetime import datetime
 from itertools import chain, combinations
 from typing import Optional
 
@@ -198,16 +197,16 @@ def get_list_of_all_predictors(data: pd.DataFrame, feature_folder: str, *, overw
     store_engineered_feature('has_ventilation_hours_AND_in_pre_mdc', has_ventilation_hours * is_drg_in_pre_mdc)
 
     # Medication information
-    data['medications_atc'] = data['medications'].apply(lambda all_meds: tuple([x.split(':')[0] for x in all_meds]))
+    # data['medications_atc'] = data['medications'].apply(lambda all_meds: tuple([x.split(':')[0] for x in all_meds]))
     # REF: https://www.wido.de/publikationen-produkte/arzneimittel-klassifikation/
     data['medications_atc3'] = data['medications'].apply(lambda all_meds: tuple([x.split(':')[0][:3] for x in all_meds]))
     data['medications_kind'] = data['medications'].apply(lambda all_meds: tuple([x.split(':')[2] for x in all_meds]))
-    one_hot_encode('medications_atc', is_data_uniform=False)
+    # one_hot_encode('medications_atc', is_data_uniform=False)
     one_hot_encode('medications_atc3', is_data_uniform=False)
     one_hot_encode('medications_kind', is_data_uniform=False)
 
-    data['adrg'] = data['drg'].apply(lambda x: x[:3])
-    one_hot_encode('adrg')
+    # data['adrg'] = data['drg'].apply(lambda x: x[:3])
+    # one_hot_encode('adrg')
 
     # age bins of patient
     age_bin, age_bin_label = categorize_age(data['ageYears'].values, data['ageDays'].values)
@@ -218,16 +217,16 @@ def get_list_of_all_predictors(data: pd.DataFrame, feature_folder: str, *, overw
     # TODO not sure how to get the medication frequency
 
     # Noisy features, which are very unlikely to be correlated but they can be used to evaluate training performance
-    data['day_admission'] = data['entryDate'].apply(lambda date: datetime(int(date[:4]), int(date[4:6]), int(date[6:])).weekday())
-    data['day_discharge'] = data['exitDate'].apply(lambda date: datetime(int(date[:4]), int(date[4:6]), int(date[6:])).weekday())
+    # data['day_admission'] = data['entryDate'].apply(lambda date: datetime(int(date[:4]), int(date[4:6]), int(date[6:])).weekday())
+    # data['day_discharge'] = data['exitDate'].apply(lambda date: datetime(int(date[:4]), int(date[4:6]), int(date[6:])).weekday())
     data['month_admission'] = data['entryDate'].apply(lambda date: date[4:6])
     data['month_discharge'] = data['exitDate'].apply(lambda date: date[4:6])
     data['year_discharge'] = data['exitDate'].apply(lambda date: date[:4])
-    one_hot_encode('day_admission')
-    one_hot_encode('day_discharge')
+    # one_hot_encode('day_admission')
+    # one_hot_encode('day_discharge')
     one_hot_encode('month_admission')
     one_hot_encode('month_discharge')
-    one_hot_encode('year_discharge')
+    # one_hot_encode('year_discharge')
 
     # Calculate and store the CCL-sensitivity of the cases
     data = calculate_delta_pccl(data, delta_value_for_max=10.0)

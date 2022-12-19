@@ -20,8 +20,8 @@ from test.sandbox_model_case_predictions.data_handler import load_data
 from test.sandbox_model_case_predictions.utils import get_list_of_all_predictors, list_all_subsets
 
 RANDOM_SEED = 42
-OVERWRITE_REVISED_CASE_IDs = True
-OVERWRITE_FEATURE_FILES = True
+OVERWRITE_REVISED_CASE_IDs = False
+OVERWRITE_FEATURE_FILES = False
 
 
 dir_output = join(ROOT_DIR, 'results', 'logistic_regression_predictors_screen')
@@ -55,7 +55,8 @@ if OVERWRITE_REVISED_CASE_IDs or not os.path.exists(revised_case_ids_filename):
     logger.info(f'There are {revised_case_ids.shape[0]} revised cases in the DB')
 
     revised_cases_in_data = pd.merge(
-        revised_case_ids, all_data, how='outer',
+        revised_case_ids, all_data[['id', 'AnonymerVerbindungskode', 'ageYears', 'hospital']].copy(),
+        how='outer',
         left_on=('case_id', 'patient_id', 'age_years'), right_on=('id', 'AnonymerVerbindungskode', 'ageYears'),
     )
 
@@ -140,19 +141,20 @@ for ind_features in list_all_subsets(range(n_features)):
     X_train = X[ind_X_train, :]
     X_test = X[ind_X_test, :]
 
-    # train model
-    model = LogisticRegression(penalty='l1', class_weight='balanced', solver='liblinear', random_state=RANDOM_SEED)
-    model = model.fit(X_train, y_train)
-
-    # predict on train and test
-    predictions_train = model.predict_proba(X_train)[:, 1]
-    predictions_train_binary = (predictions_train > 0.5).astype(int)
-
-    predictions_test = model.predict_proba(X_test)[:, 1]
-    predictions_test_binary = (predictions_test > 0.5).astype(int)
-
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
+        warnings.simplefilter('ignore')
+
+        # train model
+        # model = LogisticRegression(penalty='l1', class_weight='balanced', solver='liblinear', random_state=RANDOM_SEED, n_jobs=-1)
+        model = LogisticRegression(class_weight='balanced', random_state=RANDOM_SEED, n_jobs=-1)
+        model = model.fit(X_train, y_train)
+
+        # predict on train and test
+        predictions_train = model.predict_proba(X_train)[:, 1]
+        predictions_train_binary = (predictions_train > 0.5).astype(int)
+
+        predictions_test = model.predict_proba(X_test)[:, 1]
+        predictions_test_binary = (predictions_test > 0.5).astype(int)
 
         # compute evaluation metrics
         list_f1_measure_train.append(f1_score(y_train, predictions_train_binary))
@@ -164,7 +166,7 @@ for ind_features in list_all_subsets(range(n_features)):
         precision_test = precision_score(y_test, predictions_test_binary)
         recall_test = recall_score(y_test, predictions_test_binary)
         accuracy_test = accuracy_score(y_test, predictions_test_binary)
-        logger.debug(f'{f1_test=:.3f}, {precision_test=:.3f}, {recall_test=:.3f}, {accuracy_test=:.3f}')
+        logger.debug(f'{f1_test=:.6f}, {precision_test=:.6f}, {recall_test=:.6f}, {accuracy_test=:.6f}')
 
         list_f1_measure_test.append(f1_test)
         list_precision_test.append(precision_test)
