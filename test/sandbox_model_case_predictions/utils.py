@@ -65,6 +65,9 @@ def get_list_of_all_predictors(data: pd.DataFrame, feature_folder: str, *, overw
         encoder_filename = f'{os.path.splitext(feature_filename)[0]}_encoder.pkl'
 
         if overwrite or not os.path.exists(feature_filename) or not os.path.exists(encoder_filename):
+            if feature.ndim == 1:
+                feature = feature.reshape(-1, 1)
+
             np.save(feature_filename, feature.astype(FEATURE_TYPE), allow_pickle=False, fix_imports=False)
 
             with open(encoder_filename, 'wb') as f:
@@ -94,6 +97,7 @@ def get_list_of_all_predictors(data: pd.DataFrame, feature_folder: str, *, overw
 
             store_engineered_feature_and_sklearn_encoder(standard_name, feature_values, encoder, feature_filename)
 
+
     @beartype
     def one_hot_encode(colum_name: str, *, is_data_uniform: bool = True):
         standard_name = decamelize(colum_name)
@@ -112,6 +116,10 @@ def get_list_of_all_predictors(data: pd.DataFrame, feature_folder: str, *, overw
             store_engineered_feature_and_sklearn_encoder(standard_name, feature_values, encoder, feature_filename)
 
         else:
+            encoder_filename = f'{os.path.splitext(feature_filename)[0]}_encoder.pkl'
+            with open(encoder_filename, 'rb') as f:
+                encoders[__get_full_feature_name(feature_filename)] = pickle.load(f)
+
             logger.debug(f"Ignoring existing feature '{standard_name}'")
 
 

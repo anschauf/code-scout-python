@@ -39,7 +39,7 @@ DTYPES = {
     'drg': 'string',
     'mdc': 'string',
     'mdcPartition': 'string',
-    'pccl': 'string',
+    'pccl': int,
     'rawPccl': float,
     'diagnosesForPccl': object,
     'drgRelevantDiagnoses': object,
@@ -76,14 +76,22 @@ DTYPES = {
 }
 
 
-def load_data(dir_data = join(ROOT_DIR, 'resources', 'data')):
-    all_files = [x for x in listdir(dir_data) if x.endswith('.json')][:2]
-    all_dfs = list()
-    for idx, file in enumerate(all_files):
-        logger.info(f'{(idx+1)}/{len(all_files)}: Reading {file}')
-        all_dfs.append(pd.read_json(path_or_buf=join(dir_data, file), lines=True, dtype=DTYPES))
+def load_data(dir_data = join(ROOT_DIR, 'resources', 'data'), *, only_2_rows: bool = False):
+    all_files = [x for x in listdir(dir_data) if x.endswith('.json')]
 
-    all_data = pd.concat(all_dfs, ignore_index=True)
+    if only_2_rows:
+        all_data = pd.read_json(path_or_buf=join(dir_data, all_files[0]), lines=True, dtype=DTYPES).loc[:1]
+
+    else:
+        all_dfs = list()
+        for idx, file in enumerate(all_files):
+            logger.info(f'{(idx+1)}/{len(all_files)}: Reading {file}')
+            all_dfs.append(pd.read_json(path_or_buf=join(dir_data, file), lines=True, dtype=DTYPES))
+
+        logger.info(f'Concatenating {len(all_dfs)} DataFrames ...')
+        all_data = pd.concat(all_dfs, ignore_index=True, copy=False)
+        logger.success(f'Loaded {all_data.shape[0]} rows')
+
     return __preprocess_data(all_data)
 
 
