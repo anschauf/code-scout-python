@@ -13,6 +13,8 @@ from loguru import logger
 from pandas.api.types import is_numeric_dtype
 from sklearn.preprocessing import MultiLabelBinarizer, OneHotEncoder, OrdinalEncoder
 
+from src.apps.feature_engineering.ccl_sensitivity import calculate_delta_pccl
+
 FEATURE_TYPE = np.float32
 
 ONE_HOT_ENCODED_FEATURE_SUFFIX = 'OHE'
@@ -136,13 +138,16 @@ def get_list_of_all_predictors(data: pd.DataFrame, feature_folder: str, *, overw
     for col_name in ('gender', 'Hauptkostenstelle', 'mdc', 'mdcPartition', 'durationOfStayCaseType',
                      'AufenthaltNachAustritt', 'AufenthaltsKlasse', 'Eintrittsart', 'EntscheidFuerAustritt',
                      'AufenthaltsortVorDemEintritt', 'BehandlungNachAustritt', 'EinweisendeInstanz',
-                     'EntscheidFuerAustritt', 'HauptkostentraegerFuerGrundversicherungsleistungen', ):
+                     'EntscheidFuerAustritt', 'HauptkostentraegerFuerGrundversicherungsleistungen',
+                     'grouperDischargeCode', 'grouperAdmissionCode'):
         one_hot_encode(col_name)
 
     # The following features are booleans
     for col_name in ('AufenthaltIntensivstation', 'NEMSTotalAllerSchichten', 'ErfassungDerAufwandpunkteFuerIMC'):
         has_value = data[col_name].apply(__int_to_bool).values
         store_engineered_feature(decamelize(col_name), has_value)
+
+    store_engineered_feature(decamelize('IsCaseBelowPcclSplit'), data['IsCaseBelowPcclSplit'].values)
 
     # Get the "used" status from the flag columns
     for col_name in ('ageFlag', 'genderFlag', 'durationOfStayFlag', 'grouperAdmissionCodeFlag', 'grouperDischargeCodeFlag', 'hoursMechanicalVentilationFlag', 'gestationAgeFlag'):
@@ -166,6 +171,18 @@ def get_list_of_all_predictors(data: pd.DataFrame, feature_folder: str, *, overw
     data['number_of_diags_ccl_greater_0'] = data['diagnosesExtendedInfo'].apply(__extract_number_of_ccl_greater_null)
     store_raw_feature('number_of_diags_ccl_greater_0')
 
+    def _has_complex_procedure(row):
+        codes_info = row['proceduresExtendedInfo']
+        all_global_functions = set()
+        for code_info in codes_info.values():
+            all_global_functions.update(code_info['global_functions'])
+
+        complex_procedures = [name for name in all_global_functions if 'kompl' in name.lower()]
+        return len(complex_procedures) > 0
+
+    has_complex_procedure = data.apply(_has_complex_procedure, axis=1).values
+    store_engineered_feature('has_complex_procedure', has_complex_procedure)
+
     # Ventilation hours and interactions with it
     has_ventilation_hours = data['hoursMechanicalVentilation'].apply(__int_to_bool).values.astype(FEATURE_TYPE)
     store_engineered_feature('has_ventilation_hours', has_ventilation_hours)
@@ -174,8 +191,11 @@ def get_list_of_all_predictors(data: pd.DataFrame, feature_folder: str, *, overw
 
     # Medication information
     data['medications_atc'] = data['medications'].apply(lambda all_meds: tuple([x.split(':')[0] for x in all_meds]))
+    # REF: https://www.wido.de/publikationen-produkte/arzneimittel-klassifikation/
+    data['medications_atc3'] = data['medications'].apply(lambda all_meds: tuple([x.split(':')[0][:3] for x in all_meds]))
     data['medications_kind'] = data['medications'].apply(lambda all_meds: tuple([x.split(':')[2] for x in all_meds]))
     one_hot_encode('medications_atc', is_data_uniform=False)
+    one_hot_encode('medications_atc3', is_data_uniform=False)
     one_hot_encode('medications_kind', is_data_uniform=False)
 
     data['adrg'] = data['drg'].apply(lambda x: x[:3])
@@ -185,14 +205,9 @@ def get_list_of_all_predictors(data: pd.DataFrame, feature_folder: str, *, overw
     age_bin, age_bin_label = categorize_age(data['ageYears'].values, data['ageDays'].values)
     store_engineered_feature('binned_age', age_bin)
 
-    # TODO Ventilation hours bins: left out, because not much data for ventilation hours
-    # TODO Does ADRG has PCCL-split boolean
-    # TODO CCL sensitivity
-    # TODO think about reducing ATC codes by for example just taking first 3 letters
-    #  e.g. see here: https://www.wido.de/publikationen-produkte/arzneimittel-klassifikation/
+    # TODO Ventilation hour bins: left out, because not much data for ventilation hours
     # TODO difficult to compare medication rate with different units
     # TODO not sure how to get the medication frequency
-    # TODO has complex procedure
 
     # Noisy features, which are very unlikely to be correlated but they can be used to evaluate training performance
     data['day_admission'] = data['entryDate'].apply(lambda date: datetime(int(date[:4]), int(date[4:6]), int(date[6:])).weekday())
@@ -205,6 +220,10 @@ def get_list_of_all_predictors(data: pd.DataFrame, feature_folder: str, *, overw
     one_hot_encode('month_admission')
     one_hot_encode('month_discharge')
     one_hot_encode('year_discharge')
+
+    # Calculate and store the CCL-sensitivity of the cases
+    data = calculate_delta_pccl(data, delta_value_for_max=10.0)
+    store_raw_feature('delta_ccl_to_next_pccl_col')
 
     return features_filenames, encoders
 

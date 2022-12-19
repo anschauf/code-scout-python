@@ -77,7 +77,7 @@ DTYPES = {
 
 
 def load_data(dir_data = join(ROOT_DIR, 'resources', 'data')):
-    all_files = [x for x in listdir(dir_data) if x.endswith('.json')]
+    all_files = [x for x in listdir(dir_data) if x.endswith('.json')][:2]
     all_dfs = list()
     for idx, file in enumerate(all_files):
         logger.info(f'{(idx+1)}/{len(all_files)}: Reading {file}')

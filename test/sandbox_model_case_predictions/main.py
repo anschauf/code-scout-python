@@ -15,19 +15,19 @@ from test.sandbox_model_case_predictions.data_handler import load_data
 from test.sandbox_model_case_predictions.utils import get_list_of_all_predictors, list_all_subsets
 
 RANDOM_SEED = 42
-OVERWRITE_FEATURE_FILES = True
+OVERWRITE_FEATURE_FILES = False
 
 
 dir_output = join(ROOT_DIR, 'results', 'logistic_regression_predictors_screen')
 if not exists(dir_output):
     makedirs(dir_output)
 
-all_data = load_data()
-
 features_dir = join(ROOT_DIR, 'resources', 'features')
 if OVERWRITE_FEATURE_FILES:
     shutil.rmtree(features_dir, ignore_errors=True)
 Path(features_dir).mkdir(parents=True, exist_ok=True)
+
+all_data = load_data()
 
 feature_filenames, encoders = get_list_of_all_predictors(all_data, features_dir, overwrite=OVERWRITE_FEATURE_FILES)
 
@@ -35,7 +35,8 @@ feature_names = sorted(list(feature_filenames.keys()))
 n_features = len(feature_names)
 logger.info(f'Created {n_features} features')
 
-y = np.random.randint(0, 2, size=(all_data.shape[0], )) #TODO define correct labels from DB
+
+y = np.random.randint(0, 2, size=(all_data.shape[0], )) # TODO define correct labels from DB
 n_samples = y.shape[0]
 ind_X_train, ind_X_test, y_train, y_test = train_test_split(range(n_samples), y, stratify=y, test_size=0.3, random_state=RANDOM_SEED)
 
