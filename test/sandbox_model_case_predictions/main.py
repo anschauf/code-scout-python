@@ -8,10 +8,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from loguru import logger
-from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MultiLabelBinarizer
+from sklearn.preprocessing import MultiLabelBinarizer, StandardScaler
 
 from src import ROOT_DIR
 from src.service.bfs_cases_db_service import get_all_revised_cases, get_sociodemographics_by_sociodemographics_ids
@@ -50,14 +50,17 @@ if OVERWRITE_REVISED_CASE_IDs or not os.path.exists(revised_case_ids_filename):
         revised_case_sociodemographic_ids = revised_cases_all['sociodemographic_id'].values.tolist()
         sociodemographics_revised_cases = get_sociodemographics_by_sociodemographics_ids(revised_case_sociodemographic_ids, db.session)
 
-    revised_case_ids = sociodemographics_revised_cases[['case_id', 'patient_id', 'age_years']].copy()
-    revised_case_ids['revised'] = 1
-    logger.info(f'There are {revised_case_ids.shape[0]} revised cases in the DB')
+    revised_cases = sociodemographics_revised_cases[['case_id', 'age_years', 'gender', 'duration_of_stay']].copy()
+    revised_cases['revised'] = 1
+    logger.info(f'There are {revised_cases.shape[0]} revised cases in the DB')
+
+    revised_cases['case_id'] = revised_cases['case_id'].str.lstrip('0')
+    all_data['id'] = all_data['id'].str.lstrip('0')
 
     revised_cases_in_data = pd.merge(
-        revised_case_ids, all_data[['id', 'AnonymerVerbindungskode', 'ageYears', 'hospital']].copy(),
+        revised_cases, all_data[['id', 'AnonymerVerbindungskode', 'ageYears', 'gender', 'durationOfStay', 'hospital']].copy(),
         how='outer',
-        left_on=('case_id', 'patient_id', 'age_years'), right_on=('id', 'AnonymerVerbindungskode', 'ageYears'),
+        left_on=('case_id', 'age_years', 'gender', 'duration_of_stay'), right_on=('id', 'ageYears', 'gender', 'durationOfStay'),
     )
 
     # Discard the cases which were revised (according to the DB), but are not present in the data we loaded
@@ -101,7 +104,7 @@ list_precision_test = list()
 list_recall_test = list()
 list_accuracy_test = list()
 
-for ind_features in list_all_subsets(range(n_features)):
+for ind_features in list_all_subsets(range(n_features), reverse=True):
     n_features_in_subset = len(ind_features)
     if n_features_in_subset < 1:
         continue
@@ -144,9 +147,22 @@ for ind_features in list_all_subsets(range(n_features)):
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
 
+        normalizer = StandardScaler()
+        X_train = normalizer.fit_transform(X_train)
+        X_test = normalizer.transform(X_test)
+
         # train model
         # model = LogisticRegression(penalty='l1', class_weight='balanced', solver='liblinear', random_state=RANDOM_SEED, n_jobs=-1)
-        model = LogisticRegression(class_weight='balanced', random_state=RANDOM_SEED, n_jobs=-1)
+        # model = LogisticRegression(class_weight='balanced', random_state=RANDOM_SEED, n_jobs=-1)
+
+        model = RandomForestClassifier(
+            n_estimators=1000,
+            criterion='entropy',
+            n_jobs=-1,
+            random_state=RANDOM_SEED,
+            class_weight='balanced'
+        )
+
         model = model.fit(X_train, y_train)
 
         # predict on train and test
@@ -166,7 +182,7 @@ for ind_features in list_all_subsets(range(n_features)):
         precision_test = precision_score(y_test, predictions_test_binary)
         recall_test = recall_score(y_test, predictions_test_binary)
         accuracy_test = accuracy_score(y_test, predictions_test_binary)
-        logger.debug(f'{f1_test=:.6f}, {precision_test=:.6f}, {recall_test=:.6f}, {accuracy_test=:.6f}')
+        logger.debug(f'{f1_test=:.6f}, {precision_test=:.6f}, {recall_test=:.6f}')
 
         list_f1_measure_test.append(f1_test)
         list_precision_test.append(precision_test)
@@ -176,14 +192,16 @@ for ind_features in list_all_subsets(range(n_features)):
     # Write results to a file at the end of each iteration
     results = pd.DataFrame({
         'model_description': list_model_description,
-        'f1_train': list_f1_measure_train,
-        'precision_train': list_precision_train,
-        'recall_train': list_recall_train,
-        'accuracy_train': list_accuracy_train,
-        'f1_test': list_f1_measure_test,
         'precision_test': list_precision_test,
         'recall_test': list_recall_test,
-        'accuracy_test': list_accuracy_test
-    }).sort_values('f1_test', ascending=False)
+        'f1_test': list_f1_measure_test,
+        'accuracy_test': list_accuracy_test,
+        'precision_train': list_precision_train,
+        'recall_train': list_recall_train,
+        'f1_train': list_f1_measure_train,
+        'accuracy_train': list_accuracy_train,
+    }) \
+        .sort_values(by=['precision_test', 'f1_test', 'model_description'], ascending=[False, False, True]) \
+        .reset_index()
 
-    results.to_csv(join(dir_output, 'predictors_screen.csv'), index=False)
+    results.to_csv(join(dir_output, 'predictors_screen.csv'))

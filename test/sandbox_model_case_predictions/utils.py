@@ -290,8 +290,13 @@ def categorize_age(ages_years: npt.ArrayLike, ages_days: npt.ArrayLike):
     return categories_age, agebins_labels
 
 
-def list_all_subsets(ss):
-    return chain(*map(lambda x: combinations(ss, x), range(0, len(ss)+1)))
+def list_all_subsets(ss, *, reverse: bool = False):
+    if reverse:
+        index_range = range(len(ss) + 1, 0, -1)
+    else:
+        index_range = range(0, len(ss) + 1)
+
+    return chain(*map(lambda x: combinations(ss, x), index_range))
 
 
 def __get_full_feature_name(feature_filename: str) -> str:
