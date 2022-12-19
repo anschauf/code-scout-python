@@ -12,7 +12,7 @@ class Procedure(Base):
     __tablename__ = 'procedures'
 
     procedures_pk = Column('procedures_pk', Integer, primary_key=True, autoincrement=True)
-    sociodemographic_id = Column(SOCIODEMOGRAPHIC_ID_COL, Integer, ForeignKey(Sociodemographics.sociodemographics_pk), nullable=False)
+    sociodemographic_id = Column(SOCIODEMOGRAPHIC_ID_COL, Integer, ForeignKey(Sociodemographics.sociodemographic_id), nullable=False)
     revision_id = Column(REVISION_ID_COL, Integer, ForeignKey(Revision.revision_id), nullable=False)
 
     code = Column('code', VARCHAR(8), nullable=False)
