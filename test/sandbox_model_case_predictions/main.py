@@ -1,4 +1,5 @@
 import os
+import sys
 from os.path import join
 
 from loguru import logger
@@ -8,7 +9,7 @@ from test.sandbox_model_case_predictions.data_handler import load_data
 from test.sandbox_model_case_predictions.utils import get_list_of_all_predictors, get_revised_case_ids
 
 OVERWRITE_REVISED_CASE_IDs = False
-OVERWRITE_FEATURE_FILES = False
+OVERWRITE_FEATURE_FILES = True
 
 
 features_dir = join(ROOT_DIR, 'resources', 'features')
@@ -21,4 +22,6 @@ feature_filenames, encoders = get_list_of_all_predictors(all_data, features_dir,
 
 feature_names = sorted(list(feature_filenames.keys()))
 n_features = len(feature_names)
-logger.info(f'Created {n_features} features')
+logger.success(f'Created {n_features} features')
+
+sys.exit(0)
