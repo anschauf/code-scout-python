@@ -25,13 +25,13 @@ def calculate_delta_pccl(cases: pd.DataFrame, *, delta_value_for_max: float = 0.
 
         current_pccl = int(row['pccl'])
         if current_pccl == max_pccl:
-            row['delta_ccl_to_next_pccl_col'] = delta_value_for_max
+            row['delta_ccl_to_next_pccl'] = delta_value_for_max
 
         else:
             raw_pccl = row['rawPccl']
             target_pccl = current_pccl + 1
             target_raw_pccl = target_pccl - 0.49
-            row['delta_ccl_to_next_pccl_col'] = target_raw_pccl - raw_pccl
+            row['delta_ccl_to_next_pccl'] = target_raw_pccl - raw_pccl
 
         return row
 

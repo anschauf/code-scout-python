@@ -1,18 +1,24 @@
 import os.path
 import pickle
+import shutil
 from itertools import chain, combinations
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from beartype import beartype
+# noinspection PyPackageRequirements
 from humps import decamelize
 from loguru import logger
+# noinspection PyProtectedMember
 from pandas.api.types import is_numeric_dtype
 from sklearn.preprocessing import MultiLabelBinarizer, OneHotEncoder, OrdinalEncoder
 
 from src.apps.feature_engineering.ccl_sensitivity import calculate_delta_pccl
+from src.service.bfs_cases_db_service import get_all_revised_cases, get_sociodemographics_by_sociodemographics_ids
+from src.service.database import Database
 
 FEATURE_TYPE = np.float32
 
@@ -21,6 +27,10 @@ RAW_FEATURE_SUFFIX = 'RAW'
 
 
 def get_list_of_all_predictors(data: pd.DataFrame, feature_folder: str, *, overwrite: bool = True) -> (dict, dict):
+    if overwrite:
+        shutil.rmtree(feature_folder, ignore_errors=True)
+    Path(feature_folder).mkdir(parents=True, exist_ok=True)
+
     # Store a memory-mapped file for each feature
     features_filenames = dict()
     encoders = dict()
@@ -229,8 +239,10 @@ def get_list_of_all_predictors(data: pd.DataFrame, feature_folder: str, *, overw
     # one_hot_encode('year_discharge')
 
     # Calculate and store the CCL-sensitivity of the cases
-    data = calculate_delta_pccl(data, delta_value_for_max=10.0)
-    store_raw_feature('delta_ccl_to_next_pccl_col')
+    delta_ccl_to_next_pccl_feature_filename = __make_feature_filename(decamelize('delta_ccl_to_next_pccl'), RAW_FEATURE_SUFFIX)
+    if overwrite or not os.path.exists(delta_ccl_to_next_pccl_feature_filename):
+        data = calculate_delta_pccl(data, delta_value_for_max=10.0)
+        store_raw_feature('delta_ccl_to_next_pccl')
 
     return features_filenames, encoders
 
@@ -301,3 +313,51 @@ def list_all_subsets(ss, *, reverse: bool = False):
 
 def __get_full_feature_name(feature_filename: str) -> str:
     return os.path.splitext(os.path.basename(feature_filename))[0]
+
+
+@beartype
+def get_revised_case_ids(all_data: pd.DataFrame,
+                         revised_case_ids_filename: str,
+                         *,
+                         overwrite: bool = False
+                         ) -> pd.DataFrame:
+
+    if overwrite or not os.path.exists(revised_case_ids_filename):
+        with Database() as db:
+            revised_cases_all = get_all_revised_cases(db.session)
+            revised_case_sociodemographic_ids = revised_cases_all['sociodemographic_id'].values.tolist()
+            sociodemographics_revised_cases = get_sociodemographics_by_sociodemographics_ids(
+                revised_case_sociodemographic_ids, db.session)
+
+        revised_cases = sociodemographics_revised_cases[['case_id', 'age_years', 'gender', 'duration_of_stay']].copy()
+        revised_cases['revised'] = 1
+        logger.info(f'There are {revised_cases.shape[0]} revised cases in the DB')
+
+        revised_cases['case_id'] = revised_cases['case_id'].str.lstrip('0')
+        all_data['id'] = all_data['id'].str.lstrip('0')
+
+        revised_cases_in_data = pd.merge(
+                revised_cases,
+                all_data[['id', 'AnonymerVerbindungskode', 'ageYears', 'gender', 'durationOfStay', 'hospital']].copy(),
+                how='outer',
+                left_on=('case_id', 'age_years', 'gender', 'duration_of_stay'),
+                right_on=('id', 'ageYears', 'gender', 'durationOfStay'),
+        )
+
+        # Discard the cases which were revised (according to the DB), but are not present in the data we loaded
+        revised_cases_in_data = revised_cases_in_data[~revised_cases_in_data['id'].isna()].reset_index(drop=True)
+        # Create the "revised" label column, for modeling
+        revised_cases_in_data['is_revised'] = (~revised_cases_in_data['revised'].isna()).astype(int)
+        revised_cases_in_data = revised_cases_in_data[['id', 'hospital', 'is_revised']]
+
+        num_revised_cases_in_data = int(revised_cases_in_data["is_revised"].sum())
+        num_cases = revised_cases_in_data.shape[0]
+        logger.info(
+            f'{num_revised_cases_in_data}/{num_cases} ({float(num_revised_cases_in_data) / num_cases * 100:.1f}%) cases were revised')
+
+        revised_cases_in_data.to_csv(revised_case_ids_filename, index=False)
+
+    else:
+        revised_cases_in_data = pd.read_csv(revised_case_ids_filename)
+
+    return revised_cases_in_data
