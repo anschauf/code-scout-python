@@ -142,3 +142,5 @@ for ind_features in list_all_subsets(range(n_features), reverse=True):
         .reset_index()
 
     results.to_csv(join(dir_output, 'predictors_screen.csv'))
+
+logger.success('done')
