@@ -111,8 +111,8 @@ def get_all_revised_cases(session: Session) -> pd.DataFrame:
     @return: a dataframe with all revised cases from revision table
     """
     query_revised_case = (
-        session.query(Revision).
-        filter(Revision.revised.is_(True)))
+        session.query(Revision)
+        .filter(Revision.revised.is_(True)))
     df = pd.read_sql(query_revised_case.statement, session.bind)
 
     return df
@@ -477,8 +477,15 @@ def get_revised_case_with_codes_before_revision(session: Session) -> pd.DataFram
     revised_cases_before_revision.rename(columns={'old_pd': 'pd'}, inplace=True)
     return revised_cases_before_revision
 
+
 @beartype
-def update_reviewed_for_sociodemographic_ids(sociodemographics_ids: set[int], session:Session):
+def update_reviewed_for_sociodemographic_ids(sociodemographics_ids: set[int], session: Session):
+    """
+    Update the column reviewed as True in the revision table usng sociodemographic_ids
+    @param sociodemographics_ids: set of sociodemographic_id
+    @param session:
+    @return:
+    """
 
     updated_rows = (Revision.__table__
                     .update()
@@ -488,3 +495,20 @@ def update_reviewed_for_sociodemographic_ids(sociodemographics_ids: set[int], se
     session.execute(updated_rows)
     session.commit()
     logger.success(f"Succesfully updated {len(sociodemographics_ids)} rows in the 'Revision' table as reviewed: 'True'")
+
+
+@beartype
+def get_all_reviewed_cases(session: Session) -> pd.DataFrame:
+    """
+    Get all reviewed cases (i.e. reviewed; True, revised = False)
+    @param session:
+    @return: pandas dataframe
+    """
+
+    query_reviewed_case = (
+        session.query(Revision)
+        .filter(Revision.reviewed.is_(True))
+        .filter(Revision.revised.is_(False)))
+    df = pd.read_sql(query_reviewed_case.statement, session.bind)
+
+    return df

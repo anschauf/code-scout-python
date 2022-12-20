@@ -9,7 +9,8 @@ from src.models.hospital import Hospital
 from src.models.procedure import Procedure
 from src.models.revision import Revision
 from src.models.sociodemographics import Sociodemographics
-from src.service.bfs_cases_db_service import get_all_revised_cases, get_sociodemographics_by_sociodemographics_ids
+from src.service.bfs_cases_db_service import get_all_revised_cases, get_sociodemographics_by_sociodemographics_ids, \
+    get_all_reviewed_cases
 from src.service.database import Database
 
 
@@ -36,3 +37,13 @@ class TestDbAccess(TestCase):
             sociodemographics_revised_cases = get_sociodemographics_by_sociodemographics_ids(
                 revised_case_sociodemographic_ids, db.session)
             self.assertEqual(sociodemographics_revised_cases.shape[0], revised_cases_all.shape[0])
+
+    def test_get_all_reviewed_cases(self):
+        with Database() as db:
+            df_reviewed = get_all_reviewed_cases(db.session)
+            num_reviwed = df_reviewed.shape[0]
+            # all value in the column revised is False
+            num_revised_false = df_reviewed['revised'].sum()
+            # At the moment the number of reviewed cases is 17023
+            self.assertEqual(num_reviwed, 17023)
+            self.assertEqual(num_revised_false, 0)
