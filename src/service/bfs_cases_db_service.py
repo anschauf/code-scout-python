@@ -476,3 +476,15 @@ def get_revised_case_with_codes_before_revision(session: Session) -> pd.DataFram
          df_procedures[[PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL]]], axis=1)
     revised_cases_before_revision.rename(columns={'old_pd': 'pd'}, inplace=True)
     return revised_cases_before_revision
+
+@beartype
+def update_reviewed_for_sociodemographic_ids(sociodemographics_ids: set[int], session:Session):
+
+    updated_rows = (Revision.__table__
+                    .update()
+                    .where(Revision.sociodemographic_id.in_(sociodemographics_ids))
+                    .values(reviewed=True))
+
+    session.execute(updated_rows)
+    session.commit()
+    logger.success(f"Succesfully updated {len(sociodemographics_ids)} rows in the 'Revision' table as reviewed: 'True'")
