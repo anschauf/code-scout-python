@@ -56,7 +56,7 @@ def revision_list_matching(*,
         # create a case_id_norm column without leading 0
         sociodemographics_df['case_id_norm'] = sociodemographics_df['case_id'].apply(remove_leading_zeros)
         #  extract sociodemographic_id and so case_id_norm
-        revised_sociodemographics_id_case_id = sociodemographics_df[["sociodemographic_id", "case_id_norm"]]
+        sociodemographics_id_case_id = sociodemographics_df[["sociodemographic_id", "case_id_norm"]]
 
         revision_case_ids_norm_all = list()
 
@@ -93,7 +93,7 @@ def revision_list_matching(*,
 
         revision_case_id_df = pd.DataFrame(revision_case_ids_norm_all_set, columns=['case_id_norm'])
 
-        df_reviewed = pd.merge(revision_case_id_df, revised_sociodemographics_id_case_id,
+        df_reviewed = pd.merge(revision_case_id_df, sociodemographics_id_case_id,
                                how='inner', on='case_id_norm')
 
         logger.info(f'Matched {len(df_reviewed)} number of reviewed cases to database')
@@ -108,8 +108,8 @@ def revision_list_matching(*,
             f'There are {len(sociodemographic_id_reviewed_no_revised)} number of cases for {hospital} in {year} needs to updated as reviewed in the DB')
 
         # # updating reviewed as true in revision table in db
-        # with Database() as db:
-        #     update_reviewed_for_sociodemographic_ids(sociodemographic_id_reviewed_no_revised, db.session)
+        with Database() as db:
+            update_reviewed_for_sociodemographic_ids(sociodemographic_id_reviewed_no_revised, db.session)
 
     # upload log file to s3
     # s3 = boto3.resource('s3')
