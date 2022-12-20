@@ -27,7 +27,7 @@ def revision_list_matching(*,
         os.mkdir(log_path)
 
     time_str = time.strftime("%Y%m%d-%H%M")
-    log_filename = f'{log_path}/revised_cases_import_{time_str}.log'
+    log_filename = f'{log_path}/revision_list_matching_{time_str}.log'
     logger.add(log_filename, mode='w')
 
     # Connect to s3
@@ -80,8 +80,7 @@ def revision_list_matching(*,
             if len(case_id_col) == 1:
                 case_id = case_id_col.pop()
             else:
-                print(df.columns)
-                logger.warning("No case_id or multiple case_id columns found, check the excel")
+                logger.warning(f"No case_id or multiple case_id columns found, check the file {file_name}")
             # delete rows with case_id as nan
             df.dropna(subset=case_id, inplace=True)
             revision_case_ids = df[case_id].tolist()
@@ -112,13 +111,13 @@ def revision_list_matching(*,
         # with Database() as db:
         #     update_reviewed_for_sociodemographic_ids(sociodemographic_id_reviewed_no_revised, db.session)
 
-        # upload log file to s3
-        # s3 = boto3.resource('s3')
-        # log_path_s3 = 'revision_list_logs'
-        # log_filename_s3 = log_filename.replace(log_path, log_path_s3)
-        # filename = __remove_prefix_and_bucket_if_exists(log_filename_s3)
-        # s3_object = s3.Object(s3_bucket_logs, filename)
-        # s3_object.put(Body=open(log_filename, 'rb'))
+    # upload log file to s3
+    # s3 = boto3.resource('s3')
+    # log_path_s3 = 'revision_list_logs'
+    # log_filename_s3 = log_filename.replace(log_path, log_path_s3)
+    # filename = __remove_prefix_and_bucket_if_exists(log_filename_s3)
+    # s3_object = s3.Object(s3_bucket_logs, filename)
+    # s3_object.put(Body=open(log_filename, 'rb'))
 
 
 if __name__ == '__main__':
