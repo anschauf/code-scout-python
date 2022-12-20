@@ -34,6 +34,11 @@ def revision_list_matching(*,
     s3 = boto3.resource('s3')
     s3_bucket = s3.Bucket(s3_bucket)
 
+    with Database() as db:
+        # get sociodemographic_id for revised cases
+        all_revised_case = get_all_revised_cases(db.session)
+        sociodemographic_id_revised_cases = all_revised_case['sociodemographic_id']
+
     for idx, hospital_year in enumerate(dir_files_to_import):
         n_files = len(dir_files_to_import)
         path_folder = hospital_year.path
@@ -41,13 +46,13 @@ def revision_list_matching(*,
         year = hospital_year.year
 
         logger.info(f"#{idx + 1}/{n_files}: Working on '{hospital}' ({year}) ...")
-
-        with Database() as db:
-            # get sociodemographic_id for revised cases
-            all_revised_case = get_all_revised_cases(db.session)
-            sociodemographic_id_revised_cases = all_revised_case['sociodemographic_id']
-            # get the sociodemographic table for hospital year
-            sociodemographics_df = get_sociodemographics_for_hospital_year(hospital, year, db.session)
+        # get the sociodemographic table for hospital year
+        try:
+            with Database() as db:
+                sociodemographics_df = get_sociodemographics_for_hospital_year(hospital, year, db.session)
+        except ValueError:
+            logger.warning(f"There is no data for the hospital {hospital} in {year}")
+            continue
         # create a case_id_norm column without leading 0
         sociodemographics_df['case_id_norm'] = sociodemographics_df['case_id'].apply(remove_leading_zeros)
         #  extract sociodemographic_id and so case_id_norm
