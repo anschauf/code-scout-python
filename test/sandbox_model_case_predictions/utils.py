@@ -77,10 +77,12 @@ def get_list_of_all_predictors(data: pd.DataFrame, feature_folder: str, *, overw
             if feature.ndim == 1:
                 feature = feature.reshape(-1, 1)
 
-            np.save(feature_filename, feature.astype(FEATURE_TYPE), allow_pickle=False, fix_imports=False)
+            if overwrite or not os.path.exists(feature_filename):
+                np.save(feature_filename, feature.astype(FEATURE_TYPE), allow_pickle=False, fix_imports=False)
 
-            with open(encoder_filename, 'wb') as f:
-                pickle.dump(encoder, f)
+            if overwrite or not os.path.exists(encoder_filename):
+                with open(encoder_filename, 'wb') as f:
+                    pickle.dump(encoder, f)
 
             logger.info(f"Stored the feature '{standard_name}' and its corresponding '{encoder.__class__.__name__}'")
 
@@ -220,7 +222,8 @@ def get_list_of_all_predictors(data: pd.DataFrame, feature_folder: str, *, overw
 
     # age bins of patient
     age_bin, age_bin_label = categorize_age(data['ageYears'].values, data['ageDays'].values)
-    store_engineered_feature('binned_age', age_bin)
+    age_encoder = OneHotEncoder(categories=age_bin_label, sparse_output=False, dtype=FEATURE_TYPE, handle_unknown='ignore')
+    store_engineered_feature_and_sklearn_encoder('binned_age', age_bin, age_encoder)
 
     # TODO Ventilation hour bins: left out, because not much data for ventilation hours
     # TODO difficult to compare medication rate with different units
@@ -361,3 +364,35 @@ def get_revised_case_ids(all_data: pd.DataFrame,
         revised_cases_in_data = pd.read_csv(revised_case_ids_filename)
 
     return revised_cases_in_data
+
+
+def list_all_feature_names(all_data: pd.DataFrame, features_dir: str, feature_indices: Optional[list] = None) -> list:
+    feature_filenames, encoders = get_list_of_all_predictors(all_data, features_dir, overwrite=False)
+    feature_names = sorted(list(feature_filenames.keys()))
+
+    all_feature_names = list()
+
+    if feature_indices is None:
+        feature_indices = list(range(len(feature_names)))
+
+    for feature_idx in feature_indices:
+        feature_name = feature_names[feature_idx]
+        feature_name_wo_suffix = '_'.join(feature_name.split('_')[:-1])
+
+        if feature_name in encoders:
+            encoder = encoders[feature_name]
+            if isinstance(encoder, MultiLabelBinarizer):
+                encoded_names = encoder.classes_
+
+            else:
+                if isinstance(encoder.categories, str) and encoder.categories == 'auto':
+                    encoded_names = encoder.categories_[0]
+                else:
+                    encoded_names = encoder.categories
+
+            all_feature_names.extend(f'{feature_name_wo_suffix}="{encoded_name}"' for encoded_name in encoded_names)
+
+        else:
+            all_feature_names.append(feature_name_wo_suffix)
+
+    return all_feature_names

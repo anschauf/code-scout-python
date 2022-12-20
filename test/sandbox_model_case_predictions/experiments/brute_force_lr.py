@@ -8,11 +8,12 @@ from loguru import logger
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MultiLabelBinarizer, StandardScaler
+from sklearn.preprocessing import StandardScaler
 
 from src import ROOT_DIR
 from test.sandbox_model_case_predictions.data_handler import load_data
-from test.sandbox_model_case_predictions.utils import get_list_of_all_predictors, list_all_subsets
+from test.sandbox_model_case_predictions.utils import get_list_of_all_predictors, list_all_feature_names, \
+    list_all_subsets
 
 RANDOM_SEED = 42
 
@@ -52,20 +53,7 @@ for ind_features in list_all_subsets(range(n_features), reverse=True):
     if n_features_in_subset < 1:
         continue
 
-    n_predictors = 0
-    for feature_idx in ind_features:
-        feature_name = feature_names[feature_idx]
-
-        if feature_name in encoders:
-            encoder = encoders[feature_name]
-            if isinstance(encoder, MultiLabelBinarizer):
-                n_predictors += len(encoder.classes_)
-            else:
-                n_predictors += sum(len(c) for c in encoder.categories_)
-
-        else:
-            n_predictors += 1
-
+    n_predictors = len(list_all_feature_names(all_data, features_dir, feature_indices=ind_features))
     if n_predictors > n_positive_labels_train:
         continue
 

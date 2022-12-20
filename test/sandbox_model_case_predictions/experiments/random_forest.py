@@ -58,7 +58,7 @@ with warnings.catch_warnings():
     # train model
     model = RandomForestClassifier(
         n_estimators=5000,
-        max_depth=5,
+        max_depth=10,
         criterion='entropy',
         n_jobs=-1,
         random_state=RANDOM_SEED,
@@ -67,7 +67,7 @@ with warnings.catch_warnings():
 
     model = model.fit(X_train, y_train)
 
-    with open(join(ROOT_DIR, 'results', 'rf_5000_depth5.pkl'), 'wb') as f:
+    with open(join(dir_output, 'rf_5000_depth10.pkl'), 'wb') as f:
         pickle.dump(model, f, fix_imports=False)
 
     # predict on train and test
