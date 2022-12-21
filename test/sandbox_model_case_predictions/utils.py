@@ -470,4 +470,4 @@ def create_predictions_output_performance_app(filename: str, case_ids: ArrayLike
         'CaseId': case_ids,
         'SuggestedCodeRankings': ['']*len(case_ids),
         'UpcodingConfidenceScore': predictions
-    }).to_csv(filename, index=False)
+    }).to_csv(filename, index=False, sep=';')

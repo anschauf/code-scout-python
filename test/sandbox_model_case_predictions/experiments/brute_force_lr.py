@@ -40,6 +40,7 @@ ind_X_train, ind_X_test, y_train, y_test, ind_hospital_leave_out, y_hospital_lea
 n_positive_labels_train = int(y_train.sum())
 
 
+list_model_id = list()
 list_model_description = list()
 list_f1_measure_train = list()
 list_precision_train = list()
@@ -49,6 +50,7 @@ list_f1_measure_test = list()
 list_precision_test = list()
 list_recall_test = list()
 list_accuracy_test = list()
+id_counter = 1
 
 for ind_features in list_all_subsets(range(n_features), reverse=True):
     n_features_in_subset = len(ind_features)
@@ -132,12 +134,15 @@ for ind_features in list_all_subsets(range(n_features), reverse=True):
 
         # predict for hospital which was left out
         predictions_hospital_left_out = model.predict_proba(X_hospital_left_out)[:, 1]
-        create_predictions_output_performance_app(filename=join(dir_output, f'{model_description}.csv'),
-                                                  case_ids=all_data.iloc[ind_hospital_leave_out]['id'].values,
+        create_predictions_output_performance_app(filename=join(dir_output, f'{str(id_counter)}.csv'),
+                                                  case_ids=revised_cases_in_data.iloc[ind_hospital_leave_out]['id'].values,
                                                   predictions=predictions_hospital_left_out)
+        list_model_id.append(id_counter)
+        id_counter += 1
 
     # Write results to a file at the end of each iteration
     results = pd.DataFrame({
+        'model_id': list_model_id,
         'model_description': list_model_description,
         'precision_test': list_precision_test,
         'recall_test': list_recall_test,
@@ -151,6 +156,6 @@ for ind_features in list_all_subsets(range(n_features), reverse=True):
         .sort_values(by=['precision_test', 'f1_test', 'model_description'], ascending=[False, False, True]) \
         .reset_index()
 
-    results.to_csv(join(dir_output, 'predictors_screen.csv'))
+    results.to_csv(join(dir_output, 'predictors_screen.csv'), index=False)
 
 logger.success('done')
