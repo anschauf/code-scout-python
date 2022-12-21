@@ -14,7 +14,7 @@ from src.models.duration_of_stay import DurationOfStay
 from src.models.hospital import Hospital
 from src.models.procedure import Procedure
 from src.models.revision import Revision
-from src.models.sociodemographics import Sociodemographics, SOCIODEMOGRAPHIC_ID_COL
+from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL, Sociodemographics
 from src.utils.global_configs import *
 
 
@@ -119,15 +119,13 @@ def get_all_revised_cases(session: Session) -> pd.DataFrame:
 
 
 @beartype
-def get_original_revision_id_for_sociodemographic_ids(sociodemographic_ids: list[int],
-                                                      session: Session) -> pd.DataFrame:
+def get_original_revision_id_for_sociodemographic_ids(sociodemographic_ids: list[int], session: Session) -> pd.DataFrame:
     """
     Get the original revisions ids of sociodemographic_ids
     @param session: active DB session
     @param sociodemographic_ids:
     @return: a Dataframe containing sociodemographic ids, revision ids
     """
-
     query_revisions = (
         session
         .query(Revision)
@@ -142,8 +140,7 @@ def get_original_revision_id_for_sociodemographic_ids(sociodemographic_ids: list
     return df
 
 
-def get_revision_for_revision_ids(revision_ids: list[int],
-                                  session: Session) -> pd.DataFrame:
+def get_revision_for_revision_ids(revision_ids: list[int], session: Session) -> pd.DataFrame:
     """
     Get revisions for revision_ids
     @param session: active DB session
@@ -294,11 +291,11 @@ def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, 
 
     for revision in revision_list:
         values_to_insert.append({
-            "sociodemographic_id": int(revision[SOCIODEMOGRAPHIC_ID_COL]),
-            "drg": str(revision[DRG_COL]),
-            "drg_cost_weight": float(revision[DRG_COST_WEIGHT_COL]),
-            "effective_cost_weight": float(revision[EFFECTIVE_COST_WEIGHT_COL]),
-            "pccl": int(revision[PCCL_COL]),
+            'sociodemographic_id': int(revision[SOCIODEMOGRAPHIC_ID_COL]),
+            'drg': str(revision[DRG_COL]),
+            'drg_cost_weight': float(revision[DRG_COST_WEIGHT_COL]),
+            'effective_cost_weight': float(revision[EFFECTIVE_COST_WEIGHT_COL]),
+            'pccl': int(revision[PCCL_COL]),
             'dos_id': int(revision['dos_id']),
             'mdc': str(revision['mdc']),
             'mdc_partition': str(revision['mdc_partition']),
@@ -307,11 +304,10 @@ def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, 
             'supplement_charge_ppu': Decimal(revision['supplement_charge_ppu']),
             'reviewed': bool(revision['reviewed']),
             'revised': bool(revision['revised']),
-            "revision_date": str(revision[REVISION_DATE_COL])
+            'revision_date': str(revision[REVISION_DATE_COL])
         })
 
-    values_info = [(values_dict[SOCIODEMOGRAPHIC_ID_COL], values_dict[REVISION_DATE_COL]) for values_dict in
-                   values_to_insert]
+    values_info = [(values_dict[SOCIODEMOGRAPHIC_ID_COL], values_dict[REVISION_DATE_COL]) for values_dict in values_to_insert]
 
     num_rows_before = session.query(Revision).count()
     delete_statement = (Revision.__table__
@@ -322,8 +318,7 @@ def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, 
 
     num_rows_after = session.query(Revision).count()
     if num_rows_after != num_rows_before:
-        logger.info(
-            f"Deleted {num_rows_before - num_rows_after} rows from the 'Revisions' table, which is about to be updated")
+        logger.info(f"Deleted {num_rows_before - num_rows_after} rows from the 'Revisions' table, which is about to be updated")
 
     insert_statement = (Revision.__table__
                         .insert()
@@ -333,8 +328,7 @@ def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, 
     result = session.execute(insert_statement).fetchall()
     session.commit()
 
-    sociodemographic_id_with_revision_id = {sociodemographic_id: revision_id for sociodemographic_id, revision_id in
-                                            result}
+    sociodemographic_id_with_revision_id = {sociodemographic_id: revision_id for sociodemographic_id, revision_id in result}
     logger.success(f"Inserted {len(result)} cases into the 'Revisions' table")
     return sociodemographic_id_with_revision_id
 
@@ -403,18 +397,23 @@ def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame,
         else:
             procedure_date = str(procedure_date)
 
-        values_to_insert.append({
-            "sociodemographic_id": sociodemographic_id,
-            "revision_id": int(sociodemographic_id_with_revision_id[sociodemographic_id]),
-            "code": str(procedure[CODE_COL]),
-            "side": str(procedure[PROCEDURE_SIDE_COL]),
-            "date": procedure_date,
-            "is_primary": bool(procedure[IS_PRIMARY_COL]),
-            "is_grouper_relevant": bool(procedure[IS_GROUPER_RELEVANT_COL]),
-            "global_functions": str(procedure['global_functions']),
-            "supplement_charge": Decimal(procedure['supplement_charge']),
-            "supplement_charge_ppu": Decimal(procedure['supplement_charge_ppu']),
+        procedure_side = procedure[PROCEDURE_SIDE_COL]
+        if procedure_side is None or isinstance(procedure_side, Null) or procedure_side == '':
+            procedure_side = None
+        else:
+            procedure_side = str(procedure_side)
 
+        values_to_insert.append({
+            'sociodemographic_id': sociodemographic_id,
+            'revision_id': int(sociodemographic_id_with_revision_id[sociodemographic_id]),
+            'code': str(procedure[CODE_COL]),
+            'side': procedure_side,
+            'date': procedure_date,
+            'is_primary': bool(procedure[IS_PRIMARY_COL]),
+            'is_grouper_relevant': bool(procedure[IS_GROUPER_RELEVANT_COL]),
+            'global_functions': str(procedure['global_functions']),
+            'supplement_charge': Decimal(procedure['supplement_charge']),
+            'supplement_charge_ppu': Decimal(procedure['supplement_charge_ppu']),
         })
 
     insert_statement = (Procedure.__table__

@@ -15,10 +15,9 @@ from src.utils.general_utils import __remove_prefix_and_bucket_if_exists
 from src.utils.global_configs import *
 from src.utils.group import group_revised_cases_for_db
 from src.utils.normalize import normalize
-from src.utils.revise import revise
-from src.utils.revised_case_files_info import DIR_REVISED_CASES, FileInfo, FILES_FALL_NUMMER, FILES_FID, \
-    REVISED_CASE_FILES
-from src.utils.update_db import update_db
+from src.utils.revise import revise, validate_cost_weight
+from src.utils.revised_case_files_info import DIR_REVISED_CASES, FileInfo, FILES_FALL_NUMMER, FILES_FID
+from src.utils.update_db import insert_revised_cases_into_db
 
 
 @beartype
@@ -92,8 +91,7 @@ def load_and_apply_revisions(*,
         revisions_update, diagnoses_update, procedures_update = group_revised_cases_for_db(revised_cases)
 
         # get the original revision date after group the cases
-        revisions_update[REVISION_DATE_COL] = revisions_update[SOCIODEMOGRAPHIC_ID_COL].astype(int).map(
-            lambda x: sociodemo_id_revision_date.get(x))
+        revisions_update[REVISION_DATE_COL] = revisions_update[SOCIODEMOGRAPHIC_ID_COL].astype(int).map(lambda x: sociodemo_id_revision_date.get(x))
         if revisions_update[REVISION_DATE_COL].isna().sum() > 0:
             raise ValueError(f'There is null values in revision date column for {hospital_name} {year}')
 
@@ -105,19 +103,24 @@ def load_and_apply_revisions(*,
     all_diagnoses_df = pd.concat(all_diagnoses_list)
     all_procedure_df = pd.concat(all_procedure_list)
 
+    # Make sure that the cost weight has increased
+    _, invalid_sociodemographic_ids = validate_cost_weight(all_revision_df)
+    all_revision_df = all_revision_df[~all_revision_df[SOCIODEMOGRAPHIC_ID_COL].isin(invalid_sociodemographic_ids)].reset_index(drop=True).copy()
+    all_diagnoses_df = all_diagnoses_df[~all_diagnoses_df[SOCIODEMOGRAPHIC_ID_COL].isin(invalid_sociodemographic_ids)].reset_index(drop=True).copy()
+    all_procedure_df = all_procedure_df[~all_procedure_df[SOCIODEMOGRAPHIC_ID_COL].isin(invalid_sociodemographic_ids)].reset_index(drop=True).copy()
+
     # Get the duration of stay ID from the "legacy code"
     with Database() as db:
         duration_of_stay_df = get_duration_of_stay_df(db.session)
 
     all_revision_df = pd.merge(
-        # Drop the `dos_id` column because it comes from the `duration_of_stay_df` after the join
-        all_revision_df.drop(columns='dos_id'),
-        duration_of_stay_df.drop(columns='description'),  # Drop unused column
+        all_revision_df,
+        duration_of_stay_df.drop(columns='dos_legacy_code'),  # Drop unused column
         how='left',
-        left_on='duration_of_stay_legacy_code', right_on='dos_legacy_code')
+        left_on='duration_of_stay_case_type', right_on='description')
 
     # Remove join keys
-    all_revision_df.drop(columns=['duration_of_stay_legacy_code', 'dos_legacy_code'], inplace=True)
+    all_revision_df.drop(columns=['description', 'duration_of_stay_case_type'], inplace=True)
 
     # Set all the `reviewed` and `revised` flags to True
     all_revision_df['reviewed'] = True
@@ -132,7 +135,7 @@ def load_and_apply_revisions(*,
         num_dup = num_revision - num_unique_revisions
         raise Exception(f'There are {num_dup} duplicates / {num_unique_revisions} revised cases')
 
-    update_db(all_revision_df, all_diagnoses_df, all_procedure_df)
+    insert_revised_cases_into_db(all_revision_df, all_diagnoses_df, all_procedure_df)
     logger.success('done')
 
     # upload log file to s3
@@ -156,4 +159,7 @@ def load_and_apply_revisions(*,
 
 
 if __name__ == '__main__':
-    load_and_apply_revisions(files_to_import=REVISED_CASE_FILES)
+    # load_and_apply_revisions(files_to_import=REVISED_CASE_FILES)
+    load_and_apply_revisions(files_to_import=[
+        FileInfo(os.path.join(DIR_REVISED_CASES, 'raw_data/Winterthur.xlsx'), 'Kantonsspital Winterthur', '2020', 'Änderungen_Winterthur_2020')
+    ])

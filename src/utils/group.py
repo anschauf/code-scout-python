@@ -126,12 +126,13 @@ def group_revised_cases_for_db(revised_cases: pd.DataFrame) -> tuple[pd.DataFram
         'pccl',
         'raw_pccl',
         'supplement_charge',
+        'supplement_charge_ppu',
     ]].copy()
 
     revision_df[REVISION_ID_COL] = -1
-    revision_df['reviewed'] = True
-    revision_df['revised'] = True
-    # revision_df[REVISION_DATE_COL] = pd.to_datetime(revision_df[REVISION_DATE_COL], format='%Y%m%d')
+    revision_df['reviewed'] = False
+    revision_df['revised'] = False
+    revision_df[REVISION_DATE_COL] = ''
 
     # -------------------------------------------------------------------------
     # Select and add more columns to form the `diagnoses_df`

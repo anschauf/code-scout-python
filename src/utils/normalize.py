@@ -1,16 +1,15 @@
+import awswrangler as wr
 import numpy as np
 import pandas as pd
-import awswrangler as wr
 from beartype import beartype
 from loguru import logger
 
-from src.utils.revised_case_files_info import FileInfo
-from src.utils.global_configs import COLUMNS_TO_RENAME, \
-    COLUMNS_TO_LSTRIP, COLUMNS_TO_CAST, DURATION_OF_STAY_COL, NORM_CASE_ID_COL, VALIDATION_COLS, ADDED_ICD_CODES, \
-    REMOVED_ICD_CODES, ADDED_CHOP_CODES, REMOVED_CHOP_CODES, PRIMARY_DIAGNOSIS_COL, NEW_PRIMARY_DIAGNOSIS_COL, \
-    COLS_TO_SELECT, CASE_ID_COL, REVISION_DATE_COL
-from src.utils.dataframe_utils import validate_icd_codes, validate_chop_codes, remove_duplicated_chops, \
+from src.utils.dataframe_utils import remove_duplicated_chops, validate_chop_codes, validate_icd_codes, \
     validate_pd_revised_sd
+from src.utils.global_configs import ADDED_CHOP_CODES, ADDED_ICD_CODES, CASE_ID_COL, COLS_TO_SELECT, COLUMNS_TO_CAST, \
+    COLUMNS_TO_LSTRIP, COLUMNS_TO_RENAME, DURATION_OF_STAY_COL, NEW_PRIMARY_DIAGNOSIS_COL, NORM_CASE_ID_COL, \
+    PRIMARY_DIAGNOSIS_COL, REMOVED_CHOP_CODES, REMOVED_ICD_CODES, REVISION_DATE_COL, VALIDATION_COLS
+from src.utils.revised_case_files_info import FileInfo
 
 
 @beartype
@@ -62,7 +61,7 @@ def normalize(fi: FileInfo,
 
     n_valid_rows = df.shape[0]
     if n_valid_rows < n_all_rows:
-        logger.warning(f'{n_all_rows - n_valid_rows}/{n_all_rows} rows were deleted because contained NaNs')
+        logger.warning(f'{n_all_rows - n_valid_rows}/{n_all_rows} rows were deleted because contained NaNs in any of the columns in {sorted(VALIDATION_COLS)}')
 
     # Fix format of some columns
     lstrip_fun = lambda x: x.lstrip("'")
