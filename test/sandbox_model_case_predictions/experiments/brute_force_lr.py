@@ -134,7 +134,7 @@ for ind_features in list_all_subsets(range(n_features), reverse=True):
 
         # predict for hospital which was left out
         predictions_hospital_left_out = model.predict_proba(X_hospital_left_out)[:, 1]
-        create_predictions_output_performance_app(filename=join(dir_output, f'{str(id_counter)}.csv'),
+        create_predictions_output_performance_app(filename=join(dir_output, f'predictions_model-id_{str(id_counter)}_{hospital_year_for_performance_app[0]}_{hospital_year_for_performance_app[1]}.csv'),
                                                   case_ids=revised_cases_in_data.iloc[ind_hospital_leave_out]['id'].values,
                                                   predictions=predictions_hospital_left_out)
         list_model_id.append(id_counter)
