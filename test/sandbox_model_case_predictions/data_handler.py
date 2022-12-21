@@ -104,4 +104,7 @@ def __preprocess_data(df: pd.DataFrame):
     df['Mehrlingsgeburten'] = df['Mehrlingsgeburten'].apply(lambda x: x.replace('.0', '') if isinstance(x, str) else x)
     df['AlterDerMutter'] = df['AlterDerMutter'].apply(lambda x: x.replace('.0', '') if isinstance(x, str) else x)
 
+    # compute discharge year
+    df['dischargeYear'] = df['exitDate'].apply(lambda x: x[:4] if isinstance(x, str) else '')
+
     return df

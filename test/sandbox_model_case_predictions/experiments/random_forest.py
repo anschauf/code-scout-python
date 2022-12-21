@@ -11,9 +11,7 @@ from sklearn.preprocessing import StandardScaler
 
 from src import ROOT_DIR
 from test.sandbox_model_case_predictions.data_handler import load_data
-from test.sandbox_model_case_predictions.utils import get_list_of_all_predictors
-
-RANDOM_SEED = 42
+from test.sandbox_model_case_predictions.utils import get_list_of_all_predictors, RANDOM_SEED
 
 
 dir_output = join(ROOT_DIR, 'results', 'random_forest')
