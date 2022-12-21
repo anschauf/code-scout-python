@@ -5,9 +5,10 @@ from os.path import join
 
 import numpy as np
 import pandas as pd
+from loguru import logger
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import f1_score, precision_score, recall_score
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 
 from src import ROOT_DIR
 from test.sandbox_model_case_predictions.data_handler import load_data
@@ -33,6 +34,7 @@ ind_X_train, ind_X_test, y_train, y_test = train_test_split(range(n_samples), y,
 
 n_positive_labels_train = int(y_train.sum())
 
+logger.info('Assembling features ...')
 X = list()
 features_in_subset = list()
 for feature_idx in range(n_features):
@@ -50,14 +52,11 @@ X_test = X[ind_X_test, :]
 with warnings.catch_warnings():
     warnings.simplefilter('ignore')
 
-    normalizer = StandardScaler()
-    X_train = normalizer.fit_transform(X_train)
-    X_test = normalizer.transform(X_test)
-
+    logger.info('Training ...')
     # train model
     model = RandomForestClassifier(
         n_estimators=5000,
-        max_depth=None,  # TODO -> 5
+        max_depth=5,
         criterion='entropy',
         n_jobs=-1,
         random_state=RANDOM_SEED,
@@ -66,5 +65,25 @@ with warnings.catch_warnings():
 
     model = model.fit(X_train, y_train)
 
-    with open(join(ROOT_DIR, 'results', 'rf_5000.pkl'), 'wb') as f:
+    with open(join(ROOT_DIR, 'results', 'rf_5000_depth5.pkl'), 'wb') as f:
         pickle.dump(model, f, fix_imports=False)
+
+    # predict on train and test
+    # noinspection PyUnresolvedReferences
+    predictions_train = model.predict_proba(X_train)[:, 1]
+    predictions_train_binary = (predictions_train > 0.5).astype(int)
+
+    # noinspection PyUnresolvedReferences
+    predictions_test = model.predict_proba(X_test)[:, 1]
+    predictions_test_binary = (predictions_test > 0.5).astype(int)
+
+    # compute evaluation metrics
+    f1_train = f1_score(y_train, predictions_train_binary)
+    precision_train = precision_score(y_train, predictions_train_binary)
+    recall_train = recall_score(y_train, predictions_train_binary)
+
+    f1_test = f1_score(y_test, predictions_test_binary)
+    precision_test = precision_score(y_test, predictions_test_binary)
+    recall_test = recall_score(y_test, predictions_test_binary)
+
+logger.success(f'{f1_test=:.6f}, {precision_test=:.6f}, {recall_test=:.6f}, {f1_train=:.6f}, {precision_train=:.6f}, {recall_train=:.6f}')
