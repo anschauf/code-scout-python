@@ -35,7 +35,7 @@ def train_test_random_forest():
     revised_cases_in_data = pd.read_csv(revised_case_ids_filename)
 
     ind_train, ind_test, y_train, y_test, ind_hospital_leave_out, y_hospital_leave_out = \
-        prepare_train_eval_test_split(dir_output, revised_cases_in_data,
+        prepare_train_eval_test_split(revised_cases_in_data,
                                       hospital_leave_out=hospital_year_for_performance_app[0],
                                       year_leave_out=hospital_year_for_performance_app[1])
 
@@ -71,7 +71,7 @@ def train_test_random_forest():
 
         model = model.fit(features_train, y_train)
 
-        with open(join(dir_output, 'rf_5000_depth10.pkl'), 'wb') as f:
+        with open(join(dir_output, 'rf_5000.pkl'), 'wb') as f:
             pickle.dump(model, f, fix_imports=False)
 
         # predict on train and test

@@ -371,7 +371,7 @@ def get_revised_case_ids(all_data: pd.DataFrame,
     return revised_cases_in_data
 
 
-def prepare_train_eval_test_split(dir_output, revised_cases_in_data, hospital_leave_out='KSW', year_leave_out=2020, only_reviewed_cases=False):
+def prepare_train_eval_test_split(revised_cases_in_data, hospital_leave_out='KSW', year_leave_out=2020, only_reviewed_cases=False):
     assert hospital_leave_out in revised_cases_in_data['hospital'].values
     assert year_leave_out in revised_cases_in_data['dischargeYear'].values
 
@@ -406,6 +406,7 @@ def prepare_train_eval_test_split(dir_output, revised_cases_in_data, hospital_le
     return ind_X_train, ind_X_test, y_train, y_test, ind_hospital_leave_out, y_hospital_leave_out
 
 
+# noinspection PyUnresolvedReferences
 def create_performance_app_ground_truth(dir_output: str, revised_cases_in_data: DataFrame, hospital: str, year: int):
     """
     Create performance measing ground truth file for case ranking purposes only.

@@ -36,7 +36,7 @@ feature_names = sorted(list(feature_filenames.keys()))
 n_features = len(feature_names)
 
 ind_X_train, ind_X_test, y_train, y_test, ind_hospital_leave_out, y_hospital_leave_out = \
-    prepare_train_eval_test_split(dir_output, revised_cases_in_data,
+    prepare_train_eval_test_split(revised_cases_in_data,
                                   hospital_leave_out=hospital_year_for_performance_app[0],
                                   year_leave_out=hospital_year_for_performance_app[1],
                                   only_reviewed_cases=only_with_reviewed_cases)
