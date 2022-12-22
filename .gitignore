@@ -2,6 +2,7 @@
 .idea
 
 resources/data
+resources/db_data
 resources/features
 resources/jars
 
