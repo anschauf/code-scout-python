@@ -22,10 +22,9 @@ from sklearn.preprocessing import MultiLabelBinarizer, OneHotEncoder, OrdinalEnc
 
 from src.apps.feature_engineering.ccl_sensitivity import calculate_delta_pccl
 from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
-from src.service.bfs_cases_db_service import get_all_revised_cases, get_sociodemographics_by_sociodemographics_ids, \
-    get_sociodemographics_by_case_id, get_grouped_revisions_for_sociodemographic_ids, get_all_reviewed_cases
-from src.service.bfs_cases_db_service import get_all_revised_cases, get_grouped_revisions_for_sociodemographic_ids, \
-    get_sociodemographics_by_case_id, get_sociodemographics_by_sociodemographics_ids
+from src.service.bfs_cases_db_service import get_all_reviewed_cases, get_all_revised_cases, \
+    get_grouped_revisions_for_sociodemographic_ids, get_sociodemographics_by_case_id, \
+    get_sociodemographics_by_sociodemographics_ids
 from src.service.database import Database
 
 FEATURE_TYPE = np.float32
@@ -250,7 +249,7 @@ def get_list_of_all_predictors(data: pd.DataFrame, feature_folder: str, *, overw
     # one_hot_encode('year_discharge')
 
     # Calculate and store the CCL-sensitivity of the cases
-    delta_ccl_to_next_pccl_feature_filename = __make_feature_filename(decamelize('delta_ccl_to_next_pccl'), RAW_FEATURE_SUFFIX)
+    delta_ccl_to_next_pccl_feature_filename = __make_feature_filename('delta_ccl_to_next_pccl', RAW_FEATURE_SUFFIX)
     if overwrite or not os.path.exists(delta_ccl_to_next_pccl_feature_filename):
         data = calculate_delta_pccl(data, delta_value_for_max=10.0)
         store_raw_feature('delta_ccl_to_next_pccl')
