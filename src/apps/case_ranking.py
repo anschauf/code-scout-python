@@ -92,15 +92,27 @@ def create_rankings_of_revised_cases(*,
         x = [0] + list(ranks) + [n_cases]
         y = [0] + list(cdf) + [cdf[-1]]
         plt.step(x, y, where='post', label=method_name)
-    x_50 = int(n_cases/2)
-    y_50 = int(cdf[-1]/2)
-    plt.axhline(y_50, color="red", linestyle="--", linewidth=1)
-    plt.axvline(x_50, color="red", linestyle="--", linewidth=1)
     plt.xlabel("# cases")
     plt.ylabel("delta CW")
     plt.suptitle("Cumulative distribution of delta cost weight (CW_delta)")
     plt.legend()
     save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf.pdf'))
+
+    plt.figure()
+    for method_name, data in cdf_delta_cw.items():
+        ranks, cdf = cdf_delta_cw[method_name]
+        n_cases = num_cases[method_name]
+        x = [0] + list(ranks) + [n_cases]
+        y = [0] + list(cdf) + [cdf[-1]]
+        area = np.trapz(y)
+        plt.step(x, y, where='post', label=f'{method_name}_AUC_{area}')
+    plt.xlabel("# cases")
+    plt.ylabel("delta CW")
+    n_cases_min = np.min(list(num_cases.values()))
+    plt.xlim([0, 0.1*n_cases_min])
+    plt.suptitle("Cumulative distribution of delta cost weight (CW_delta)")
+    plt.legend()
+    save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf_top10_percent.pdf'))
 
     # Cumulative plot for each method from cdf_delta_cw in percent
 
@@ -112,10 +124,6 @@ def create_rankings_of_revised_cases(*,
         x = [0] + rank_percent + [rank_percent[-1]]
         y = [0] + cdf_percent + [cdf_percent[-1]]
         plt.step(x, y, where='post', label=method_name)
-    x_50 = int(rank_percent[-1]/2)
-    y_50 = int(cdf_percent[-1]/2)
-    plt.axhline(y_50, color="red", linestyle="--", linewidth=1)
-    plt.axvline(x_50, color="blue", linestyle="--", linewidth=1)
     plt.axvline(50, color="red", linestyle="--", linewidth=1)
     plt.xticks(np.linspace(0, 100, num=11))
     plt.yticks(np.linspace(0, 100, num=11))
@@ -143,8 +151,8 @@ def create_rankings_of_revised_cases(*,
 
 if __name__ == '__main__':
     create_rankings_of_revised_cases(
-        filename_revised_cases="s3://code-scout/performance-measuring/CodeScout_GroundTruthforPerformanceMeasuring.csv",
-        dir_rankings='s3://code-scout/performance-measuring/code_rankings/2022-09-14_first-filter-comparison_ksw/',
-        dir_output="s3://code-scout/performance-measuring/case_rankings/DRG_tree/revisions/ksw_2019_2_case_ranking_tier_plots/",
+        filename_revised_cases="s3://code-scout/brute_force_case_ranking_predictions/LR_default/ground_truth_performance_app_case_ranking_KSW_2020.csv",
+        dir_rankings='s3://code-scout/brute_force_case_ranking_predictions/LR_default/test_screen/',
+        dir_output="s3://code-scout/brute_force_case_ranking_predictions/LR_default/test_screen_plots/",
         s3_bucket='code-scout'
     )

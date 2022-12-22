@@ -172,6 +172,21 @@ def get_grouped_revisions_for_sociodemographic_ids(sociodemographic_ids: list[st
     df = pd.read_sql(query.statement, session.bind)
     return df.groupby(SOCIODEMOGRAPHIC_ID_COL, as_index=False).agg(lambda x: list(x))
 
+@beartype
+def get_all_reviewed_cases(session: Session) -> pd.DataFrame:
+    """
+    Get all reviewed cases (i.e. reviewed; True, revised = False)
+    @param session:
+    @return: pandas dataframe
+    """
+
+    query_reviewed_case = (
+        session.query(Revision)
+        .filter(Revision.reviewed.is_(True))
+        .filter(Revision.revised.is_(False)))
+    df = pd.read_sql(query_reviewed_case.statement, session.bind)
+
+    return df
 
 
 def get_revision_for_revision_ids(revision_ids: list[int],
