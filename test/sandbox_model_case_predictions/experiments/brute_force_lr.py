@@ -7,15 +7,15 @@ import pandas as pd
 from loguru import logger
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 from src import ROOT_DIR
 from test.sandbox_model_case_predictions.data_handler import load_data
-from test.sandbox_model_case_predictions.utils import get_list_of_all_predictors, list_all_feature_names, \
-    list_all_subsets
+from test.sandbox_model_case_predictions.utils import create_performance_app_ground_truth, \
+    create_predictions_output_performance_app, get_list_of_all_predictors, list_all_feature_names, list_all_subsets, \
+    prepare_train_eval_test_split, RANDOM_SEED
 
-RANDOM_SEED = 42
+hospital_year_for_performance_app = ('KSW', 2020)
 
 
 dir_output = join(ROOT_DIR, 'results', 'logistic_regression_predictors_screen')
@@ -24,6 +24,9 @@ if not os.path.exists(dir_output):
 
 revised_case_ids_filename = join(ROOT_DIR, 'resources', 'data', 'revised_case_ids.csv')
 revised_cases_in_data = pd.read_csv(revised_case_ids_filename)
+create_performance_app_ground_truth(dir_output, revised_cases_in_data,
+                                    hospital=hospital_year_for_performance_app[0],
+                                    year=hospital_year_for_performance_app[1])
 
 all_data = load_data(only_2_rows=True)
 features_dir = join(ROOT_DIR, 'resources', 'features')
@@ -31,13 +34,14 @@ feature_filenames, encoders = get_list_of_all_predictors(all_data, features_dir,
 feature_names = sorted(list(feature_filenames.keys()))
 n_features = len(feature_names)
 
-y = revised_cases_in_data['is_revised'].values
-n_samples = y.shape[0]
-ind_X_train, ind_X_test, y_train, y_test = train_test_split(range(n_samples), y, stratify=y, test_size=0.3, random_state=RANDOM_SEED)
-
+ind_X_train, ind_X_test, y_train, y_test, ind_hospital_leave_out, y_hospital_leave_out = \
+    prepare_train_eval_test_split(dir_output, revised_cases_in_data,
+                                  hospital_leave_out=hospital_year_for_performance_app[0],
+                                  year_leave_out=hospital_year_for_performance_app[1])
 n_positive_labels_train = int(y_train.sum())
 
 
+list_model_id = list()
 list_model_description = list()
 list_f1_measure_train = list()
 list_precision_train = list()
@@ -47,6 +51,7 @@ list_f1_measure_test = list()
 list_precision_test = list()
 list_recall_test = list()
 list_accuracy_test = list()
+id_counter = 1
 
 for ind_features in list_all_subsets(range(n_features), reverse=True):
     n_features_in_subset = len(ind_features)
@@ -74,6 +79,7 @@ for ind_features in list_all_subsets(range(n_features), reverse=True):
 
     X_train = X[ind_X_train, :]
     X_test = X[ind_X_test, :]
+    X_hospital_left_out = X[ind_hospital_leave_out, :]
 
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
@@ -114,8 +120,17 @@ for ind_features in list_all_subsets(range(n_features), reverse=True):
         list_recall_test.append(recall_test)
         list_accuracy_test.append(accuracy_test)
 
+        # predict for hospital which was left out
+        predictions_hospital_left_out = model.predict_proba(X_hospital_left_out)[:, 1]
+        create_predictions_output_performance_app(filename=join(dir_output, f'predictions_model-id_{str(id_counter)}_{hospital_year_for_performance_app[0]}_{hospital_year_for_performance_app[1]}.csv'),
+                                                  case_ids=revised_cases_in_data.iloc[ind_hospital_leave_out]['id'].values,
+                                                  predictions=predictions_hospital_left_out)
+        list_model_id.append(id_counter)
+        id_counter += 1
+
     # Write results to a file at the end of each iteration
     results = pd.DataFrame({
+        'model_id': list_model_id,
         'model_description': list_model_description,
         'precision_test': list_precision_test,
         'recall_test': list_recall_test,
@@ -129,6 +144,6 @@ for ind_features in list_all_subsets(range(n_features), reverse=True):
         .sort_values(by=['precision_test', 'f1_test', 'model_description'], ascending=[False, False, True]) \
         .reset_index()
 
-    results.to_csv(join(dir_output, 'predictors_screen.csv'))
+    results.to_csv(join(dir_output, 'predictors_screen.csv'), index=False)
 
 logger.success('done')

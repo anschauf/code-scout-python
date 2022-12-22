@@ -2,6 +2,7 @@ import os.path
 import pickle
 import shutil
 from itertools import chain, combinations
+from os.path import join
 from pathlib import Path
 from typing import Optional
 
@@ -13,18 +14,23 @@ from beartype import beartype
 from humps import decamelize
 from loguru import logger
 # noinspection PyProtectedMember
+from numpy._typing import ArrayLike
+from pandas import DataFrame
 from pandas.api.types import is_numeric_dtype
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MultiLabelBinarizer, OneHotEncoder, OrdinalEncoder
 
 from src.apps.feature_engineering.ccl_sensitivity import calculate_delta_pccl
-from src.service.bfs_cases_db_service import get_all_revised_cases, get_sociodemographics_by_sociodemographics_ids
+from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
+from src.service.bfs_cases_db_service import get_all_revised_cases, get_sociodemographics_by_sociodemographics_ids, \
+    get_sociodemographics_by_case_id, get_grouped_revisions_for_sociodemographic_ids
 from src.service.database import Database
 
 FEATURE_TYPE = np.float32
 
 ONE_HOT_ENCODED_FEATURE_SUFFIX = 'OHE'
 RAW_FEATURE_SUFFIX = 'RAW'
-
+RANDOM_SEED = 42
 
 def get_list_of_all_predictors(data: pd.DataFrame, feature_folder: str, *, overwrite: bool = True) -> (dict, dict):
     if overwrite:
@@ -341,7 +347,7 @@ def get_revised_case_ids(all_data: pd.DataFrame,
 
         revised_cases_in_data = pd.merge(
                 revised_cases,
-                all_data[['id', 'AnonymerVerbindungskode', 'ageYears', 'gender', 'durationOfStay', 'hospital']].copy(),
+                all_data[['id', 'AnonymerVerbindungskode', 'ageYears', 'gender', 'durationOfStay', 'hospital', 'dischargeYear']].copy(),
                 how='outer',
                 left_on=('case_id', 'age_years', 'gender', 'duration_of_stay'),
                 right_on=('id', 'ageYears', 'gender', 'durationOfStay'),
@@ -351,7 +357,7 @@ def get_revised_case_ids(all_data: pd.DataFrame,
         revised_cases_in_data = revised_cases_in_data[~revised_cases_in_data['id'].isna()].reset_index(drop=True)
         # Create the "revised" label column, for modeling
         revised_cases_in_data['is_revised'] = (~revised_cases_in_data['revised'].isna()).astype(int)
-        revised_cases_in_data = revised_cases_in_data[['id', 'hospital', 'is_revised']]
+        revised_cases_in_data = revised_cases_in_data[['id', 'hospital', 'dischargeYear', 'is_revised']]
 
         num_revised_cases_in_data = int(revised_cases_in_data["is_revised"].sum())
         num_cases = revised_cases_in_data.shape[0]
@@ -365,6 +371,109 @@ def get_revised_case_ids(all_data: pd.DataFrame,
 
     return revised_cases_in_data
 
+
+def prepare_train_eval_test_split(dir_output, revised_cases_in_data, hospital_leave_out='KSW', year_leave_out=2020):
+    assert hospital_leave_out in revised_cases_in_data['hospital'].values
+    assert year_leave_out in revised_cases_in_data['dischargeYear'].values
+
+    # get indices to leave out from training routine for performance app
+    y = revised_cases_in_data['is_revised'].values
+    ind_hospital_leave_out = np.where((revised_cases_in_data['hospital'].values == hospital_leave_out) &
+                                      (revised_cases_in_data['dischargeYear'].values == year_leave_out))[0]
+    y_hospital_leave_out = y[ind_hospital_leave_out]
+
+    n_samples = y.shape[0]
+    ind_train_test = list(set(range(n_samples)) - set(ind_hospital_leave_out))
+    ind_X_train, ind_X_test = train_test_split(ind_train_test, stratify=y[ind_train_test], test_size=0.3,random_state=RANDOM_SEED)
+    y_train = y[ind_X_train]
+    y_test = y[ind_X_test]
+
+    n_positive_labels_train = int(y_train.sum())
+
+    return ind_X_train, ind_X_test, y_train, y_test, ind_hospital_leave_out, y_hospital_leave_out
+
+
+def create_performance_app_ground_truth(dir_output: str, revised_cases_in_data: DataFrame, hospital: str, year: int):
+    """
+    Create performance measing ground truth file for case ranking purposes only.
+    @param dir_output: The output directory to store the file in.
+    @param revised_cases_in_data: The revised case DataFrame.
+    @param hospital: The hospital.
+    @param year: The year.
+    """
+    case_ids_revised = revised_cases_in_data[(revised_cases_in_data['is_revised'] == 1) &
+                                             (revised_cases_in_data['hospital'] == hospital) &
+                                             (revised_cases_in_data['dischargeYear'] == year)]
+    with Database() as db:
+        sociodemographic_revised = get_sociodemographics_by_case_id(case_ids_revised['id'].astype(str).values.tolist(), db.session)
+        sociodemographic_ids_revised = sociodemographic_revised[SOCIODEMOGRAPHIC_ID_COL]
+        grouped_revisions = get_grouped_revisions_for_sociodemographic_ids(sociodemographic_ids_revised, db.session)
+        socio_revised_merged = pd.merge(sociodemographic_revised, grouped_revisions, on=SOCIODEMOGRAPHIC_ID_COL, how='right')
+
+    drg_old = list()
+    drg_new = list()
+    cw_old = list()
+    cw_new = list()
+    pccl_old = list()
+    pccl_new = list()
+    for i, row in enumerate(socio_revised_merged.itertuples()):
+        if True in row.reviewed and False in row.reviewed:
+            ind_original = np.where(np.asarray(row.reviewed) == False)[0][0]
+            ind_reviewed = np.where(np.asarray(row.reviewed) == True)[0][0]
+
+            drg_old.append(row.drg[ind_original])
+            drg_new.append(row.drg[ind_reviewed])
+
+            cw_old.append(row.effective_cost_weight[ind_original])
+            cw_new.append(row.effective_cost_weight[ind_reviewed])
+
+            pccl_old.append(row.pccl[ind_original])
+            pccl_new.append(row.pccl[ind_reviewed])
+        else:
+            drg_old.append('')
+            drg_new.append('')
+            cw_old.append(0)
+            cw_new.append(0)
+            pccl_old.append(0)
+            pccl_new.append(0)
+
+
+    n_cases = socio_revised_merged.shape[0]
+    placeholder = np.repeat('', n_cases)
+    ground_truth = pd.DataFrame({
+        'CaseId': socio_revised_merged['case_id'].values,
+        'AdmNo': placeholder,
+        'FID': placeholder,
+        'PatID': placeholder,
+        'ICD_added': placeholder,
+        'ICD_dropped': placeholder,
+        'CHOP_added': placeholder,
+        'CHOP_dropped': placeholder,
+        'DRG_old': drg_old,
+        'DRG_new': drg_new,
+        'CW_old': cw_old,
+        'CW_new': cw_new,
+        'PCCL_old': pccl_old,
+        'PCCL_new': pccl_new
+    })
+    #TODO maybe remove this filter again, just for the time being till we checked the revised cases in the DB
+    ground_truth = ground_truth[ground_truth['CW_new'] > 0]
+    ground_truth['cw_delta'] = ground_truth['CW_new'] - ground_truth['CW_old']
+    ground_truth[ground_truth['cw_delta'] > 0].drop(columns=['cw_delta']).to_csv(join(dir_output, f'ground_truth_performance_app_case_ranking_{hospital}_{year}.csv'), index=False)
+
+
+def create_predictions_output_performance_app(filename: str, case_ids: ArrayLike, predictions: ArrayLike):
+    """
+    Write performance measuring output for model to file.
+    @param filename: The filename where to store the results.
+    @param case_ids: A list of case IDs.
+    @param predictions: The probabilities to rank the case IDs.
+    """
+    pd.DataFrame({
+        'CaseId': case_ids,
+        'SuggestedCodeRankings': ['']*len(case_ids),
+        'UpcodingConfidenceScore': predictions
+    }).to_csv(filename, index=False, sep=';')
 
 def list_all_feature_names(all_data: pd.DataFrame, features_dir: str, feature_indices: Optional[list] = None) -> list:
     feature_filenames, encoders = get_list_of_all_predictors(all_data, features_dir, overwrite=False)
