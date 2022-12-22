@@ -104,8 +104,9 @@ def create_rankings_of_revised_cases(*,
         n_cases = num_cases[method_name]
         x = [0] + list(ranks) + [n_cases]
         y = [0] + list(cdf) + [cdf[-1]]
-        area = np.trapz(y)
+        area = np.trapz(y, x)
         plt.step(x, y, where='post', label=f'{method_name}_AUC_{area}')
+        # plt.step(x, y, where='post', label=f'{method_name}')
     plt.xlabel("# cases")
     plt.ylabel("delta CW")
     n_cases_min = np.min(list(num_cases.values()))
@@ -151,8 +152,8 @@ def create_rankings_of_revised_cases(*,
 
 if __name__ == '__main__':
     create_rankings_of_revised_cases(
-        filename_revised_cases="s3://code-scout/brute_force_case_ranking_predictions/LR_default/ground_truth_performance_app_case_ranking_KSW_2020.csv",
-        dir_rankings='s3://code-scout/brute_force_case_ranking_predictions/LR_default/test_screen/',
-        dir_output="s3://code-scout/brute_force_case_ranking_predictions/LR_default/test_screen_plots/",
+        filename_revised_cases="s3://code-scout/brute_force_case_ranking_predictions/RF_5000/ground_truth_performance_app_case_ranking_KSW_2020.csv",
+        dir_rankings='s3://code-scout/brute_force_case_ranking_predictions/RF_5000/all_data_vs_true_negatives_KSW_2020/',
+        dir_output="s3://code-scout/brute_force_case_ranking_predictions/RF_5000/all_data_vs_true_negatives_KSW_2020_plots/",
         s3_bucket='code-scout'
     )

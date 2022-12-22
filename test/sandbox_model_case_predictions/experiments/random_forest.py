@@ -11,13 +11,16 @@ from sklearn.metrics import f1_score, precision_score, recall_score
 
 from src import ROOT_DIR
 from test.sandbox_model_case_predictions.data_handler import load_data
-from test.sandbox_model_case_predictions.utils import create_predictions_output_performance_app, \
+from test.sandbox_model_case_predictions.utils import create_predictions_output_performance_app, create_performance_app_ground_truth, \
     get_list_of_all_predictors, prepare_train_eval_test_split, \
     RANDOM_SEED
 
-hospital_year_for_performance_app = ('KSW', 2020)
+# hospital_year_for_performance_app = ('KSW', 2020)
+# hospital_year_for_performance_app = ('LI', 2018)
+# hospital_year_for_performance_app = ('SA', 2018)
+hospital_year_for_performance_app = ('KSSG', 2021)
 
-dir_output = join(ROOT_DIR, 'results', 'random_forest')
+dir_output = join(ROOT_DIR, 'results', f'random_forest_only_true_negatives_{hospital_year_for_performance_app[0]}_{hospital_year_for_performance_app[1]}')
 if not os.path.exists(dir_output):
     os.makedirs(dir_output)
 
@@ -33,11 +36,13 @@ def train_test_random_forest():
     n_features = len(feature_names)
 
     revised_cases_in_data = pd.read_csv(revised_case_ids_filename)
+    create_performance_app_ground_truth(dir_output, revised_cases_in_data, hospital_year_for_performance_app[0], hospital_year_for_performance_app[1])
 
     ind_train, ind_test, y_train, y_test, ind_hospital_leave_out, y_hospital_leave_out = \
         prepare_train_eval_test_split(revised_cases_in_data,
                                       hospital_leave_out=hospital_year_for_performance_app[0],
-                                      year_leave_out=hospital_year_for_performance_app[1])
+                                      year_leave_out=hospital_year_for_performance_app[1],
+                                      only_reviewed_cases=True)
 
     logger.info('Assembling features ...')
     features = list()
