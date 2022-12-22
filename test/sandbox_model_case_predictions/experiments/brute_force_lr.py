@@ -16,6 +16,7 @@ from test.sandbox_model_case_predictions.utils import create_performance_app_gro
     prepare_train_eval_test_split, RANDOM_SEED
 
 hospital_year_for_performance_app = ('KSW', 2020)
+only_with_reviewed_cases = True
 
 
 dir_output = join(ROOT_DIR, 'results', 'logistic_regression_predictors_screen')
@@ -37,7 +38,8 @@ n_features = len(feature_names)
 ind_X_train, ind_X_test, y_train, y_test, ind_hospital_leave_out, y_hospital_leave_out = \
     prepare_train_eval_test_split(dir_output, revised_cases_in_data,
                                   hospital_leave_out=hospital_year_for_performance_app[0],
-                                  year_leave_out=hospital_year_for_performance_app[1])
+                                  year_leave_out=hospital_year_for_performance_app[1],
+                                  only_reviewed_cases=only_with_reviewed_cases)
 n_positive_labels_train = int(y_train.sum())
 
 
