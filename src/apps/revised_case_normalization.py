@@ -1,4 +1,5 @@
 import os
+import shutil
 import time
 
 import awswrangler as wr
@@ -16,7 +17,8 @@ from src.utils.global_configs import *
 from src.utils.group import group_revised_cases_for_db
 from src.utils.normalize import normalize
 from src.utils.revise import revise, validate_cost_weight
-from src.utils.revised_case_files_info import DIR_REVISED_CASES, FileInfo, FILES_FALL_NUMMER, FILES_FID
+from src.utils.revised_case_files_info import DIR_REVISED_CASES, FileInfo, FILES_FALL_NUMMER, FILES_FID, \
+    REVISED_CASE_FILES
 from src.utils.update_db import insert_revised_cases_into_db
 
 
@@ -150,16 +152,10 @@ def load_and_apply_revisions(*,
     if os.path.exists(log_filename):
         os.remove(log_filename)
     else:
-        print("The logger file was not created properly")
+        logger.warning('The logger file was not created properly')
     # delete the local log folder after uploading log_file to s3
-    try:
-        os.rmdir(log_path)
-    except OSError:
-        raise Warning('Your local log folder can not be deleted because it was not empty')
+    shutil.rmtree(log_path, ignore_errors=True)
 
 
 if __name__ == '__main__':
-    # load_and_apply_revisions(files_to_import=REVISED_CASE_FILES)
-    load_and_apply_revisions(files_to_import=[
-        FileInfo(os.path.join(DIR_REVISED_CASES, 'raw_data/Winterthur.xlsx'), 'Kantonsspital Winterthur', '2020', 'Änderungen_Winterthur_2020')
-    ])
+    load_and_apply_revisions(files_to_import=REVISED_CASE_FILES)

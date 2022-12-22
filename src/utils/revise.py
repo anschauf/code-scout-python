@@ -205,6 +205,6 @@ def validate_cost_weight(revisions_df: pd.DataFrame) -> (pd.DataFrame, list):
         logger.warning(f'{len(discarded_sociodemographic_ids)}/{revisions_df.shape[0]} revised cases did not improve in terms of effective Cost Weight, so they were discarded')
 
     valid_revisions_df = joined_revision_dfs[~joined_revision_dfs['invalid_upcoding']].reset_index(drop=True).copy()
-    valid_revisions_df.drop(columns=['original_revision_id', 'original_cost_weight'], inplace=True)
+    valid_revisions_df.drop(columns=['original_revision_id', 'original_cost_weight', 'invalid_upcoding'], inplace=True)
 
     return valid_revisions_df, discarded_sociodemographic_ids
