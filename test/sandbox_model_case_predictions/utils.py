@@ -22,8 +22,8 @@ from sklearn.preprocessing import MultiLabelBinarizer, OneHotEncoder, OrdinalEnc
 
 from src.apps.feature_engineering.ccl_sensitivity import calculate_delta_pccl
 from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
-from src.service.bfs_cases_db_service import get_all_revised_cases, get_sociodemographics_by_sociodemographics_ids, \
-    get_sociodemographics_by_case_id, get_grouped_revisions_for_sociodemographic_ids
+from src.service.bfs_cases_db_service import get_all_revised_cases, get_grouped_revisions_for_sociodemographic_ids, \
+    get_sociodemographics_by_case_id, get_sociodemographics_by_sociodemographics_ids
 from src.service.database import Database
 
 FEATURE_TYPE = np.float32
@@ -335,8 +335,7 @@ def get_revised_case_ids(all_data: pd.DataFrame,
         with Database() as db:
             revised_cases_all = get_all_revised_cases(db.session)
             revised_case_sociodemographic_ids = revised_cases_all['sociodemographic_id'].values.tolist()
-            sociodemographics_revised_cases = get_sociodemographics_by_sociodemographics_ids(
-                revised_case_sociodemographic_ids, db.session)
+            sociodemographics_revised_cases = get_sociodemographics_by_sociodemographics_ids(revised_case_sociodemographic_ids, db.session)
 
         revised_cases = sociodemographics_revised_cases[['case_id', 'age_years', 'gender', 'duration_of_stay']].copy()
         revised_cases['revised'] = 1
@@ -361,8 +360,7 @@ def get_revised_case_ids(all_data: pd.DataFrame,
 
         num_revised_cases_in_data = int(revised_cases_in_data["is_revised"].sum())
         num_cases = revised_cases_in_data.shape[0]
-        logger.info(
-            f'{num_revised_cases_in_data}/{num_cases} ({float(num_revised_cases_in_data) / num_cases * 100:.1f}%) cases were revised')
+        logger.info(f'{num_revised_cases_in_data}/{num_cases} ({float(num_revised_cases_in_data) / num_cases * 100:.1f}%) cases were revised')
 
         revised_cases_in_data.to_csv(revised_case_ids_filename, index=False)
 

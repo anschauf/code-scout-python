@@ -72,7 +72,8 @@ DTYPES = {
     'KindVitalstatus': 'string',
     'KongenitaleMissbildungen': 'string',
     'Mehrlingsgeburten': 'string',
-    'AlterDerMutter': 'string'
+    'AlterDerMutter': 'string',
+    'VectorizedCodes': object,
 }
 
 
