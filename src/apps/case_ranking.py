@@ -9,6 +9,7 @@ from src import venn
 from src.files import load_revised_cases, load_all_rankings
 from src.schema import case_id_col, prob_most_likely_code_col
 from src.utils.general_utils import save_figure_to_pdf_on_s3
+import awswrangler as wr
 
 
 def create_rankings_of_revised_cases(*,
@@ -95,9 +96,10 @@ def create_rankings_of_revised_cases(*,
     plt.xlabel("# cases")
     plt.ylabel("delta CW")
     plt.suptitle("Cumulative distribution of delta cost weight (CW_delta)")
-    plt.legend()
+    plt.legend(loc='best', fancybox=True, framealpha=0.8, bbox_to_anchor=(1.05, 1.05))
     save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf.pdf'))
 
+    list_areas = list()
     plt.figure()
     for method_name, data in cdf_delta_cw.items():
         ranks, cdf = cdf_delta_cw[method_name]
@@ -105,6 +107,7 @@ def create_rankings_of_revised_cases(*,
         x = [0] + list(ranks) + [n_cases]
         y = [0] + list(cdf) + [cdf[-1]]
         area = np.trapz(y, x)
+        list_areas.append(area)
         plt.step(x, y, where='post', label=f'{method_name}_AUC_{area}')
         # plt.step(x, y, where='post', label=f'{method_name}')
     plt.xlabel("# cases")
@@ -112,11 +115,16 @@ def create_rankings_of_revised_cases(*,
     n_cases_min = np.min(list(num_cases.values()))
     plt.xlim([0, 0.1*n_cases_min])
     plt.suptitle("Cumulative distribution of delta cost weight (CW_delta)")
-    plt.legend()
+    plt.legend(loc='best', fancybox=True, framealpha=0.8, bbox_to_anchor=(1.05, 1.05))
     save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf_top10_percent.pdf'))
 
-    # Cumulative plot for each method from cdf_delta_cw in percent
+    df_areas = pd.DataFrame({
+        'method': [method_name for method_name, _ in cdf_delta_cw.items()],
+        'area': list_areas
+    }).sort_values(by='area', ascending=False)
+    wr.s3.to_csv(df_areas, os.path.join(dir_output, 'area_under_the_curves.csv'), index=False)
 
+    # Cumulative plot for each method from cdf_delta_cw in percent
     plt.figure()
     for method_name, data in cdf_delta_cw.items():
         ranks, cdf = cdf_delta_cw[method_name]
@@ -131,7 +139,7 @@ def create_rankings_of_revised_cases(*,
     plt.xlabel("cases in %")
     plt.ylabel("delta CW in %")
     plt.title("Cumulative distribution of delta cost weight (CW_delta) in %")
-    plt.legend()
+    plt.legend(loc='best', fancybox=True, framealpha=0.8, bbox_to_anchor=(1.05, 1.05))
     save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf_percentage.pdf'))
 
     # plot boxplots to compare probabilities between revised and non-revised cases
@@ -153,7 +161,7 @@ def create_rankings_of_revised_cases(*,
 if __name__ == '__main__':
     create_rankings_of_revised_cases(
         filename_revised_cases="s3://code-scout/brute_force_case_ranking_predictions/RF_5000/ground_truth_performance_app_case_ranking_KSW_2020.csv",
-        dir_rankings='s3://code-scout/brute_force_case_ranking_predictions/RF_5000/all_data_vs_true_negatives_KSW_2020/',
-        dir_output="s3://code-scout/brute_force_case_ranking_predictions/RF_5000/all_data_vs_true_negatives_KSW_2020_plots/",
+        dir_rankings='s3://code-scout/brute_force_case_ranking_predictions/RF_5000/leave_one_feature_out_screen_KSW_2020/',
+        dir_output="s3://code-scout/brute_force_case_ranking_predictions/RF_5000/leave_one_feature_out_screen_KSW_2020_plots/",
         s3_bucket='code-scout'
     )
