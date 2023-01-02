@@ -1,108 +1,150 @@
 import os
 import pickle
+import sys
 import warnings
 from os.path import join
 
 import numpy as np
-import pandas as pd
 from loguru import logger
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import f1_score, precision_score, recall_score
+from sklearn.model_selection import cross_validate, StratifiedShuffleSplit
+from tqdm import tqdm
 
 from src import ROOT_DIR
 from test.sandbox_model_case_predictions.data_handler import load_data
-from test.sandbox_model_case_predictions.utils import create_predictions_output_performance_app, create_performance_app_ground_truth, \
-    get_list_of_all_predictors, prepare_train_eval_test_split, \
-    RANDOM_SEED
+from test.sandbox_model_case_predictions.utils import create_predictions_output_performance_app, \
+    get_list_of_all_predictors, get_revised_case_ids, RANDOM_SEED
 
-# hospital_year_for_performance_app = ('KSW', 2020)
-# hospital_year_for_performance_app = ('LI', 2018)
-# hospital_year_for_performance_app = ('SA', 2018)
-hospital_year_for_performance_app = ('KSSG', 2021)
-
-dir_output = join(ROOT_DIR, 'results', f'random_forest_only_true_negatives_{hospital_year_for_performance_app[0]}_{hospital_year_for_performance_app[1]}')
-if not os.path.exists(dir_output):
-    os.makedirs(dir_output)
-
-revised_case_ids_filename = join(ROOT_DIR, 'resources', 'data', 'revised_case_ids.csv')
+RANDOM_FOREST_NUM_TREES = 5000
+RANDOM_FOREST_MAX_DEPTH = 20
+RANDOM_FOREST_MIN_SAMPLES_LEAF = 1
 
 
-# noinspection PyUnresolvedReferences
-def train_test_random_forest():
+RESULTS_DIR = join(ROOT_DIR, 'results', 'random_forest_only_reviewed', f'n_trees_{RANDOM_FOREST_NUM_TREES}-max_depth_{RANDOM_FOREST_MAX_DEPTH}-min_samples_leaf_{RANDOM_FOREST_MIN_SAMPLES_LEAF}')
+if not os.path.exists(RESULTS_DIR):
+    os.makedirs(RESULTS_DIR)
+
+REVISED_CASE_IDS_FILENAME = join(ROOT_DIR, 'resources', 'data', 'revised_case_ids.csv')
+
+DISCARDED_FEATURES = ('hospital', 'month_admission', 'month_discharge', 'year_discharge')
+
+
+def train_random_forest_only_reviewed_cases():
     all_data = load_data(only_2_rows=True)
     features_dir = join(ROOT_DIR, 'resources', 'features')
     feature_filenames, encoders = get_list_of_all_predictors(all_data, features_dir, overwrite=False)
     feature_names = sorted(list(feature_filenames.keys()))
-    n_features = len(feature_names)
 
-    revised_cases_in_data = pd.read_csv(revised_case_ids_filename)
-    create_performance_app_ground_truth(dir_output, revised_cases_in_data, hospital_year_for_performance_app[0], hospital_year_for_performance_app[1])
+    feature_names = [feature_name for feature_name in feature_names
+                     if not any(feature_name.startswith(discarded_feature) for discarded_feature in DISCARDED_FEATURES)]
 
-    ind_train, ind_test, y_train, y_test, ind_hospital_leave_out, y_hospital_leave_out = \
-        prepare_train_eval_test_split(revised_cases_in_data,
-                                      hospital_leave_out=hospital_year_for_performance_app[0],
-                                      year_leave_out=hospital_year_for_performance_app[1],
-                                      only_reviewed_cases=True)
+    revised_cases_in_data = get_revised_case_ids(all_data, REVISED_CASE_IDS_FILENAME, overwrite=False)
+    # create_performance_app_ground_truth(dir_output, revised_cases_in_data, hospital_year_for_performance_app[0], hospital_year_for_performance_app[1])
+
+    reviewed_cases = revised_cases_in_data[(revised_cases_in_data['is_revised'] == 1) | (revised_cases_in_data['is_reviewed'] == 1)]
+    y = reviewed_cases['is_revised'].values
+    sample_indices = reviewed_cases['index'].values
 
     logger.info('Assembling features ...')
     features = list()
-    features_in_subset = list()
-    for feature_idx in range(n_features):
-        feature_name = feature_names[feature_idx]
-        features_in_subset.append(feature_name)
+
+    for feature_name in feature_names:
         feature_filename = feature_filenames[feature_name]
         feature_values = np.load(feature_filename, mmap_mode='r', allow_pickle=False, fix_imports=False)
-        features.append(feature_values)
+        features.append(feature_values[sample_indices, :])
 
     features = np.hstack(features)
-
-    features_train = features[ind_train, :]
-    features_test = features[ind_test, :]
-    features_hospital_left_out = features[ind_hospital_leave_out, :]
 
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
 
-        logger.info('Training ...')
-        # train model
-        model = RandomForestClassifier(
-            n_estimators=5000,
-            max_depth=None,
-            criterion='entropy',
-            n_jobs=-1,
-            random_state=RANDOM_SEED,
-            class_weight='balanced'
+        logger.info(f'Training a RandomForest with {RANDOM_FOREST_NUM_TREES} trees, max_depth={RANDOM_FOREST_MAX_DEPTH}, min_samples_leaf={RANDOM_FOREST_MIN_SAMPLES_LEAF} ...')
+
+        estimator = RandomForestClassifier(
+            n_estimators=RANDOM_FOREST_NUM_TREES,
+            max_depth=RANDOM_FOREST_MAX_DEPTH,
+            min_samples_leaf=RANDOM_FOREST_MIN_SAMPLES_LEAF,
+            class_weight='balanced',
+            oob_score=True,
+            min_impurity_decrease=np.finfo(np.float32).eps,  # the smallest positive number, so that it is not 0
+            criterion='entropy', n_jobs=-1, random_state=RANDOM_SEED,
         )
 
-        model = model.fit(features_train, y_train)
+        cv = StratifiedShuffleSplit(n_splits=5, test_size=0.2, random_state=RANDOM_SEED)
 
-        with open(join(dir_output, 'rf_5000.pkl'), 'wb') as f:
-            pickle.dump(model, f, fix_imports=False)
+        # https://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter
+        scoring = {
+            'AUROC': 'roc_auc',
+            'AUPRC': 'average_precision',
+            'precision': 'precision',
+            'recall': 'recall',
+            'F1': 'f1',
+        }
 
-        # predict on train and test
-        predictions_train = model.predict_proba(features_train)[:, 1]
-        predictions_train_binary = (predictions_train > 0.5).astype(int)
+        scores = cross_validate(estimator, features, y, scoring=scoring, cv=cv,
+                                return_train_score=True, return_estimator=True, error_score=np.nan,
+                                n_jobs=None, verbose=10)
 
-        predictions_test = model.predict_proba(features_test)[:, 1]
-        predictions_test_binary = (predictions_test > 0.5).astype(int)
+    logger.info('--- Average performance ---')
+    performance_log = list()
+    performance_log.append(f'# revised: {int(y.sum())}')
+    performance_log.append(f'# cases: {y.shape[0]}')
 
-        predictions_hospital_left_out = model.predict_proba(features_hospital_left_out)[:, 1]
+    longest_scorer_name = max(len(name) for name in scoring.keys())
+    for metric in scoring.keys():
+        train_metric = scores[f'train_{metric}']
+        test_metric = scores[f'test_{metric}']
+        pad = ' ' * (longest_scorer_name - len(metric) + 1)
 
-        # compute evaluation metrics
-        f1_train = f1_score(y_train, predictions_train_binary)
-        precision_train = precision_score(y_train, predictions_train_binary)
-        recall_train = recall_score(y_train, predictions_train_binary)
+        if metric == 'AUROC':
+            suffix = ' (random 0.5)'
+        elif metric == 'AUPRC':
+            random_performance = float(y.sum()) / y.shape[0]
+            suffix = f' (random {random_performance:.6f})'
+        else:
+            suffix = ''
 
-        f1_test = f1_score(y_test, predictions_test_binary)
-        precision_test = precision_score(y_test, predictions_test_binary)
-        recall_test = recall_score(y_test, predictions_test_binary)
+        msg = f'{metric}:{pad}train {np.nanmean(train_metric):.6f}, test {np.nanmean(test_metric):.6f}{suffix}'
+        performance_log.append(msg)
+        logger.info(msg)
 
-        create_predictions_output_performance_app(filename=join(dir_output, f'predictions_random_forest_5000trees_model-{hospital_year_for_performance_app[0]}_{hospital_year_for_performance_app[1]}.csv'),
-                                                  case_ids=revised_cases_in_data.iloc[ind_hospital_leave_out]['id'].values,
-                                                  predictions=predictions_hospital_left_out)
+    with open(join(RESULTS_DIR, 'performance.txt'), 'w') as f:
+        f.writelines('\n'.join(performance_log))
 
-    logger.success(f'{f1_test=:.6f}, {precision_test=:.6f}, {recall_test=:.6f}, {f1_train=:.6f}, {precision_train=:.6f}, {recall_train=:.6f}')
+    logger.info('Storing models ...')
+    with open(join(RESULTS_DIR, 'rf_cv.pkl'), 'wb') as f:
+        pickle.dump(scores['estimator'], f, fix_imports=False)
+
+    logger.info('Calculating and storing predictions for each combination of hospital and year, which contains revised cases ...')
+    # List the hospitals and years for which there are revised cases
+    all_hospitals_and_years = revised_cases_in_data[revised_cases_in_data['is_revised'] == 1][['hospital', 'dischargeYear']].drop_duplicates().values.tolist()
+    for info in tqdm(all_hospitals_and_years):
+        hospital_name = info[0]
+        discharge_year = info[1]
+        hospital_data = revised_cases_in_data[(revised_cases_in_data['hospital'] == hospital_name) & (revised_cases_in_data['dischargeYear'] == discharge_year)]
+
+        indices = hospital_data['index'].values
+        case_ids = hospital_data['id'].values
+
+        test_features = list()
+        for feature_name in feature_names:
+            feature_filename = feature_filenames[feature_name]
+            feature_values = np.load(feature_filename, mmap_mode='r', allow_pickle=False, fix_imports=False)
+            test_features.append(feature_values[indices, :])
+        test_features = np.hstack(test_features)
+
+        predictions = list()
+        for model in scores['estimator']:
+            predictions.append(model.predict_proba(test_features)[:, 1])
+        predictions = np.mean(np.vstack(predictions), axis=0)
+
+        create_predictions_output_performance_app(filename=join(RESULTS_DIR, f'predictions_random_forest-{hospital_name}-{discharge_year}-based_on_reviewed_cases.csv'),
+                                                  case_ids=case_ids,
+                                                  predictions=predictions)
+
+    logger.success('done')
 
 
 if __name__ == '__main__':
-    train_test_random_forest()
+    train_random_forest_only_reviewed_cases()
+    sys.exit(0)

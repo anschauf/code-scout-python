@@ -4,30 +4,30 @@ from os.path import join
 import numpy as np
 import pandas as pd
 from loguru import logger
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MultiLabelBinarizer
 
 from sandbox_model_case_predictions.data_handler import load_data
-from sandbox_model_case_predictions.experiments.random_forest import RANDOM_SEED
-from sandbox_model_case_predictions.utils import get_list_of_all_predictors
+from sandbox_model_case_predictions.experiments.random_forest import DISCARDED_FEATURES
+from sandbox_model_case_predictions.utils import get_list_of_all_predictors, get_revised_case_ids, \
+    prepare_train_eval_test_split
 from src import ROOT_DIR
 from src.ml.explanation.tree.tree_explainer import TreeExplainer
 
-# model_name = 'rf_5000'
-model_name = 'rf_5000_depth5'
+model_name = 'rf_5000'
+# model_name = 'rf_5000_depth5'
 
 
 all_data = load_data(only_2_rows=True)
 features_dir = join(ROOT_DIR, 'resources', 'features')
 feature_filenames, encoders = get_list_of_all_predictors(all_data, features_dir, overwrite=False)
 feature_names = sorted(list(feature_filenames.keys()))
-n_features = len(feature_names)
 
+feature_names = [feature_name for feature_name in feature_names
+                 if not any(feature_name.startswith(discarded_feature) for discarded_feature in DISCARDED_FEATURES)]
 
 all_feature_names = list()
 
-for feature_idx in range(n_features):
-    feature_name = feature_names[feature_idx]
+for feature_name in feature_names:
     feature_name_wo_suffix = '_'.join(feature_name.split('_')[:-1])
 
     feature_filename = feature_filenames[feature_name]
@@ -50,7 +50,7 @@ for feature_idx in range(n_features):
         all_feature_names.append(feature_name_wo_suffix)
 
 logger.info(f"Loading the model '{model_name}' ...")
-with open(join(ROOT_DIR, 'results', 'random_forest', f'{model_name}.pkl'), 'rb') as f:
+with open(join(ROOT_DIR, 'results', 'random_forest_only_true_negatives_KSW_2020', f'{model_name}.pkl'), 'rb') as f:
     model = pickle.load(f)
 
 
@@ -67,7 +67,7 @@ importances_df = (
     .reset_index(drop=True)
 )
 
-print(importances_df[:20])
+# print(importances_df[:20])
 
 print(importances_df[~importances_df['feature'].str.startswith('month')][:20])
 
@@ -77,33 +77,60 @@ print(importances_df[~importances_df['feature'].str.startswith('month')][:20])
 # -----------------------------------------------------------------------------
 logger.info('Assembling test set ...')
 revised_case_ids_filename = join(ROOT_DIR, 'resources', 'data', 'revised_case_ids.csv')
-revised_cases_in_data = pd.read_csv(revised_case_ids_filename)
+revised_cases_in_data = get_revised_case_ids(all_data, revised_case_ids_filename, overwrite=False)
 
 y = revised_cases_in_data['is_revised'].values
 n_samples = y.shape[0]
-ind_X_train, ind_X_test, y_train, y_test = train_test_split(range(n_samples), y, stratify=y, test_size=0.3, random_state=RANDOM_SEED)
 
-n_positive_labels_train = int(y_train.sum())
+hospital_year_for_performance_app = ('KSW', 2020)
+
+_, _, _, _, ind_hospital_leave_out, y_hospital_leave_out = \
+        prepare_train_eval_test_split(revised_cases_in_data,
+                                      hospital_leave_out=hospital_year_for_performance_app[0],
+                                      year_leave_out=hospital_year_for_performance_app[1],
+                                      only_reviewed_cases=True)
+
 
 X = list()
-features_in_subset = list()
-for feature_idx in range(n_features):
-    feature_name = feature_names[feature_idx]
-    features_in_subset.append(feature_name)
+for feature_name in feature_names:
     feature_filename = feature_filenames[feature_name]
-    feature_values = np.load(feature_filename, mmap_mode='r', allow_pickle=False, fix_imports=False)[ind_X_test, :]
+    feature_values = np.load(feature_filename, mmap_mode='r', allow_pickle=False, fix_imports=False)[ind_hospital_leave_out, :]
     X.append(feature_values)
 
 X_test = np.hstack(X)
 
 logger.info('Calculating the feature contributions ...')
-te = TreeExplainer(model, data=X_test, targets=y_test, n_jobs=1, verbose=True)
-te.original_feature_names = all_feature_names
+
+revised_cases_idx = np.where(y_hospital_leave_out == 1)[0]
+non_revised_cases_idx = np.where(y_hospital_leave_out == 0)[0]
+
+te = TreeExplainer(model, data=X_test[revised_cases_idx, :], targets=y_hospital_leave_out[revised_cases_idx], n_jobs=-1, verbose=True)
+te.n_target_levels = 2
 te.feature_names = all_feature_names
-
-
+te.features_data_types = {feature_name: value for (_, value), feature_name in zip(te.features_data_types.items(), all_feature_names)}
 te.explain_feature_contributions(joint_contributions=False, ignore_non_informative_nodes=True)
-te.plot_min_depth_distribution()
+
+logger.info(f'Number of correct predictions: {te.correct_predictions.sum()}/{te.correct_predictions.shape[0]}')
+
+# Average the contribution across all the correct predictions for the positive label
+feature_contribution_correct = np.mean(te.contributions[te.correct_predictions, :, 1], axis=0)
+feature_contribution_incorrect = np.mean(te.contributions[~te.correct_predictions, :, 0], axis=0)
+
+correct_col = 'contribution to correct prediction'
+incorrect_col = 'contribution to wrong prediction'
+delta_col = 'delta'
+
+df = pd.DataFrame(np.vstack((feature_contribution_correct, feature_contribution_incorrect)).T, index=all_feature_names, columns=[correct_col, incorrect_col])
+# df = df[df[correct_col] > 0]
+df[delta_col] = df[correct_col] - df[incorrect_col]
+df *= 1000
+df = df.sort_values(by=delta_col, ascending=False).reset_index()
+pd.set_option('display.precision', 5); print(df[:20])
+
+
+# df2 = pd.DataFrame(te.contributions[0, :, 1].reshape(-1, 1), index=te.feature_names, columns=['revised'])
+# df2['feature_value'] = X_test[0, :]
+# df2.sort_values(by='revised', ascending=False, inplace=True)
+# print(df2[:20])
 
 print('')
-

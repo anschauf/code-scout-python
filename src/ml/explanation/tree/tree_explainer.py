@@ -145,8 +145,7 @@ class TreeExplainer(object):
         return self
 
 
-    def explain_feature_contributions(self, joint_contributions=False,
-                                      ignore_non_informative_nodes=False):
+    def explain_feature_contributions(self, joint_contributions=False, ignore_non_informative_nodes=False):
         """
 
         :param joint_contributions: [bool] Whether to compute the joint
@@ -205,7 +204,7 @@ class TreeExplainer(object):
                 self.features_split = [i['features_split'] for i in results]
 
         if self.verbosity_level > 0:
-            logger.debug('done')
+            logger.success('done')
 
         return self
 
@@ -227,7 +226,7 @@ class TreeExplainer(object):
             features, as measured by conditional contributions. If None,
             nothing happens.
 
-        :return [str]: Prints message to console regarding the contribution of
+        :return None: Prints message to console regarding the contribution of
             features to a single prediction.
         """
 
