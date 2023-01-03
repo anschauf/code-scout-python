@@ -6,8 +6,10 @@ from os.path import join
 
 import numpy as np
 from loguru import logger
+from sklearn import clone
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import cross_validate, StratifiedShuffleSplit
+from sklearn.metrics import average_precision_score, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.model_selection import StratifiedKFold
 from tqdm import tqdm
 
 from src import ROOT_DIR
@@ -15,8 +17,8 @@ from test.sandbox_model_case_predictions.data_handler import load_data
 from test.sandbox_model_case_predictions.utils import create_predictions_output_performance_app, \
     get_list_of_all_predictors, get_revised_case_ids, RANDOM_SEED
 
-RANDOM_FOREST_NUM_TREES = 5000
-RANDOM_FOREST_MAX_DEPTH = 20
+RANDOM_FOREST_NUM_TREES = 1000
+RANDOM_FOREST_MAX_DEPTH = None
 RANDOM_FOREST_MIN_SAMPLES_LEAF = 1
 
 
@@ -70,28 +72,61 @@ def train_random_forest_only_reviewed_cases():
             criterion='entropy', n_jobs=-1, random_state=RANDOM_SEED,
         )
 
-        cv = StratifiedShuffleSplit(n_splits=5, test_size=0.2, random_state=RANDOM_SEED)
+        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_SEED)
+
+        ensemble = list()
 
         # https://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter
-        scoring = {
-            'AUROC': 'roc_auc',
-            'AUPRC': 'average_precision',
-            'precision': 'precision',
-            'recall': 'recall',
-            'F1': 'f1',
+        metrics = ['AUROC', 'AUPRC', 'precision', 'recall', 'F1']
+
+        scores = {
+            'train_AUROC': list(), 'test_AUROC': list(),
+            'train_AUPRC': list(), 'test_AUPRC': list(),
+            'train_precision': list(), 'test_precision': list(),
+            'train_recall': list(), 'test_recall': list(),
+            'train_F1': list(), 'test_F1': list(),
         }
 
-        scores = cross_validate(estimator, features, y, scoring=scoring, cv=cv,
-                                return_train_score=True, return_estimator=True, error_score=np.nan,
-                                n_jobs=None, verbose=10)
+        train_indices_per_model = list()
+
+        for train_indices, test_indices in tqdm(cv.split(features, y), total=5):
+            train_indices = np.sort(train_indices)
+            test_indices = np.sort(test_indices)
+
+            train_indices_per_model.append(sample_indices[train_indices])
+
+            model = clone(estimator)
+            model.fit(features[train_indices, :], y[train_indices])
+
+            ensemble.append(model)
+            train_probas = model.predict_proba(features[train_indices, :])
+            test_probas = model.predict_proba(features[test_indices, :])
+
+            train_predictions = (train_probas > 0.5)[:, 1].astype(int)
+            test_predictions = (test_probas > 0.5)[:, 1].astype(int)
+
+            scores['train_AUROC'].append(roc_auc_score(y[train_indices], train_predictions))
+            scores['test_AUROC'].append(roc_auc_score(y[test_indices], test_predictions))
+
+            scores['train_AUPRC'].append(average_precision_score(y[train_indices], train_predictions))
+            scores['test_AUPRC'].append(average_precision_score(y[test_indices], test_predictions))
+
+            scores['train_precision'].append(precision_score(y[train_indices], train_predictions))
+            scores['test_precision'].append(precision_score(y[test_indices], test_predictions))
+
+            scores['train_recall'].append(recall_score(y[train_indices], train_predictions))
+            scores['test_recall'].append(recall_score(y[test_indices], test_predictions))
+
+            scores['train_F1'].append(f1_score(y[train_indices], train_predictions))
+            scores['test_F1'].append(f1_score(y[test_indices], test_predictions))
 
     logger.info('--- Average performance ---')
     performance_log = list()
     performance_log.append(f'# revised: {int(y.sum())}')
     performance_log.append(f'# cases: {y.shape[0]}')
 
-    longest_scorer_name = max(len(name) for name in scoring.keys())
-    for metric in scoring.keys():
+    longest_scorer_name = max(len(name) for name in metrics)
+    for metric in metrics:
         train_metric = scores[f'train_{metric}']
         test_metric = scores[f'test_{metric}']
         pad = ' ' * (longest_scorer_name - len(metric) + 1)
@@ -113,11 +148,12 @@ def train_random_forest_only_reviewed_cases():
 
     logger.info('Storing models ...')
     with open(join(RESULTS_DIR, 'rf_cv.pkl'), 'wb') as f:
-        pickle.dump(scores['estimator'], f, fix_imports=False)
+        pickle.dump(ensemble, f, fix_imports=False)
 
     logger.info('Calculating and storing predictions for each combination of hospital and year, which contains revised cases ...')
     # List the hospitals and years for which there are revised cases
     all_hospitals_and_years = revised_cases_in_data[revised_cases_in_data['is_revised'] == 1][['hospital', 'dischargeYear']].drop_duplicates().values.tolist()
+
     for info in tqdm(all_hospitals_and_years):
         hospital_name = info[0]
         discharge_year = info[1]
@@ -133,14 +169,20 @@ def train_random_forest_only_reviewed_cases():
             test_features.append(feature_values[indices, :])
         test_features = np.hstack(test_features)
 
-        predictions = list()
-        for model in scores['estimator']:
-            predictions.append(model.predict_proba(test_features)[:, 1])
-        predictions = np.mean(np.vstack(predictions), axis=0)
+        predictions = np.zeros((test_features.shape[0], len(ensemble))) * np.nan
+        for idx, model in enumerate(ensemble):
+            all_predictions = model.predict_proba(test_features)[:, 1]
+
+            train_indices = train_indices_per_model[idx]
+            training_prediction_indices = np.in1d(indices, train_indices, assume_unique=True)
+            all_predictions[training_prediction_indices] = np.nan
+            predictions[:, idx] = all_predictions
+
+        avg_predictions = np.nanmean(predictions, axis=1)
 
         create_predictions_output_performance_app(filename=join(RESULTS_DIR, f'predictions_random_forest-{hospital_name}-{discharge_year}-based_on_reviewed_cases.csv'),
                                                   case_ids=case_ids,
-                                                  predictions=predictions)
+                                                  predictions=avg_predictions)
 
     logger.success('done')
 
