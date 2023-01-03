@@ -145,7 +145,11 @@ class TreeExplainer(object):
         return self
 
 
-    def explain_feature_contributions(self, joint_contributions=False, ignore_non_informative_nodes=False):
+    def explain_feature_contributions(self, *,
+                                      joint_contributions: bool = False,
+                                      ignore_non_informative_nodes: bool = False,
+                                      return_only_contribution_matrix: bool = False
+                                      ):
         """
 
         :param joint_contributions: [bool] Whether to compute the joint
@@ -167,6 +171,33 @@ class TreeExplainer(object):
                             ignore_non_informative_nodes=ignore_non_informative_nodes)
                     for i_tree, estimator in enumerate(getattr(self.model, self._model_specifics['estimators_'])))
 
+            # Unpack `results`
+            if self.tree_path is None:
+                self.tree_path = [i['tree_path'] for i in results]
+            self.data_leaves = np.vstack([i['data_leaves'] for i in results]).transpose()
+            self.target_probability_at_root = np.vstack([i['target_probability_at_root'] for i in results])
+
+            # Divide contributions only by the number of times the feature was evaluated.
+            # Features that were never evaluated will return NaN
+            if ignore_non_informative_nodes:
+                denominator = np.sum(np.stack([i['contributions_n_evaluations'] for i in results], axis=3), axis=3)
+            else:
+                denominator = self.n_trees  # Normalized by all trees
+            self.contributions = divide0(np.sum(np.stack([i['contributions'] for i in results], axis=3), axis=3),
+                                         denominator,
+                                         replace_with=np.nan)
+
+            if joint_contributions:
+                self.conditional_contributions = [i['conditional_contributions'] for i in results]
+                self.conditional_contributions_sample = [i['conditional_contributions_sample'] for i in results]
+                if self.features_split[0] is None:  # If the first is empty, then all are
+                    self.features_split = [i['features_split'] for i in results]
+
+            if self.verbosity_level > 0:
+                logger.success('done')
+
+            return self
+
         else:
             results = list()
 
@@ -181,32 +212,32 @@ class TreeExplainer(object):
                 )
                 results.append(tree_result)
 
-        # Unpack `results`
-        if self.tree_path is None:
-            self.tree_path = [i['tree_path'] for i in results]
-        self.data_leaves = np.vstack([i['data_leaves'] for i in results]).transpose()
-        self.target_probability_at_root = np.vstack([i['target_probability_at_root'] for i in results])
+            # Unpack `results`
+            if self.tree_path is None:
+                self.tree_path = [i['tree_path'] for i in results]
+            self.data_leaves = np.vstack([i['data_leaves'] for i in results]).transpose()
+            self.target_probability_at_root = np.vstack([i['target_probability_at_root'] for i in results])
 
-        # Divide contributions only by the number of times the feature was evaluated.
-        # Features that were never evaluated will return NaN
-        if ignore_non_informative_nodes:
-            denominator = np.sum(np.stack([i['contributions_n_evaluations'] for i in results], axis=3), axis=3)
-        else:
-            denominator = self.n_trees  # Normalized by all trees
-        self.contributions = divide0(np.sum(np.stack([i['contributions'] for i in results], axis=3), axis=3),
-                                     denominator,
-                                     replace_with=np.nan)
+            # Divide contributions only by the number of times the feature was evaluated.
+            # Features that were never evaluated will return NaN
+            if ignore_non_informative_nodes:
+                denominator = np.sum(np.stack([i['contributions_n_evaluations'] for i in results], axis=3), axis=3)
+            else:
+                denominator = self.n_trees  # Normalized by all trees
+            self.contributions = divide0(np.sum(np.stack([i['contributions'] for i in results], axis=3), axis=3),
+                                         denominator,
+                                         replace_with=np.nan)
 
-        if joint_contributions:
-            self.conditional_contributions = [i['conditional_contributions'] for i in results]
-            self.conditional_contributions_sample = [i['conditional_contributions_sample'] for i in results]
-            if self.features_split[0] is None:  # If the first is empty, then all are
-                self.features_split = [i['features_split'] for i in results]
+            if joint_contributions:
+                self.conditional_contributions = [i['conditional_contributions'] for i in results]
+                self.conditional_contributions_sample = [i['conditional_contributions_sample'] for i in results]
+                if self.features_split[0] is None:  # If the first is empty, then all are
+                    self.features_split = [i['features_split'] for i in results]
 
-        if self.verbosity_level > 0:
-            logger.success('done')
+            if self.verbosity_level > 0:
+                logger.success('done')
 
-        return self
+            return self
 
 
     def explain_single_prediction(self, observation_idx, solve_duplicate_splits='mean',
