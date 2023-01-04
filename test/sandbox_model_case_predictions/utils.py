@@ -1,18 +1,21 @@
 import os.path
 import pickle
 from itertools import chain, combinations
-from os.path import join
+from os import listdir
+from os.path import join, exists
 from pathlib import Path
 from typing import Optional
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+import seaborn as sns
 from beartype import beartype
 # noinspection PyPackageRequirements
 from humps import decamelize
 from loguru import logger
 # noinspection PyProtectedMember
+from matplotlib import pyplot as plt
 from numpy._typing import ArrayLike
 from pandas import DataFrame
 from pandas.api.types import is_numeric_dtype
@@ -658,3 +661,89 @@ def list_all_feature_names(all_data: pd.DataFrame, features_dir: str, feature_in
             all_feature_names.append(feature_name_wo_suffix)
 
     return all_feature_names
+
+
+def get_screen_summary(RESULTS_DIR):
+    all_runs = listdir(RESULTS_DIR)
+    all_runs = [f for f in all_runs if f.startswith('n_trees')]
+
+    n_estimator = list()
+    max_depth = list()
+    min_sample_leaf = list()
+    precision_train = list()
+    precision_test = list()
+    recall_train = list()
+    recall_test = list()
+    f1_train = list()
+    f1_test = list()
+
+    for file in all_runs:
+        full_filename = join(RESULTS_DIR, file, 'performance.txt')
+
+        if exists(full_filename):
+            n_estimator.append(int(file.split('-')[0].split('_')[-1]))
+            max_depth.append(int(file.split('-')[1].split('_')[-1]))
+            min_sample_leaf.append(int(file.split('-')[2].split('_')[-1]))
+
+            with open(full_filename) as f:
+                lines = f.readlines()
+
+            precision_train.append(float(lines[4].split(',')[0].split(' ')[-1]))
+            precision_test.append(float(lines[4].split(',')[1].split(' ')[-1]))
+
+            recall_train.append(float(lines[5].split(',')[0].split(' ')[-1]))
+            recall_test.append(float(lines[5].split(',')[1].split(' ')[-1]))
+
+            f1_train.append(float(lines[6].split(',')[0].split(' ')[-1]))
+            f1_test.append(float(lines[6].split(',')[1].split(' ')[-1]))
+
+    summary = pd.DataFrame({
+        'n_estimator': n_estimator,
+        'max_depth': max_depth,
+        'min_sample_leaf': min_sample_leaf,
+        'precision_train': precision_train,
+        'precision_test': precision_test,
+        'precision_train-test': np.asarray(precision_train) - np.asarray(precision_test),
+        'recall_train': recall_train,
+        'recall_test': recall_test,
+        'recall_train-test': np.asarray(recall_train) - np.asarray(recall_test),
+        'f1_train': f1_train,
+        'f1_test': f1_test,
+        'f1_train-test': np.asarray(f1_train) - np.asarray(f1_test)
+    }).sort_values('f1_test', ascending=False)
+    summary.to_csv(join(RESULTS_DIR, 'screen_summary.csv'), index=False)
+
+    return summary
+
+
+def plot_heatmap_for_metrics(RESULTS_DIR, summary, parameter_1, parameter_2):
+    # plot simple metric
+    for metric_name in ['precision_train', 'precision_test', 'recall_train', 'recall_test', 'f1_train', 'f1_test']:
+        # check if combination of parameters is unique, since otherwise pivot function does not work
+        combinations = summary[parameter_1].astype('string') + '_' + summary[parameter_2].astype('string')
+        if len(np.unique(combinations)) != len(combinations):
+            logger.warning(f'Skipped {metric_name}, since combination of {parameter_1} and {parameter_2} is not unique.')
+            continue
+
+        plt.figure()
+        sns.heatmap(summary.pivot(parameter_1, parameter_2, metric_name), vmin=0, vmax=1)
+        plt.savefig(join(RESULTS_DIR, f'heatmap_{parameter_1}_vs_{parameter_2}_{metric_name}.pdf'))
+        plt.close()
+
+
+def plot_heatmap_for_metrics_diff_train_minus_test(RESULTS_DIR, summary, parameter_1, parameter_2):
+    # plot difference between train and test
+    for m1, m2, tag in [('precision_train', 'precision_test', 'precision_train_minus_test'),
+                        ('recall_train', 'recall_test', 'recall_train_minus_test'),
+                        ('f1_train', 'f1_test', 'f1_train_minus_test')]:
+        # check if combination of parameters is unique, since otherwise pivot function does not work
+        combinations = summary[parameter_1].astype('string') + '_' + summary[parameter_2].astype('string')
+        if len(np.unique(combinations)) != len(combinations):
+            logger.warning(f'Skipped {tag}, since combination of {parameter_1} and {parameter_2} is not unique.')
+            continue
+
+        summary[tag] = summary[m1] - summary[m2]
+        plt.figure()
+        sns.heatmap(summary.pivot(parameter_1, parameter_2, tag), vmin=0, vmax=1)
+        plt.savefig(join(RESULTS_DIR, f'heatmap_{parameter_1}_vs_{parameter_2}_{tag}.pdf'))
+        plt.close()
