@@ -100,15 +100,38 @@ def create_rankings_of_revised_cases(*,
     save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf.pdf'))
 
     list_areas = list()
+    list_areas_top_10_percent = list()
+    list_areas_top_10_percent_normalized = list()
     plt.figure()
     for method_name, data in cdf_delta_cw.items():
         ranks, cdf = cdf_delta_cw[method_name]
         n_cases = num_cases[method_name]
+        n_cases_top_10_percent = int(n_cases*0.1)
         x = [0] + list(ranks) + [n_cases]
         y = [0] + list(cdf) + [cdf[-1]]
+
+        # add top 10 percent value to be able to compute the AUC under the top 10%
+        ind_last_entry_in_top_10_percent = np.max([i for i in range(len(x)) if x[i] < n_cases_top_10_percent])
+        y_last_entry_in_top_10_percent = y[ind_last_entry_in_top_10_percent]
+
+        x = x + [n_cases_top_10_percent]
+        y = y + [y_last_entry_in_top_10_percent]
+
+        # resort x
+        array_sorted = np.sort(np.asarray([x, y]))
+        x = list(array_sorted[0, :])
+        y = list(array_sorted[1, :])
+
         area = np.trapz(y, x)
         list_areas.append(area)
-        plt.step(x, y, where='post', label=f'{method_name}_AUC_{area}')
+
+        ind_top_10_percent = np.where(np.asarray(x) == float(n_cases_top_10_percent))[0][0] + 1
+        area_top_10_percent = np.trapz(y[:ind_top_10_percent], x[:ind_top_10_percent])
+        list_areas_top_10_percent.append(area_top_10_percent)
+        area_top_10_percent_normalized = np.trapz(np.asarray(y)[:ind_top_10_percent] / np.max(y), np.asarray(x)[:ind_top_10_percent] / n_cases_top_10_percent)
+        list_areas_top_10_percent_normalized.append(area_top_10_percent_normalized)
+
+        plt.step(x, y, where='post', label=f'{method_name}_AUC_%.4f' % area_top_10_percent_normalized)
         # plt.step(x, y, where='post', label=f'{method_name}')
     plt.xlabel("# cases")
     plt.ylabel("delta CW")
@@ -123,6 +146,13 @@ def create_rankings_of_revised_cases(*,
         'area': list_areas
     }).sort_values(by='area', ascending=False)
     wr.s3.to_csv(df_areas, os.path.join(dir_output, 'area_under_the_curves.csv'), index=False)
+
+    df_areas_top_10_percent = pd.DataFrame({
+        'method': [method_name for method_name, _ in cdf_delta_cw.items()],
+        'area': list_areas_top_10_percent,
+        'area_normalized': list_areas_top_10_percent_normalized
+    }).sort_values(by='area', ascending=False)
+    wr.s3.to_csv(df_areas_top_10_percent, os.path.join(dir_output, 'area_under_the_curves_top_10.csv'), index=False)
 
     # Cumulative plot for each method from cdf_delta_cw in percent
     plt.figure()
@@ -161,7 +191,7 @@ def create_rankings_of_revised_cases(*,
 if __name__ == '__main__':
     create_rankings_of_revised_cases(
         filename_revised_cases="s3://code-scout/brute_force_case_ranking_predictions/RF_5000/ground_truth_performance_app_case_ranking_KSW_2020.csv",
-        dir_rankings='s3://code-scout/brute_force_case_ranking_predictions/RF_5000/leave_one_feature_out_screen_KSW_2020/',
-        dir_output="s3://code-scout/brute_force_case_ranking_predictions/RF_5000/leave_one_feature_out_screen_KSW_2020_plots/",
+        dir_rankings='s3://code-scout/brute_force_case_ranking_predictions/RF_5000/random_forest_parameter_screen_without_mdc_run_02_KSW_2020/',
+        dir_output="s3://code-scout/brute_force_case_ranking_predictions/RF_5000/random_forest_parameter_screen_without_mdc_run_02_KSW_2020_plots/",
         s3_bucket='code-scout'
     )
