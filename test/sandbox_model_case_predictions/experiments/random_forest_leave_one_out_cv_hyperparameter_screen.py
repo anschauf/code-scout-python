@@ -30,6 +30,11 @@ def train_random_forest_only_reviewed_cases():
             if not os.path.exists(RESULTS_DIR):
                 os.makedirs(RESULTS_DIR)
 
+            RESULTS_DIR_TEST_PREDICTIONS = join(ROOT_DIR, 'results',
+                               f'random_forest_parameter_screen_without_mdc_run_02_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}', 'TEST_PREDICTIONS')
+            if not os.path.exists(RESULTS_DIR_TEST_PREDICTIONS):
+                os.makedirs(RESULTS_DIR_TEST_PREDICTIONS)
+
             REVISED_CASE_IDS_FILENAME = join(ROOT_DIR, 'resources', 'data', 'revised_case_ids.csv')
 
             DISCARDED_FEATURES = ('hospital', 'month_admission', 'month_discharge', 'year_discharge', 'mdc_OHE')
@@ -148,31 +153,30 @@ def train_random_forest_only_reviewed_cases():
             for info in tqdm(all_hospitals_and_years):
                 hospital_name = info[0]
                 discharge_year = info[1]
-                hospital_data = revised_cases_in_data[(revised_cases_in_data['hospital'] == hospital_name) & (revised_cases_in_data['dischargeYear'] == discharge_year)]
-
-                indices = hospital_data['index'].values
-                case_ids = hospital_data['id'].values
-
-                test_features = list()
-                for feature_name in feature_names:
-                    feature_filename = feature_filenames[feature_name]
-                    feature_values = np.load(feature_filename, mmap_mode='r', allow_pickle=False, fix_imports=False)
-                    test_features.append(feature_values[indices, :])
-                test_features = np.hstack(test_features)
-
-                predictions = list()
-                for model in scores['estimator']:
-                    predictions.append(model.predict_proba(test_features)[:, 1])
-                predictions = np.mean(np.vstack(predictions), axis=0)
-
                 if hospital_name == LEAVE_ON_OUT[0] and discharge_year == LEAVE_ON_OUT[1]:
-                    filename_output = join(RESULTS_DIR, f'n-estimator-{RANDOM_FOREST_NUM_TREES}_max-depth-{RANDOM_FOREST_MAX_DEPTH}_{LEAVE_ON_OUT[0]}-{LEAVE_ON_OUT[1]}.csv')
-                else:
-                    filename_output = join(RESULTS_DIR,f'predictions_random_forest-{hospital_name}-{discharge_year}-based_on_reviewed_cases.csv')
+                    hospital_data = revised_cases_in_data[(revised_cases_in_data['hospital'] == hospital_name) & (revised_cases_in_data['dischargeYear'] == discharge_year)]
 
-                create_predictions_output_performance_app(filename=filename_output,
-                                                          case_ids=case_ids,
-                                                          predictions=predictions)
+                    indices = hospital_data['index'].values
+                    case_ids = hospital_data['id'].values
+
+                    test_features = list()
+                    for feature_name in feature_names:
+                        feature_filename = feature_filenames[feature_name]
+                        feature_values = np.load(feature_filename, mmap_mode='r', allow_pickle=False, fix_imports=False)
+                        test_features.append(feature_values[indices, :])
+                    test_features = np.hstack(test_features)
+
+                    predictions = list()
+                    for model in scores['estimator']:
+                        predictions.append(model.predict_proba(test_features)[:, 1])
+                    predictions = np.mean(np.vstack(predictions), axis=0)
+
+
+                    filename_output = join(RESULTS_DIR_TEST_PREDICTIONS, f'n-estimator-{RANDOM_FOREST_NUM_TREES}_max-depth-{RANDOM_FOREST_MAX_DEPTH}_{LEAVE_ON_OUT[0]}-{LEAVE_ON_OUT[1]}.csv')
+
+                    create_predictions_output_performance_app(filename=filename_output,
+                                                              case_ids=case_ids,
+                                                              predictions=predictions)
 
 
     logger.success('done')
