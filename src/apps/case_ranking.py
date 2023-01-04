@@ -43,7 +43,7 @@ def create_rankings_of_revised_cases(*,
     for hospital_year, method_name, rankings in all_rankings:
         # Sort the cases based on probabilities, and add a column indicating the rank
         rankings = rankings.sort_values(by=prob_most_likely_code_col, ascending=False).reset_index(drop=True)
-        rankings[rank_col] = rankings[prob_most_likely_code_col].rank(method='min', ascending=False)
+        rankings[rank_col] = rankings[prob_most_likely_code_col].rank(method='max', ascending=False)
 
         # Perform an inner join between revised cases and ranked results from CodeScout
         revised_cases[case_id_col] = revised_cases['combined_id']

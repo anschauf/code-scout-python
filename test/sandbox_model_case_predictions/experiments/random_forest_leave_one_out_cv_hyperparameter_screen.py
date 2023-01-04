@@ -19,8 +19,8 @@ from test.sandbox_model_case_predictions.utils import create_predictions_output_
 
 
 def train_random_forest_only_reviewed_cases():
-    for RANDOM_FOREST_NUM_TREES in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
-        for RANDOM_FOREST_MAX_DEPTH in [2, 3, 4, 5, 10, 15, 20, 25, 50, 100]:
+    for RANDOM_FOREST_NUM_TREES in [15, 20, 25, 30, 50]:
+        for RANDOM_FOREST_MAX_DEPTH in [2, 3, 4, 5]:
             RANDOM_FOREST_MIN_SAMPLES_LEAF = 1
 
             LEAVE_ON_OUT = ('KSW', 2020)
