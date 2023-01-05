@@ -45,6 +45,20 @@ def get_sociodemographics_by_sociodemographics_ids(sociodemographics_ids: list, 
 
     return pd.read_sql(query.statement, session.bind)
 
+@beartype
+def get_sociodemographics_by_case_id(case_ids: list, session: Session) -> DataFrame:
+    """
+    Get records from case_data.Sociodemographics table using case_id.
+    @param case_ids: a list of case_ids
+    @param session: DB session
+    @return: a Dataframe from sociodemographic table
+    """
+    query = (session
+             .query(Sociodemographics)
+             .filter(Sociodemographics.case_id.in_(case_ids)))
+
+    return pd.read_sql(query.statement, session.bind)
+
 
 @beartype
 def get_hospital_cases_df(hospital_name: str, session: Session) -> DataFrame:
@@ -138,6 +152,39 @@ def get_original_revision_id_for_sociodemographic_ids(sociodemographic_ids: list
     )
 
     df = pd.read_sql(query_revisions.statement, session.bind)
+
+    return df
+
+
+def get_grouped_revisions_for_sociodemographic_ids(sociodemographic_ids: list[str], session: Session) -> DataFrame:
+    """
+    Get the grouped revisions for sociodemographic_ids.
+    @param sociodemographic_ids: a list of sociodemographic_ids
+    @param session: The DB session.
+    """
+
+    query = (
+        session
+        .query(Revision)
+        .filter(Revision.sociodemographic_id.in_(sociodemographic_ids))
+    )
+
+    df = pd.read_sql(query.statement, session.bind)
+    return df.groupby(SOCIODEMOGRAPHIC_ID_COL, as_index=False).agg(lambda x: list(x))
+
+@beartype
+def get_all_reviewed_cases(session: Session) -> pd.DataFrame:
+    """
+    Get all reviewed cases (i.e. reviewed; True, revised = False)
+    @param session:
+    @return: pandas dataframe
+    """
+
+    query_reviewed_case = (
+        session.query(Revision)
+        .filter(Revision.reviewed.is_(True))
+        .filter(Revision.revised.is_(False)))
+    df = pd.read_sql(query_reviewed_case.statement, session.bind)
 
     return df
 

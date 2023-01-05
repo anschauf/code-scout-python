@@ -35,5 +35,5 @@ def calculate_delta_pccl(cases: pd.DataFrame, *, delta_value_for_max: float = 0.
 
         return row
 
-    cases = cases.apply(_calculate_delta_pccl, axis=1)
+    cases = cases.progress_apply(_calculate_delta_pccl, axis=1)
     return cases
