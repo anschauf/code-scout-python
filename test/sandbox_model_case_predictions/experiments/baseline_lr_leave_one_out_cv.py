@@ -24,8 +24,13 @@ HAND_SELECTED_FEATURES = ('binned_age_RAW', 'drg_cost_weight_RAW', 'mdc_OHE', 'p
                           'num_drg_relevant_procedures_RAW', 'num_drg_relevant_diagnoses_RAW')
 
 # model selected processed features
-USE_MODEL_SELECTED_FEATURES = False
-MODEL_SELECTED_FEATURES = () # add all features selected by random forest if neccessary
+USE_MODEL_SELECTED_FEATURES = True
+# get top n_num of features selected by random forest
+n_feature = 100
+feature_important_file = 'results/random_forest_parameter_screen_without_mdc_run_06_KSW_2020/n_trees_1000-max_depth_10-min_samples_leaf_20-min_samples_split_200/feature_importances_random_forest.csv'
+feature_importance_df = pd.read_csv(join(ROOT_DIR, feature_important_file))
+feature_important = feature_importance_df['feature'].tolist()
+MODEL_SELECTED_FEATURES = (feature_important[:n_feature])
 # discarded features when using all features
 DISCARDED_FEATURES = (
     'hospital', 'month_admission', 'month_discharge', 'year_discharge', 'mdc_OHE', 'hauptkostenstelle_OHE')
@@ -70,14 +75,13 @@ def train_logistic_regression_only_reviewed_cases():
     features_dir = join(ROOT_DIR, 'resources', 'features')
     feature_filenames, encoders = get_list_of_all_predictors(all_data, features_dir, overwrite=False)
     feature_names = sorted(list(feature_filenames.keys()))
-    all_feature_names = list_all_feature_names(all_data, features_dir)
     if USE_HAND_SELECTED_FEATURES:
         feature_names = [feature_name for feature_name in feature_names
                          if any(
                 feature_name.startswith(hand_selected_features) for hand_selected_features in HAND_SELECTED_FEATURES)]
     elif USE_MODEL_SELECTED_FEATURES:
         # can be added later based on feature selected from rf
-        pass
+        all_feature_names = list_all_feature_names(all_data, features_dir)
     else:
         feature_names = [feature_name for feature_name in feature_names
                          if not any(
@@ -98,6 +102,7 @@ def train_logistic_regression_only_reviewed_cases():
     sample_indices = reviewed_cases['index'].values
 
     logger.info('Assembling features ...')
+
     features = list()
     feature_ids = list()
     for feature_name in feature_names:
@@ -110,6 +115,12 @@ def train_logistic_regression_only_reviewed_cases():
 
     feature_ids = np.concatenate(feature_ids)
     features = np.hstack(features)
+
+    # Get only selected feature_id and feature from other model
+    if USE_MODEL_SELECTED_FEATURES:
+        # feature_ids = feature_ids.tolist()
+        selected_feature_idx = [feature_ids.index(feature) for feature in MODEL_SELECTED_FEATURES]
+        pass
 
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
@@ -176,7 +187,7 @@ def train_logistic_regression_only_reviewed_cases():
         discharge_year = info[1]
         if hospital_name == LEAVE_ON_OUT[0] and discharge_year == LEAVE_ON_OUT[1]:
             hospital_data = revised_cases_in_data[(revised_cases_in_data['hospital'] == hospital_name) & (
-                        revised_cases_in_data['dischargeYear'] == discharge_year)]
+                    revised_cases_in_data['dischargeYear'] == discharge_year)]
 
             indices = hospital_data['index'].values
             case_ids = hospital_data['id'].values
