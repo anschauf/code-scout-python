@@ -735,7 +735,8 @@ def plot_heatmap_for_metrics(RESULTS_DIR, summary, parameter_1, parameter_2):
 
         matrix = pd.pivot_table(summary, values=metric_name, index=[parameter_1], columns=[parameter_2], aggfunc=np.mean)
         plt.figure()
-        sns.heatmap(matrix, vmin=0, vmax=1)
+        # sns.heatmap(matrix, vmin=0, vmax=1)
+        sns.heatmap(matrix, vmin=0)
         plt.tight_layout()
         plt.savefig(filename)
         plt.close()
@@ -756,7 +757,7 @@ def plot_heatmap_for_metrics_diff_train_minus_test(RESULTS_DIR, summary, paramet
         summary[tag] = summary[m1] - summary[m2]
         matrix = pd.pivot_table(summary, values=tag, index=[parameter_1], columns=[parameter_2], aggfunc=np.mean)
         plt.figure()
-        sns.heatmap(matrix, vmin=0, vmax=1)
+        sns.heatmap(matrix, vmin=0)
         plt.tight_layout()
         plt.savefig(join(RESULTS_DIR, filename))
         plt.close()
