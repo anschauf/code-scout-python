@@ -670,6 +670,7 @@ def get_screen_summary(RESULTS_DIR):
     n_estimator = list()
     max_depth = list()
     min_sample_leaf = list()
+    min_sample_split = list()
     precision_train = list()
     precision_test = list()
     recall_train = list()
@@ -681,9 +682,14 @@ def get_screen_summary(RESULTS_DIR):
         full_filename = join(RESULTS_DIR, file, 'performance.txt')
 
         if exists(full_filename):
-            n_estimator.append(int(file.split('-')[0].split('_')[-1]))
-            max_depth.append(int(file.split('-')[1].split('_')[-1]))
-            min_sample_leaf.append(int(file.split('-')[2].split('_')[-1]))
+            split_name = file.split('-')
+            n_estimator.append(int(split_name[0].split('_')[-1]))
+            max_depth.append(int(split_name[1].split('_')[-1]))
+            min_sample_leaf.append(int(split_name[2].split('_')[-1]))
+            if len(split_name) > 3:
+                min_sample_split.append(int(split_name[3].split('_')[-1]))
+            else:
+                min_sample_split.append('')
 
             with open(full_filename) as f:
                 lines = f.readlines()
@@ -701,6 +707,7 @@ def get_screen_summary(RESULTS_DIR):
         'n_estimator': n_estimator,
         'max_depth': max_depth,
         'min_sample_leaf': min_sample_leaf,
+        'min_sample_split': min_sample_split,
         'precision_train': precision_train,
         'precision_test': precision_test,
         'precision_train-test': np.asarray(precision_train) - np.asarray(precision_test),
@@ -722,12 +729,15 @@ def plot_heatmap_for_metrics(RESULTS_DIR, summary, parameter_1, parameter_2):
         # check if combination of parameters is unique, since otherwise pivot function does not work
         combinations = summary[parameter_1].astype('string') + '_' + summary[parameter_2].astype('string')
         if len(np.unique(combinations)) != len(combinations):
-            logger.warning(f'Skipped {metric_name}, since combination of {parameter_1} and {parameter_2} is not unique.')
-            continue
+            filename = join(RESULTS_DIR, f'MEAN_AGG__heatmap__{parameter_1}__VS__{parameter_2}__{metric_name}.pdf')
+        else:
+            filename = join(RESULTS_DIR, f'heatmap__{parameter_1}__VS__{parameter_2}__{metric_name}.pdf')
 
+        matrix = pd.pivot_table(summary, values=metric_name, index=[parameter_1], columns=[parameter_2], aggfunc=np.mean)
         plt.figure()
-        sns.heatmap(summary.pivot(parameter_1, parameter_2, metric_name), vmin=0, vmax=1)
-        plt.savefig(join(RESULTS_DIR, f'heatmap_{parameter_1}_vs_{parameter_2}_{metric_name}.pdf'))
+        sns.heatmap(matrix, vmin=0, vmax=1)
+        plt.tight_layout()
+        plt.savefig(filename)
         plt.close()
 
 
@@ -739,11 +749,14 @@ def plot_heatmap_for_metrics_diff_train_minus_test(RESULTS_DIR, summary, paramet
         # check if combination of parameters is unique, since otherwise pivot function does not work
         combinations = summary[parameter_1].astype('string') + '_' + summary[parameter_2].astype('string')
         if len(np.unique(combinations)) != len(combinations):
-            logger.warning(f'Skipped {tag}, since combination of {parameter_1} and {parameter_2} is not unique.')
-            continue
+            filename = f'MEAN_AGG__heatmap__{parameter_1}__VS__{parameter_2}__{tag}.pdf'
+        else:
+            filename = f'heatmap__{parameter_1}__VS__{parameter_2}__{tag}.pdf'
 
         summary[tag] = summary[m1] - summary[m2]
+        matrix = pd.pivot_table(summary, values=tag, index=[parameter_1], columns=[parameter_2], aggfunc=np.mean)
         plt.figure()
-        sns.heatmap(summary.pivot(parameter_1, parameter_2, tag), vmin=0, vmax=1)
-        plt.savefig(join(RESULTS_DIR, f'heatmap_{parameter_1}_vs_{parameter_2}_{tag}.pdf'))
+        sns.heatmap(matrix, vmin=0, vmax=1)
+        plt.tight_layout()
+        plt.savefig(join(RESULTS_DIR, filename))
         plt.close()
