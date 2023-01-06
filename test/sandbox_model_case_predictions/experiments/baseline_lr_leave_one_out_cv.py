@@ -25,7 +25,7 @@ HAND_SELECTED_FEATURES = ('binned_age_RAW', 'drg_cost_weight_RAW', 'mdc_OHE', 'p
 
 # model selected processed features
 USE_MODEL_SELECTED_FEATURES = False
-MODEL_SELECTED_FEATURES = ()
+MODEL_SELECTED_FEATURES = () # add all features selected by random forest if neccessary
 # discarded features when using all features
 DISCARDED_FEATURES = (
     'hospital', 'month_admission', 'month_discharge', 'year_discharge', 'mdc_OHE', 'hauptkostenstelle_OHE')
@@ -49,11 +49,11 @@ else:
 # ‘saga’ - [‘elasticnet’, ‘l1’, ‘l2’]
 
 
-HYPERPARAMETER = {'C': 1.0, 'penalty': 'l2', 'solver': 'newton-cholesky'}
+HYPERPARAMETER = {'C': 1.0, 'penalty': 'l1', 'solver': 'liblinear'}
 hyperparameter_info = '_'.join([f'{key}-{value}' for key, value in HYPERPARAMETER.items()])
 
 RESULTS_DIR = join(ROOT_DIR, 'results', folder_name,
-                   hyperparameter_info)
+                   f'{folder_name}_{hyperparameter_info}')
 if not os.path.exists(RESULTS_DIR):
     os.makedirs(RESULTS_DIR)
 
@@ -194,7 +194,7 @@ def train_logistic_regression_only_reviewed_cases():
             predictions = np.mean(np.vstack(predictions), axis=0)
 
             filename_output = join(RESULTS_DIR_TEST_PREDICTIONS,
-                                   f'{hyperparameter_info}_{LEAVE_ON_OUT[0]}-{LEAVE_ON_OUT[1]}.csv')
+                                   f'{folder_name}_{hyperparameter_info}.csv')
 
             create_predictions_output_performance_app(filename=filename_output,
                                                       case_ids=case_ids,
