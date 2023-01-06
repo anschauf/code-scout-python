@@ -21,7 +21,7 @@ COUNT_LIMIT = 10
 TRAINING_SET_LIMIT = 100000 # -1 for no limit
 
 
-dir_output = join(ROOT_DIR, 'results', 'logistic_regression_predictors_screen')
+dir_output = join(ROOT_DIR, 'results', 'xgboost_predictors_screen')
 if not os.path.exists(dir_output):
     os.makedirs(dir_output)
 
