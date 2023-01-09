@@ -521,7 +521,7 @@ def prepare_train_eval_test_split(dir_output, revised_cases_in_data, hospital_le
 
 
 # noinspection PyUnresolvedReferences
-def create_performance_app_ground_truth(dir_output: str, revised_cases_in_data: DataFrame, hospital: Optional[str], year: Optional[int]):
+def create_performance_app_ground_truth(dir_output: str, revised_cases_in_data: DataFrame, hospital: Optional[str], year: Optional[int], overwrite=False):
     """
     Create performance ground truth file for case ranking purposes only.
     @param dir_output: The output directory to store the file in.
@@ -543,79 +543,81 @@ def create_performance_app_ground_truth(dir_output: str, revised_cases_in_data: 
     else:
         year_msg = 'all_years'
 
-    case_ids_revised = revised_cases_in_data[case_ids_revised_filter]
+    filename = join(dir_output, f'ground_truth_performance_app_case_ranking_{hospital_msg}_{year_msg}.csv')
+    if not np.logical_and(exists(filename) == True, overwrite == False):
+        case_ids_revised = revised_cases_in_data[case_ids_revised_filter]
 
-    logger.info(f'Selected {case_ids_revised.shape[0]} cases from {hospital_msg} ({year_msg})')
+        logger.info(f'Selected {case_ids_revised.shape[0]} cases from {hospital_msg} ({year_msg})')
 
-    with Database() as db:
-        logger.trace('Reading the sociodemographics from the DB ...')
-        sociodemographic_revised = get_sociodemographics_by_case_id(case_ids_revised['id'].values.tolist(), db.session)
-        sociodemographic_ids_revised = sociodemographic_revised[SOCIODEMOGRAPHIC_ID_COL]
+        with Database() as db:
+            logger.trace('Reading the sociodemographics from the DB ...')
+            sociodemographic_revised = get_sociodemographics_by_case_id(case_ids_revised['id'].values.tolist(), db.session)
+            sociodemographic_ids_revised = sociodemographic_revised[SOCIODEMOGRAPHIC_ID_COL]
 
-        logger.trace('Reading and grouping the revisions ...')
-        grouped_revisions = get_grouped_revisions_for_sociodemographic_ids(sociodemographic_ids_revised, db.session)
-        socio_revised_merged = pd.merge(sociodemographic_revised, grouped_revisions, on=SOCIODEMOGRAPHIC_ID_COL)
+            logger.trace('Reading and grouping the revisions ...')
+            grouped_revisions = get_grouped_revisions_for_sociodemographic_ids(sociodemographic_ids_revised, db.session)
+            socio_revised_merged = pd.merge(sociodemographic_revised, grouped_revisions, on=SOCIODEMOGRAPHIC_ID_COL)
 
-    logger.info('Assembling info on revisions ...')
-    n_rows = socio_revised_merged.shape[0]
+        logger.info('Assembling info on revisions ...')
+        n_rows = socio_revised_merged.shape[0]
 
-    drg_old = np.empty(n_rows, dtype=object)
-    drg_new = np.empty_like(drg_old)
+        drg_old = np.empty(n_rows, dtype=object)
+        drg_new = np.empty_like(drg_old)
 
-    cw_old = np.empty(n_rows, dtype=float)
-    cw_new = np.empty_like(cw_old)
+        cw_old = np.empty(n_rows, dtype=float)
+        cw_new = np.empty_like(cw_old)
 
-    pccl_old = np.empty(n_rows, dtype=int)
-    pccl_new = np.empty_like(pccl_old)
+        pccl_old = np.empty(n_rows, dtype=int)
+        pccl_new = np.empty_like(pccl_old)
 
-    for i, row in enumerate(tqdm(socio_revised_merged.itertuples())):
-        is_revised = set(row.reviewed) == {True, False}
+        for i, row in enumerate(tqdm(socio_revised_merged.itertuples())):
+            is_revised = set(row.reviewed) == {True, False}
 
-        if is_revised:
-            ind_original = row.reviewed.index(False)
-            ind_reviewed = row.reviewed.index(True)
+            if is_revised:
+                ind_original = row.reviewed.index(False)
+                ind_reviewed = row.reviewed.index(True)
 
-            drg_old[i] = row.drg[ind_original]
-            drg_new[i] = row.drg[ind_reviewed]
+                drg_old[i] = row.drg[ind_original]
+                drg_new[i] = row.drg[ind_reviewed]
 
-            cw_old[i] = row.effective_cost_weight[ind_original]
-            cw_new[i] = row.effective_cost_weight[ind_reviewed]
+                cw_old[i] = row.effective_cost_weight[ind_original]
+                cw_new[i] = row.effective_cost_weight[ind_reviewed]
 
-            pccl_old[i] = row.pccl[ind_original]
-            pccl_new[i] = row.pccl[ind_reviewed]
+                pccl_old[i] = row.pccl[ind_original]
+                pccl_new[i] = row.pccl[ind_reviewed]
 
-        else:
-            drg_old[i] = ''
-            drg_new[i] = ''
-            cw_old[i] = 0
-            cw_new[i] = 0
-            pccl_old[i] = 0
-            pccl_new[i] = 0
+            else:
+                drg_old[i] = ''
+                drg_new[i] = ''
+                cw_old[i] = 0
+                cw_new[i] = 0
+                pccl_old[i] = 0
+                pccl_new[i] = 0
 
-    placeholder = np.repeat('', n_rows)
-    ground_truth = pd.DataFrame({
-        'CaseId': socio_revised_merged['case_id'].values,
-        'AdmNo': placeholder,
-        'FID': placeholder,
-        'PatID': placeholder,
-        'ICD_added': placeholder,
-        'ICD_dropped': placeholder,
-        'CHOP_added': placeholder,
-        'CHOP_dropped': placeholder,
-        'DRG_old': drg_old,
-        'DRG_new': drg_new,
-        'CW_old': cw_old,
-        'CW_new': cw_new,
-        'PCCL_old': pccl_old,
-        'PCCL_new': pccl_new
-    })
+        placeholder = np.repeat('', n_rows)
+        ground_truth = pd.DataFrame({
+            'CaseId': socio_revised_merged['case_id'].values,
+            'AdmNo': placeholder,
+            'FID': placeholder,
+            'PatID': placeholder,
+            'ICD_added': placeholder,
+            'ICD_dropped': placeholder,
+            'CHOP_added': placeholder,
+            'CHOP_dropped': placeholder,
+            'DRG_old': drg_old,
+            'DRG_new': drg_new,
+            'CW_old': cw_old,
+            'CW_new': cw_new,
+            'PCCL_old': pccl_old,
+            'PCCL_new': pccl_new
+        })
 
-    #TODO maybe remove this filter again, just for the time being till we checked the revised cases in the DB
-    ground_truth = ground_truth[ground_truth['CW_new'] > 0]
-    ground_truth['cw_delta'] = ground_truth['CW_new'] - ground_truth['CW_old']
-    ground_truth[ground_truth['cw_delta'] > 0] \
-        .drop(columns=['cw_delta']) \
-        .to_csv(join(dir_output, f'ground_truth_performance_app_case_ranking_{hospital_msg}_{year_msg}.csv'), index=False)
+        #TODO maybe remove this filter again, just for the time being till we checked the revised cases in the DB
+        ground_truth = ground_truth[ground_truth['CW_new'] > 0]
+        ground_truth['cw_delta'] = ground_truth['CW_new'] - ground_truth['CW_old']
+        ground_truth[ground_truth['cw_delta'] > 0] \
+            .drop(columns=['cw_delta']) \
+            .to_csv(filename, index=False)
 
 
 def create_predictions_output_performance_app(filename: str, case_ids: ArrayLike, predictions: ArrayLike):
@@ -663,7 +665,7 @@ def list_all_feature_names(all_data: pd.DataFrame, features_dir: str, feature_in
     return all_feature_names
 
 
-def get_screen_summary(RESULTS_DIR):
+def get_screen_summary_random_forest(RESULTS_DIR):
     all_runs = listdir(RESULTS_DIR)
     all_runs = [f for f in all_runs if f.startswith('n_trees')]
 

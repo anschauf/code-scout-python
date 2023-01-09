@@ -141,34 +141,14 @@ def create_rankings_of_revised_cases(*,
     plt.legend(loc='best', fancybox=True, framealpha=0.8, bbox_to_anchor=(1.05, 1.05))
     save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf_top10_percent.pdf'))
 
-    n_estimator = list()
-    max_depth = list()
-    min_sample_leaf = list()
-    min_sample_split = list()
-    for name in [method_name for method_name, _ in cdf_delta_cw.items()]:
-        split_name = name.split('_')
-        n_estimator.append(int(split_name[0].split('-')[-1]))
-        max_depth.append(int(split_name[1].split('-')[-1]))
-        min_sample_leaf.append(int(split_name[2].split('-')[-1]))
-        if len(split_name) > 3:
-            min_sample_split.append(int(split_name[3].split('-')[-1]))
-        else:
-            min_sample_split.append('')
-
     df_areas = pd.DataFrame({
-        'n_estimator': n_estimator,
-        'max_depth': max_depth,
-        'min_sample_leaf': min_sample_leaf,
-        'min_sample_split': min_sample_split,
+        'method': [method_name for method_name, _ in cdf_delta_cw.items()],
         'area': list_areas
     }).sort_values(by='area', ascending=False)
     wr.s3.to_csv(df_areas, os.path.join(dir_output, 'area_under_the_curves.csv'), index=False)
 
     df_areas_top_10_percent = pd.DataFrame({
-        'n_estimator': n_estimator,
-        'max_depth': max_depth,
-        'min_sample_leaf': min_sample_leaf,
-        'min_sample_split': min_sample_split,
+        'method': [method_name for method_name, _ in cdf_delta_cw.items()],
         'area': list_areas_top_10_percent,
         'area_normalized': list_areas_top_10_percent_normalized
     }).sort_values(by='area', ascending=False)
@@ -210,8 +190,8 @@ def create_rankings_of_revised_cases(*,
 
 if __name__ == '__main__':
     create_rankings_of_revised_cases(
-        filename_revised_cases="s3://code-scout/brute_force_case_ranking_predictions/RF_5000/ground_truth_performance_app_case_ranking_KSW_2020.csv",
-        dir_rankings='s3://code-scout/brute_force_case_ranking_predictions/RF_5000/test2/',
-        dir_output="s3://code-scout/brute_force_case_ranking_predictions/RF_5000/test2_plots/",
+        filename_revised_cases="s3://code-scout/brute_force_case_ranking_predictions/RF_5000/ground_truth_performance_app_case_ranking_LI_2018.csv",
+        dir_rankings='s3://code-scout/brute_force_case_ranking_predictions/RF_5000/random_forest_optimal_models_LI_2018/',
+        dir_output="s3://code-scout/brute_force_case_ranking_predictions/RF_5000/random_forest_optimal_models_LI_2018_plots/",
         s3_bucket='code-scout'
     )
