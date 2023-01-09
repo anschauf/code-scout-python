@@ -670,7 +670,6 @@ def get_screen_summary(RESULTS_DIR):
     n_estimator = list()
     max_depth = list()
     min_sample_leaf = list()
-    min_sample_split = list()
     precision_train = list()
     precision_test = list()
     recall_train = list()
@@ -682,14 +681,9 @@ def get_screen_summary(RESULTS_DIR):
         full_filename = join(RESULTS_DIR, file, 'performance.txt')
 
         if exists(full_filename):
-            split_name = file.split('-')
-            n_estimator.append(int(split_name[0].split('_')[-1]))
-            max_depth.append(int(split_name[1].split('_')[-1]))
-            min_sample_leaf.append(int(split_name[2].split('_')[-1]))
-            if len(split_name) > 3:
-                min_sample_split.append(int(split_name[3].split('_')[-1]))
-            else:
-                min_sample_split.append('')
+            n_estimator.append(int(file.split('-')[0].split('_')[-1]))
+            max_depth.append(int(file.split('-')[1].split('_')[-1]))
+            min_sample_leaf.append(float(file.split('-')[2].split('_')[-1]))
 
             with open(full_filename) as f:
                 lines = f.readlines()
@@ -706,8 +700,9 @@ def get_screen_summary(RESULTS_DIR):
     summary = pd.DataFrame({
         'n_estimator': n_estimator,
         'max_depth': max_depth,
-        'min_sample_leaf': min_sample_leaf,
-        'min_sample_split': min_sample_split,
+        # 'min_sample_leaf': min_sample_leaf,
+        # 'learning_rate': min_sample_leaf,
+        'min_child_weight': min_sample_leaf,
         'precision_train': precision_train,
         'precision_test': precision_test,
         'precision_train-test': np.asarray(precision_train) - np.asarray(precision_test),
@@ -721,3 +716,36 @@ def get_screen_summary(RESULTS_DIR):
     summary.to_csv(join(RESULTS_DIR, 'screen_summary.csv'), index=False)
 
     return summary
+
+
+def plot_heatmap_for_metrics(RESULTS_DIR, summary, parameter_1, parameter_2):
+    # plot simple metric
+    for metric_name in ['precision_train', 'precision_test', 'recall_train', 'recall_test', 'f1_train', 'f1_test']:
+        # check if combination of parameters is unique, since otherwise pivot function does not work
+        combinations = summary[parameter_1].astype('string') + '_' + summary[parameter_2].astype('string')
+        if len(np.unique(combinations)) != len(combinations):
+            logger.warning(f'Skipped {metric_name}, since combination of {parameter_1} and {parameter_2} is not unique.')
+            continue
+
+        plt.figure()
+        sns.heatmap(summary.pivot(parameter_1, parameter_2, metric_name), vmin=0, vmax=1)
+        plt.savefig(join(RESULTS_DIR, f'heatmap_{parameter_1}_vs_{parameter_2}_{metric_name}.pdf'))
+        plt.close()
+
+
+def plot_heatmap_for_metrics_diff_train_minus_test(RESULTS_DIR, summary, parameter_1, parameter_2):
+    # plot difference between train and test
+    for m1, m2, tag in [('precision_train', 'precision_test', 'precision_train_minus_test'),
+                        ('recall_train', 'recall_test', 'recall_train_minus_test'),
+                        ('f1_train', 'f1_test', 'f1_train_minus_test')]:
+        # check if combination of parameters is unique, since otherwise pivot function does not work
+        combinations = summary[parameter_1].astype('string') + '_' + summary[parameter_2].astype('string')
+        if len(np.unique(combinations)) != len(combinations):
+            logger.warning(f'Skipped {tag}, since combination of {parameter_1} and {parameter_2} is not unique.')
+            continue
+
+        summary[tag] = summary[m1] - summary[m2]
+        plt.figure()
+        sns.heatmap(summary.pivot(parameter_1, parameter_2, tag), vmin=0, vmax=1)
+        plt.savefig(join(RESULTS_DIR, f'heatmap_{parameter_1}_vs_{parameter_2}_{tag}.pdf'))
+        plt.close()

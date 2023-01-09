@@ -143,23 +143,17 @@ def create_rankings_of_revised_cases(*,
 
     n_estimator = list()
     max_depth = list()
-    min_sample_leaf = list()
-    min_sample_split = list()
+    min_child_weight = list()
     for name in [method_name for method_name, _ in cdf_delta_cw.items()]:
         split_name = name.split('_')
         n_estimator.append(int(split_name[0].split('-')[-1]))
         max_depth.append(int(split_name[1].split('-')[-1]))
-        min_sample_leaf.append(int(split_name[2].split('-')[-1]))
-        if len(split_name) > 3:
-            min_sample_split.append(int(split_name[3].split('-')[-1]))
-        else:
-            min_sample_split.append('')
+        min_child_weight.append(float(split_name[2].split('-')[-1]))
 
     df_areas = pd.DataFrame({
         'n_estimator': n_estimator,
         'max_depth': max_depth,
-        'min_child_weight': min_sample_leaf,
-        'min_sample_split': min_sample_split,
+        'min_child_weight': min_child_weight,
         'area': list_areas
     }).sort_values(by='area', ascending=False)
     wr.s3.to_csv(df_areas, os.path.join(dir_output, 'area_under_the_curves.csv'), index=False)
@@ -167,8 +161,7 @@ def create_rankings_of_revised_cases(*,
     df_areas_top_10_percent = pd.DataFrame({
         'n_estimator': n_estimator,
         'max_depth': max_depth,
-        'min_sample_leaf': min_sample_leaf,
-        'min_sample_split': min_sample_split,
+        'min_child_weight': min_child_weight,
         'area': list_areas_top_10_percent,
         'area_normalized': list_areas_top_10_percent_normalized
     }).sort_values(by='area', ascending=False)
