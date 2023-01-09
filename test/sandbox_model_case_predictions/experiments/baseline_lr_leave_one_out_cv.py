@@ -26,7 +26,7 @@ HAND_SELECTED_FEATURES = ('binned_age_RAW', 'drg_cost_weight_RAW', 'mdc_OHE', 'p
 # model selected processed features
 USE_MODEL_SELECTED_FEATURES = True
 # get top n_num of features selected by random forest
-n_feature = 60
+n_feature = 200
 feature_important_file = 'results/random_forest_parameter_screen_without_mdc_run_06_KSW_2020/n_trees_1000-max_depth_10-min_samples_leaf_20-min_samples_split_200/feature_importances_random_forest.csv'
 feature_importance_df = pd.read_csv(join(ROOT_DIR, feature_important_file))
 feature_important = feature_importance_df['feature'].tolist()
@@ -40,7 +40,7 @@ LEAVE_ON_OUT = ('KSW', 2020)
 if USE_HAND_SELECTED_FEATURES:
     folder_name = f'lr_baseline_use_hand_selected_features_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
 elif USE_MODEL_SELECTED_FEATURES:
-    folder_name = f'lr_baseline_use_model_selected_features_top_{n_feature}_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
+    folder_name = f'lr_baseline_use_model_selected_features_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
 else:
     folder_name = f'lr_baseline_use_all_features_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
 
@@ -54,11 +54,11 @@ else:
 # ‘saga’ - [‘elasticnet’, ‘l1’, ‘l2’]
 
 
-HYPERPARAMETER = {'C': 1.0, 'penalty': 'l1', 'solver': 'liblinear'}
+HYPERPARAMETER = {'C': 1.0, 'penalty': 'l2', 'solver': 'saga'}
 hyperparameter_info = '_'.join([f'{key}-{value}' for key, value in HYPERPARAMETER.items()])
 
 RESULTS_DIR = join(ROOT_DIR, 'results', folder_name,
-                   f'{folder_name}_{hyperparameter_info}')
+                   f'{folder_name}_top{n_feature}_{hyperparameter_info}')
 if not os.path.exists(RESULTS_DIR):
     os.makedirs(RESULTS_DIR)
 
@@ -178,6 +178,23 @@ def train_logistic_regression_only_reviewed_cases():
     logger.info('Storing models ...')
     with open(join(RESULTS_DIR, 'lr_baseline_cv.pkl'), 'wb') as f:
         pickle.dump(scores['estimator'], f, fix_imports=False)
+
+    f_co_eff = list()
+    for idx, estimator in enumerate(scores['estimator']):
+        f_co_eff.append(np.asarray(estimator.coef_))
+    f_co_effs = np.vstack(f_co_eff)
+    mean_feature = np.mean(np.vstack(f_co_effs), axis=0)
+    std_feature = np.std(np.vstack(f_co_effs), axis=0)
+
+    pd.DataFrame({
+        'feature': feature_ids,
+        'feature_co_coefficients_mean': mean_feature,
+        'feature_co_coefficients_std': std_feature
+    }).sort_values(by='feature_co_coefficients_mean', ascending=False).to_csv(
+        join(RESULTS_DIR, 'feature_co_coefficients_logistic_regression.csv'), index=False)
+
+
+
 
     logger.info(
         'Calculating and storing predictions for each combination of hospital and year, which contains revised cases ...')
