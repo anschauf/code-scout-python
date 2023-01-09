@@ -17,7 +17,7 @@ from test.sandbox_model_case_predictions.utils import create_predictions_output_
     get_list_of_all_predictors, get_revised_case_ids, RANDOM_SEED, prepare_train_eval_test_split, list_all_feature_names
 
 # hand selected raw features
-USE_HAND_SELECTED_FEATURES = True
+USE_HAND_SELECTED_FEATURES = False
 HAND_SELECTED_FEATURES = ('binned_age_RAW', 'drg_cost_weight_RAW', 'mdc_OHE', 'pccl_OHE', 'duration_of_stay_RAW',
                           'gender_OHE', 'number_of_chops_RAW', 'number_of_diags_RAW',
                           'number_of_diags_ccl_greater_0_RAW',
@@ -26,7 +26,7 @@ HAND_SELECTED_FEATURES = ('binned_age_RAW', 'drg_cost_weight_RAW', 'mdc_OHE', 'p
 # model selected processed features
 USE_MODEL_SELECTED_FEATURES = True
 # get top n_num of features selected by random forest
-n_feature = 100
+n_feature = 60
 feature_important_file = 'results/random_forest_parameter_screen_without_mdc_run_06_KSW_2020/n_trees_1000-max_depth_10-min_samples_leaf_20-min_samples_split_200/feature_importances_random_forest.csv'
 feature_importance_df = pd.read_csv(join(ROOT_DIR, feature_important_file))
 feature_important = feature_importance_df['feature'].tolist()
@@ -40,7 +40,7 @@ LEAVE_ON_OUT = ('KSW', 2020)
 if USE_HAND_SELECTED_FEATURES:
     folder_name = f'lr_baseline_use_hand_selected_features_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
 elif USE_MODEL_SELECTED_FEATURES:
-    folder_name = f'lr_baseline_use_model_selected_features_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
+    folder_name = f'lr_baseline_use_model_selected_features_top_{n_feature}_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
 else:
     folder_name = f'lr_baseline_use_all_features_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
 
@@ -81,7 +81,9 @@ def train_logistic_regression_only_reviewed_cases():
                 feature_name.startswith(hand_selected_features) for hand_selected_features in HAND_SELECTED_FEATURES)]
     elif USE_MODEL_SELECTED_FEATURES:
         # can be added later based on feature selected from rf
-        all_feature_names = list_all_feature_names(all_data, features_dir)
+        feature_names = [feature_name for feature_name in feature_names
+                         if not any(feature_name.startswith(discarded_feature) for discarded_feature in DISCARDED_FEATURES)]
+        # all_feature_names = list_all_feature_names(all_data, features_dir)
     else:
         feature_names = [feature_name for feature_name in feature_names
                          if not any(
@@ -118,9 +120,9 @@ def train_logistic_regression_only_reviewed_cases():
 
     # Get only selected feature_id and feature from other model
     if USE_MODEL_SELECTED_FEATURES:
-        # feature_ids = feature_ids.tolist()
-        selected_feature_idx = [feature_ids.index(feature) for feature in MODEL_SELECTED_FEATURES]
-        pass
+        selected_feature_idx = np.where(np.isin(feature_ids, MODEL_SELECTED_FEATURES))[0]
+        feature_ids = feature_ids[selected_feature_idx]
+        features = features[:,selected_feature_idx]
 
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
@@ -198,6 +200,10 @@ def train_logistic_regression_only_reviewed_cases():
                 feature_values = np.load(feature_filename, mmap_mode='r', allow_pickle=False, fix_imports=False)
                 test_features.append(feature_values[indices, :])
             test_features = np.hstack(test_features)
+
+            # selected a subset of feature if using Model selected features
+            if USE_MODEL_SELECTED_FEATURES:
+                test_features = test_features[:, selected_feature_idx]
 
             predictions = list()
             for model in scores['estimator']:
