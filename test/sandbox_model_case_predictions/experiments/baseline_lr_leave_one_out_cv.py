@@ -14,36 +14,20 @@ from tqdm import tqdm
 from src import ROOT_DIR
 from test.sandbox_model_case_predictions.data_handler import load_data
 from test.sandbox_model_case_predictions.utils import create_predictions_output_performance_app, \
-    get_list_of_all_predictors, get_revised_case_ids, RANDOM_SEED, prepare_train_eval_test_split, list_all_feature_names
+    get_list_of_all_predictors, get_revised_case_ids, RANDOM_SEED, prepare_train_eval_test_split
 
 # hand selected raw features
 USE_HAND_SELECTED_FEATURES = False
-HAND_SELECTED_FEATURES = ('binned_age_RAW', 'drg_cost_weight_RAW', 'mdc_OHE', 'pccl_OHE', 'duration_of_stay_RAW',
-                          'gender_OHE', 'number_of_chops_RAW', 'number_of_diags_RAW',
-                          'number_of_diags_ccl_greater_0_RAW',
-                          'num_drg_relevant_procedures_RAW', 'num_drg_relevant_diagnoses_RAW')
-
 # model selected processed features
 USE_MODEL_SELECTED_FEATURES = True
-# get top n_num of features selected by random forest
-n_feature = 200
-feature_important_file = 'results/random_forest_parameter_screen_without_mdc_run_06_KSW_2020/n_trees_1000-max_depth_10-min_samples_leaf_20-min_samples_split_200/feature_importances_random_forest.csv'
-feature_importance_df = pd.read_csv(join(ROOT_DIR, feature_important_file))
-feature_important = feature_importance_df['feature'].tolist()
-MODEL_SELECTED_FEATURES = (feature_important[:n_feature])
+NUM_MODEL_SELECTED_FEATURES = 200
+
 # discarded features when using all features
 DISCARDED_FEATURES = (
     'hospital', 'month_admission', 'month_discharge', 'year_discharge', 'mdc_OHE', 'hauptkostenstelle_OHE')
 
 # create folder names for output
 LEAVE_ON_OUT = ('KSW', 2020)
-if USE_HAND_SELECTED_FEATURES:
-    folder_name = f'lr_baseline_use_hand_selected_features_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
-elif USE_MODEL_SELECTED_FEATURES:
-    folder_name = f'lr_baseline_use_model_selected_features_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
-else:
-    folder_name = f'lr_baseline_use_all_features_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
-
 # create folder path for storing result with hyperparameter
 # Notes: solver and penalty combination
 # ‘lbfgs’ - [‘l2’]
@@ -57,13 +41,37 @@ else:
 HYPERPARAMETER = {'C': 1.0, 'penalty': 'l2', 'solver': 'saga'}
 hyperparameter_info = '_'.join([f'{key}-{value}' for key, value in HYPERPARAMETER.items()])
 
-RESULTS_DIR = join(ROOT_DIR, 'results', folder_name,
-                   f'{folder_name}_top{n_feature}_{hyperparameter_info}')
+if USE_HAND_SELECTED_FEATURES:
+    FOLDER_NAME = f'lr_baseline_use_hand_selected_features_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
+    RESULTS_DIR = join(ROOT_DIR, 'results', FOLDER_NAME,
+                       f'{FOLDER_NAME}_{hyperparameter_info}')
+    HAND_SELECTED_FEATURES = ('binned_age_RAW', 'drg_cost_weight_RAW', 'mdc_OHE', 'pccl_OHE', 'duration_of_stay_RAW',
+                              'gender_OHE', 'number_of_chops_RAW', 'number_of_diags_RAW',
+                              'number_of_diags_ccl_greater_0_RAW',
+                              'num_drg_relevant_procedures_RAW', 'num_drg_relevant_diagnoses_RAW')
+
+elif USE_MODEL_SELECTED_FEATURES:
+    # get top n_num of features selected by random forest
+    n_feature = NUM_MODEL_SELECTED_FEATURES
+    feature_important_file = 'results/random_forest_parameter_screen_without_mdc_run_06_KSW_2020/n_trees_1000-max_depth_10-min_samples_leaf_20-min_samples_split_200/feature_importances_random_forest.csv'
+    feature_importance_df = pd.read_csv(join(ROOT_DIR, feature_important_file))
+    feature_important = feature_importance_df['feature'].tolist()
+    MODEL_SELECTED_FEATURES = (feature_important[:n_feature])
+
+    FOLDER_NAME = f'lr_baseline_use_model_selected_features_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
+    RESULTS_DIR = join(ROOT_DIR, 'results', FOLDER_NAME,
+                       f'{FOLDER_NAME}_top{n_feature}_{hyperparameter_info}')
+#
+else:
+    FOLDER_NAME = f'lr_baseline_use_all_features_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
+    RESULTS_DIR = join(ROOT_DIR, 'results', FOLDER_NAME,
+                       f'{FOLDER_NAME}_{hyperparameter_info}')
+
 if not os.path.exists(RESULTS_DIR):
     os.makedirs(RESULTS_DIR)
 
 # predicted results for hospital year for performance app
-RESULTS_DIR_TEST_PREDICTIONS = join(ROOT_DIR, 'results', folder_name, 'TEST_PREDICTIONS')
+RESULTS_DIR_TEST_PREDICTIONS = join(ROOT_DIR, 'results', FOLDER_NAME, 'TEST_PREDICTIONS')
 if not os.path.exists(RESULTS_DIR_TEST_PREDICTIONS):
     os.makedirs(RESULTS_DIR_TEST_PREDICTIONS)
 
@@ -77,17 +85,10 @@ def train_logistic_regression_only_reviewed_cases():
     feature_names = sorted(list(feature_filenames.keys()))
     if USE_HAND_SELECTED_FEATURES:
         feature_names = [feature_name for feature_name in feature_names
-                         if any(
-                feature_name.startswith(hand_selected_features) for hand_selected_features in HAND_SELECTED_FEATURES)]
-    elif USE_MODEL_SELECTED_FEATURES:
-        # can be added later based on feature selected from rf
-        feature_names = [feature_name for feature_name in feature_names
-                         if not any(feature_name.startswith(discarded_feature) for discarded_feature in DISCARDED_FEATURES)]
-        # all_feature_names = list_all_feature_names(all_data, features_dir)
+                         if any(feature_name.startswith(hand_selected_features) for hand_selected_features in HAND_SELECTED_FEATURES)]
     else:
         feature_names = [feature_name for feature_name in feature_names
-                         if not any(
-                feature_name.startswith(discarded_feature) for discarded_feature in DISCARDED_FEATURES)]
+                         if not any(feature_name.startswith(discarded_feature) for discarded_feature in DISCARDED_FEATURES)]
 
     revised_cases_in_data = get_revised_case_ids(all_data, REVISED_CASE_IDS_FILENAME, overwrite=False)
     # create_performance_app_ground_truth(dir_output, revised_cases_in_data, hospital_year_for_performance_app[0], hospital_year_for_performance_app[1])
@@ -122,7 +123,7 @@ def train_logistic_regression_only_reviewed_cases():
     if USE_MODEL_SELECTED_FEATURES:
         selected_feature_idx = np.where(np.isin(feature_ids, MODEL_SELECTED_FEATURES))[0]
         feature_ids = feature_ids[selected_feature_idx]
-        features = features[:,selected_feature_idx]
+        features = features[:, selected_feature_idx]
 
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
@@ -193,9 +194,6 @@ def train_logistic_regression_only_reviewed_cases():
     }).sort_values(by='feature_co_coefficients_mean', ascending=False).to_csv(
         join(RESULTS_DIR, 'feature_co_coefficients_logistic_regression.csv'), index=False)
 
-
-
-
     logger.info(
         'Calculating and storing predictions for each combination of hospital and year, which contains revised cases ...')
     # List the hospitals and years for which there are revised cases
@@ -220,6 +218,7 @@ def train_logistic_regression_only_reviewed_cases():
 
             # selected a subset of feature if using Model selected features
             if USE_MODEL_SELECTED_FEATURES:
+                selected_feature_idx = np.where(np.isin(feature_ids, MODEL_SELECTED_FEATURES))[0]
                 test_features = test_features[:, selected_feature_idx]
 
             predictions = list()
@@ -228,7 +227,7 @@ def train_logistic_regression_only_reviewed_cases():
             predictions = np.mean(np.vstack(predictions), axis=0)
 
             filename_output = join(RESULTS_DIR_TEST_PREDICTIONS,
-                                   f'{folder_name}_{hyperparameter_info}.csv')
+                                   f'{FOLDER_NAME}_{hyperparameter_info}.csv')
 
             create_predictions_output_performance_app(filename=filename_output,
                                                       case_ids=case_ids,
