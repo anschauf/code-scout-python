@@ -51,6 +51,7 @@ def load_all_rankings(dir_rankings: str) -> list[tuple[str, str, pd.DataFrame]]:
     for filename in all_ranking_filenames:
         logger.info(f'Reading {filename} ...')
         rankings = wr.s3.read_csv(filename, sep=";", dtype='string')
+        rankings = rankings.dropna(subset=['CaseId', 'UpcodingConfidenceScore'])
         rankings[prob_most_likely_code_col] = rankings[prob_most_likely_code_col].astype(float)
 
         all_case_ids = rankings[case_id_col].values

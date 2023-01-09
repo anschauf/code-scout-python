@@ -27,32 +27,18 @@ def train_random_forest_only_reviewed_cases():
             #     for RANDOM_FOREST_MIN_SAMPLES_SPLIT in [1, 2, 3, 4, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000]:
                 for RANDOM_FOREST_MIN_SAMPLES_SPLIT in [1]:
 
-                    for LEAVE_ON_OUT in [('AA', 2019), ('AA', 2020), ('AA', 2021),
-                                         ('AK', 2017), ('AK', 2018), ('AK', 2019), ('AK', 2020),
-                                         ('BC', 2017), ('BC', 2018), ('BC', 2019), ('BC', 2020),
-                                         ('BE', 2017), ('BE', 2018), ('BE', 2019),
-                                         ('BI', 2017), ('BI', 2018), ('BI', 2019), ('BI', 2020), ('BI', 2021),
-                                         ('BS', 2017), ('BS', 2018), ('BS', 2019), ('BS', 2020), ('BS', 2021),
-                                         ('CC', 2017), ('CC', 2018), ('CC', 2019),
-                                         ('FT', 2017), ('FT', 2018), ('FT', 2019),
-                                         ('HI', 2016), ('HI', 2017), ('HI', 2018), ('HI', 2019), ('HI', 2020), ('HI', 2021),
-                                         ('IP', 2017), ('IP', 2018), ('IP', 2019), ('IP', 2020), ('IP', 2021),
-                                         ('KSSG', 2019), ('KSSG', 2020), ('KSSG', 2021),
-                                         ('KSW', 2015), ('KSW', 2017), ('KSW', 2018), ('KSW', 2019), ('KSW', 2020),
-                                         ('LC', 2017), ('LC', 2018), ('LC', 2019),
-                                         ('LI', 2017), ('LI', 2018), ('LI', 2019), ('LI', 2020), ('LI', 2021),
-                                         ('MG', 2017), ('MG', 2018), ('MG', 2019),
-                                         ('PM', 2017), ('PM', 2018), ('PM', 2019),
-                                         ('RO', 2017), ('RO', 2018), ('RO', 2019),
-                                         ('SA', 2015), ('SA', 2016), ('SA', 2017), ('SA', 2018), ('SA', 2019), ('SA', 2020),
-                                         ('SH', 2017), ('SH', 2018), ('SH', 2019), ('SH', 2020),
-                                         ('SLI', 2017), ('SLI', 2018), ('SLI', 2019),
-                                         ('SRRWS', 2017), ('SRRWS', 2018), ('SRRWS', 2019),
-                                         ('ST', 2017), ('ST', 2018), ('ST', 2019), ('ST', 2020),
-                                         ('USZ', 2019)]:
-                        # for LEAVE_ON_OUT in [('KSW', 2020)]:
-                        # for LEAVE_ON_OUT in [('KSSG', 2021)]:
-                        # for LEAVE_ON_OUT in [('LI', 2018)]:
+                    for LEAVE_ON_OUT in [
+                        # ('FT', 2019),
+                        # ('HI', 2016),
+                        # ('KSSG', 2021),
+                        # ('KSW', 2017), ('KSW', 2018), ('KSW', 2019),
+                        ('KSW', 2020),
+                        # ('LI', 2017), ('LI', 2018),
+                        # ('SLI', 2019),
+                        # ('SRRWS', 2019),
+                        # ('USZ', 2019)
+                    ]:
+
                         folder_name = f'random_forest_optimal_models_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
                         RESULTS_DIR = join(ROOT_DIR, 'results', folder_name,
                                            f'n_trees_{RANDOM_FOREST_NUM_TREES}-max_depth_{RANDOM_FOREST_MAX_DEPTH}-min_samples_leaf_{RANDOM_FOREST_MIN_SAMPLES_LEAF}-min_samples_split_{RANDOM_FOREST_MIN_SAMPLES_SPLIT}')

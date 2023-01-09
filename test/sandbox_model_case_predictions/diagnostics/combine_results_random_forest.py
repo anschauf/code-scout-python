@@ -8,8 +8,8 @@ from test.sandbox_model_case_predictions.utils import get_screen_summary_random_
 
 s3_bucket: str = 'code-scout'
 prefix = f's3://{s3_bucket}'
-dir_results_s3 = 'brute_force_case_ranking_predictions/RF_5000/random_forest_optimal_models_LI_2018_plots'
-dir_results_local = join(ROOT_DIR, 'results', 'random_forest_optimal_models_LI_2018')
+dir_results_s3 = f'brute_force_case_ranking_predictions/RF_5000/random_forest_optimal_models_KSW_2020_plots'
+dir_results_local = join(ROOT_DIR, 'results', f'random_forest_optimal_models_KSW_2020')
 summary = get_screen_summary_random_forest(dir_results_local)
 
 results_s3 = wr.s3.read_csv(join(prefix, dir_results_s3, 'area_under_the_curves_top_10.csv'))

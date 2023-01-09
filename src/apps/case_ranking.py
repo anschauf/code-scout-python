@@ -190,8 +190,8 @@ def create_rankings_of_revised_cases(*,
 
 if __name__ == '__main__':
     create_rankings_of_revised_cases(
-        filename_revised_cases="s3://code-scout/brute_force_case_ranking_predictions/RF_5000/ground_truth_performance_app_case_ranking_LI_2018.csv",
-        dir_rankings='s3://code-scout/brute_force_case_ranking_predictions/RF_5000/random_forest_optimal_models_LI_2018/',
-        dir_output="s3://code-scout/brute_force_case_ranking_predictions/RF_5000/random_forest_optimal_models_LI_2018_plots/",
+        filename_revised_cases=f"s3://code-scout/brute_force_case_ranking_predictions/RF_5000/ground_truth_performance_app_case_ranking_KSW_2020.csv",
+        dir_rankings=f's3://code-scout/brute_force_case_ranking_predictions/RF_5000/test/',
+        dir_output=f"s3://code-scout/brute_force_case_ranking_predictions/RF_5000/test_plots/",
         s3_bucket='code-scout'
     )
