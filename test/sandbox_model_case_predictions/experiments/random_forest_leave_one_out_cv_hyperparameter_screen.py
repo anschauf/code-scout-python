@@ -20,12 +20,12 @@ from test.sandbox_model_case_predictions.utils import create_predictions_output_
 
 def train_random_forest_only_reviewed_cases():
     for RANDOM_FOREST_NUM_TREES in [1000]:
-        # for RANDOM_FOREST_MAX_DEPTH in [2, 3, 4, 5, 6, 7, 8, 9, 10, 50, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000]:
-        for RANDOM_FOREST_MAX_DEPTH in [50]:
-            for RANDOM_FOREST_MIN_SAMPLES_LEAF in [100, 200]:
-            # for RANDOM_FOREST_MIN_SAMPLES_LEAF in [1, 2, 3, 4, 5, 10, 100, 200, 300, 400, 500, 1000, 2000]:
-            #     for RANDOM_FOREST_MIN_SAMPLES_SPLIT in [1, 2, 3, 4, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000]:
-                for RANDOM_FOREST_MIN_SAMPLES_SPLIT in [1]:
+        for RANDOM_FOREST_MAX_DEPTH in [2, 3, 4, 5, 6, 7, 8, 9, 10, 50, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000]:
+        # for RANDOM_FOREST_MAX_DEPTH in [50]:
+            # for RANDOM_FOREST_MIN_SAMPLES_LEAF in [100, 200]:
+            for RANDOM_FOREST_MIN_SAMPLES_LEAF in [1, 2, 3, 4, 5, 10, 100, 200, 300, 400, 500, 1000, 2000]:
+                for RANDOM_FOREST_MIN_SAMPLES_SPLIT in [1, 2, 3, 4, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000]:
+                # for RANDOM_FOREST_MIN_SAMPLES_SPLIT in [1]:
 
                     for LEAVE_ON_OUT in [
                         # ('FT', 2019),
@@ -39,7 +39,7 @@ def train_random_forest_only_reviewed_cases():
                         # ('USZ', 2019)
                     ]:
 
-                        folder_name = f'random_forest_optimal_models_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
+                        folder_name = f'02_rf_hyperparameter_screen/01_run{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
                         RESULTS_DIR = join(ROOT_DIR, 'results', folder_name,
                                            f'n_trees_{RANDOM_FOREST_NUM_TREES}-max_depth_{RANDOM_FOREST_MAX_DEPTH}-min_samples_leaf_{RANDOM_FOREST_MIN_SAMPLES_LEAF}-min_samples_split_{RANDOM_FOREST_MIN_SAMPLES_SPLIT}')
                         if not os.path.exists(RESULTS_DIR):

@@ -489,17 +489,6 @@ def prepare_train_eval_test_split(dir_output, revised_cases_in_data, hospital_le
     assert year_leave_out in revised_cases_in_data['dischargeYear'].values
     revised_cases_in_data['id'] = revised_cases_in_data['id'].astype('string')
 
-    # get case_ids for reviewed but not revised caes
-    if only_reviewed_cases:
-        with Database() as db:
-            all_reviewed_but_not_revised_cases = get_all_reviewed_cases(db.session)
-            all_reviewed_socios = get_sociodemographics_by_sociodemographics_ids(all_reviewed_but_not_revised_cases[SOCIODEMOGRAPHIC_ID_COL].values.tolist(), db.session)
-        all_reviewed_cases = pd.merge(all_reviewed_socios, all_reviewed_but_not_revised_cases, on=SOCIODEMOGRAPHIC_ID_COL, how='right')
-
-        all_reviewed_cases_with_labels = pd.merge(all_reviewed_cases['case_id'].astype('string'), revised_cases_in_data, how='inner', left_on=('case_id'), right_on=('id'))
-        all_true_ground_truth_data = pd.concat([all_reviewed_cases_with_labels, revised_cases_in_data[revised_cases_in_data['is_revised'] == 1]]).drop(columns=['case_id'])
-        all_true_ground_truth_data['validated'] = [1]*all_true_ground_truth_data.shape[0]
-
     # get indices to leave out from training routine for performance app
     y = revised_cases_in_data['is_revised'].values
     ind_hospital_leave_out = np.where((revised_cases_in_data['hospital'].values == hospital_leave_out) &
@@ -508,8 +497,7 @@ def prepare_train_eval_test_split(dir_output, revised_cases_in_data, hospital_le
 
     n_samples = y.shape[0]
     if only_reviewed_cases:
-        revised_cases_in_data_validated = pd.merge(revised_cases_in_data, all_true_ground_truth_data, how='left', on=('id', 'hospital', 'dischargeYear', 'is_revised'))
-        ind_not_validated = np.where(pd.isna(revised_cases_in_data_validated['validated']))[0]
+        ind_not_validated = list(np.where(np.logical_and(revised_cases_in_data['is_reviewed'] == 0, revised_cases_in_data['is_revised'] == 0))[0])
         ind_train_test = list(set(range(n_samples)) - set(ind_hospital_leave_out) - set(ind_not_validated))
     else:
         ind_train_test = list(set(range(n_samples)) - set(ind_hospital_leave_out))
