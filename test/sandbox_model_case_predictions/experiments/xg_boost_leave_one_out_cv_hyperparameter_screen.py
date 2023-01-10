@@ -25,10 +25,10 @@ def train_xg_boost_only_reviewed_cases():
             for MIN_CHILD_WEIGHT in [10, 20, 50, 100, 150, 200, 300, 500, 1000]:
 
                 LEAVE_ON_OUT = ('KSW', 2020)
-                folder_name = f'xg_boost_parameter_screen_min_child_weight_2_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
+                folder_name = f'xg_boost_parameter_screen_min-child-weight_2_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
                 RESULTS_DIR = join(ROOT_DIR, 'results', folder_name,
                                    # f'n_trees_{NUM_TREES}-max_depth_{MAX_DEPTH}-learning_rate_{LEARNING_RATE}')
-                                   f'n_trees_{NUM_TREES}-max_depth_{MAX_DEPTH}-min_child_weight_{MIN_CHILD_WEIGHT}')
+                                   f'n_trees_{NUM_TREES}-max_depth_{MAX_DEPTH}-min-child-weight_{MIN_CHILD_WEIGHT}')
                 if not os.path.exists(RESULTS_DIR):
                     os.makedirs(RESULTS_DIR)
 
@@ -76,7 +76,7 @@ def train_xg_boost_only_reviewed_cases():
                 with warnings.catch_warnings():
                     warnings.simplefilter('ignore')
 
-                    logger.info(f'Training XGBoost with {NUM_TREES} trees, max_depth={MAX_DEPTH}, min_child_weight={MIN_CHILD_WEIGHT} ...')
+                    logger.info(f'Training XGBoost with {NUM_TREES} trees, max_depth={MAX_DEPTH}, min-child-weight={MIN_CHILD_WEIGHT} ...')
 
                     # estimator = RandomForestClassifier(
                     #     n_estimators=RANDOM_FOREST_NUM_TREES,
@@ -183,7 +183,7 @@ def train_xg_boost_only_reviewed_cases():
                         predictions = np.mean(np.vstack(predictions), axis=0)
 
 
-                        filename_output = join(RESULTS_DIR_TEST_PREDICTIONS, f'n-estimator-{NUM_TREES}_max-depth-{MAX_DEPTH}_min_child_weight-{MIN_CHILD_WEIGHT}_{LEAVE_ON_OUT[0]}-{LEAVE_ON_OUT[1]}.csv')
+                        filename_output = join(RESULTS_DIR_TEST_PREDICTIONS, f'n-estimator-{NUM_TREES}_max-depth-{MAX_DEPTH}_min-child-weight-{MIN_CHILD_WEIGHT}_{LEAVE_ON_OUT[0]}-{LEAVE_ON_OUT[1]}.csv')
 
                         create_predictions_output_performance_app(filename=filename_output,
                                                                   case_ids=case_ids,
