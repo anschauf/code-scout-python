@@ -496,10 +496,10 @@ def prepare_train_eval_test_split(revised_cases_in_data: pd.DataFrame,
                                   *,
                                   only_reviewed_cases: bool = False
                                   ):
-    if hospital_leave_out is None or hospital_leave_out not in revised_cases_in_data['hospital'].values:
+    if hospital_leave_out is not None and hospital_leave_out not in revised_cases_in_data['hospital'].values:
         raise ValueError(f'Unknown hospital {hospital_leave_out}')
 
-    if year_leave_out is None or year_leave_out not in revised_cases_in_data['dischargeYear'].values:
+    if year_leave_out is not None and year_leave_out not in revised_cases_in_data['dischargeYear'].values:
         raise ValueError(f'Unknown year {year_leave_out}')
 
     y = revised_cases_in_data['is_revised'].values
