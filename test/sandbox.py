@@ -17,7 +17,7 @@ from src.ml.explanation.tree.utilities.parallel import compute_feature_contribut
 def load_model(model_indices: int | list[int] | None = None, *, return_ensemble: bool = False):
     logger.info(f"Loading the model ...")
     with open(join(ROOT_DIR, 'results', 'random_forest_only_reviewed',
-                   'n_trees_1000-max_depth_None-min_samples_leaf_1',
+                   'n_trees_1000-max_depth_None-min_samples_leaf_1_wVectors',
                    'rf_cv.pkl'), 'rb') as f:
         ensemble = pickle.load(f, fix_imports=False)
 
@@ -47,9 +47,6 @@ def list_feature_names():
 
     feature_names = [feature_name for feature_name in feature_names
                      if not any(feature_name.startswith(discarded_feature) for discarded_feature in DISCARDED_FEATURES)]
-
-    feature_names = [feature_name for feature_name in feature_names
-                     if not feature_name.startswith('vectorized_')]
 
     all_feature_names = list()
 
@@ -268,9 +265,9 @@ def calculate_feature_contributions(feature_names, feature_filenames):
 if __name__ == '__main__':
     feature_names, all_feature_names, feature_filenames = list_feature_names()
 
-    # model = load_model()
-    # feature_importance = calculate_feature_importance(model, all_feature_names)
-    # feature_importance.to_csv('feature_importance.csv', index=False)
+    model = load_model()
+    feature_importance = calculate_feature_importance(model, all_feature_names)
+    feature_importance.to_csv('feature_importance.csv', index=False)
 
     feature_contributions = calculate_feature_contributions(feature_names, feature_filenames)
     feature_contributions.to_csv('feature_contributions.csv', index=False)

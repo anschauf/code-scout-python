@@ -22,17 +22,9 @@ RANDOM_FOREST_NUM_TREES = 1000
 RANDOM_FOREST_MAX_DEPTH = None
 RANDOM_FOREST_MIN_SAMPLES_LEAF = 1
 
-# LOO_HOSPITAL = 'KSW'; LOO_YEAR = 2020
-LOO_HOSPITAL = None; LOO_YEAR = None
-do_loo_hospital_cv = LOO_HOSPITAL is not None and LOO_YEAR is not None
-
-RESULTS_DIR = join(ROOT_DIR, 'results', 'random_forest_only_reviewed', f'n_trees_{RANDOM_FOREST_NUM_TREES}-max_depth_{RANDOM_FOREST_MAX_DEPTH}-min_samples_leaf_{RANDOM_FOREST_MIN_SAMPLES_LEAF}')
-if do_loo_hospital_cv:
-    RESULTS_DIR += f'_no{LOO_HOSPITAL}{LOO_YEAR}'
-
+RESULTS_DIR = join(ROOT_DIR, 'results', 'random_forest_only_reviewed', f'n_trees_{RANDOM_FOREST_NUM_TREES}-max_depth_{RANDOM_FOREST_MAX_DEPTH}-min_samples_leaf_{RANDOM_FOREST_MIN_SAMPLES_LEAF}_wVectors')
 REVISED_CASE_IDS_FILENAME = join(ROOT_DIR, 'resources', 'data', 'revised_case_ids.csv')
-
-DISCARDED_FEATURES = ('hospital', 'month_admission', 'month_discharge', 'year_discharge', 'vectorized_codes')
+DISCARDED_FEATURES = ('hospital', 'month_admission', 'month_discharge', 'year_discharge')
 
 
 # noinspection PyUnresolvedReferences
@@ -55,15 +47,6 @@ def train_random_forest_only_reviewed_cases():
     y = reviewed_cases['is_revised'].values
     sample_indices = reviewed_cases['index'].values
 
-    if do_loo_hospital_cv:
-        loo_data = reviewed_cases[(reviewed_cases['hospital'] == LOO_HOSPITAL) & (reviewed_cases['dischargeYear'] == LOO_YEAR)]
-        loo_test_indices = loo_data['index'].values.ravel()
-        y_test = loo_data['is_revised'].values
-
-        train_indices = np.sort(np.where(~np.in1d(sample_indices, loo_test_indices))[0])
-        sample_indices = sample_indices[train_indices]
-        y = y[train_indices]
-
     logger.info('Assembling features ...')
     features = list()
     for feature_name in feature_names:
@@ -71,14 +54,6 @@ def train_random_forest_only_reviewed_cases():
         feature_values = np.load(feature_filename, mmap_mode='r', allow_pickle=False, fix_imports=False)
         features.append(feature_values[sample_indices, :])
     features = np.hstack(features)
-
-    if do_loo_hospital_cv:
-        test_features = list()
-        for feature_name in feature_names:
-            feature_filename = feature_filenames[feature_name]
-            feature_values = np.load(feature_filename, mmap_mode='r', allow_pickle=False, fix_imports=False)
-            test_features.append(feature_values[loo_test_indices, :])
-        test_features = np.hstack(test_features)
 
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
@@ -110,68 +85,38 @@ def train_random_forest_only_reviewed_cases():
 
         train_indices_per_model = list()
 
-        if do_loo_hospital_cv:
-            model = clone(estimator)
-            model.fit(features, y)
-            ensemble.append(model)
-            train_indices_per_model.append(sample_indices)
+        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_SEED)
 
-            train_probas = model.predict_proba(features)
-            test_probas = model.predict_proba(test_features)
+        for train_indices, test_indices in tqdm(cv.split(features, y), total=5):
+            train_indices = np.sort(train_indices)
+            test_indices = np.sort(test_indices)
+
+            train_indices_per_model.append(sample_indices[train_indices])
+
+            model = clone(estimator)
+            model.fit(features[train_indices, :], y[train_indices])
+
+            ensemble.append(model)
+            train_probas = model.predict_proba(features[train_indices, :])
+            test_probas = model.predict_proba(features[test_indices, :])
+
             train_predictions = (train_probas > 0.5)[:, 1].astype(int)
             test_predictions = (test_probas > 0.5)[:, 1].astype(int)
 
-            scores['train_AUROC'].append(roc_auc_score(y, train_predictions))
-            try:
-                scores['test_AUROC'].append(roc_auc_score(y_test, test_predictions))
-            except ValueError:
-                scores['test_AUROC'].append(np.nan)
+            scores['train_AUROC'].append(roc_auc_score(y[train_indices], train_predictions))
+            scores['test_AUROC'].append(roc_auc_score(y[test_indices], test_predictions))
 
-            scores['train_AUPRC'].append(average_precision_score(y, train_predictions))
-            scores['test_AUPRC'].append(average_precision_score(y_test, test_predictions))
+            scores['train_AUPRC'].append(average_precision_score(y[train_indices], train_predictions))
+            scores['test_AUPRC'].append(average_precision_score(y[test_indices], test_predictions))
 
-            scores['train_precision'].append(precision_score(y, train_predictions))
-            scores['test_precision'].append(precision_score(y_test, test_predictions))
+            scores['train_precision'].append(precision_score(y[train_indices], train_predictions))
+            scores['test_precision'].append(precision_score(y[test_indices], test_predictions))
 
-            scores['train_recall'].append(recall_score(y, train_predictions))
-            scores['test_recall'].append(recall_score(y_test, test_predictions))
+            scores['train_recall'].append(recall_score(y[train_indices], train_predictions))
+            scores['test_recall'].append(recall_score(y[test_indices], test_predictions))
 
-            scores['train_F1'].append(f1_score(y, train_predictions))
-            scores['test_F1'].append(f1_score(y_test, test_predictions))
-
-        else:
-            cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_SEED)
-
-            for train_indices, test_indices in tqdm(cv.split(features, y), total=5):
-                train_indices = np.sort(train_indices)
-                test_indices = np.sort(test_indices)
-
-                train_indices_per_model.append(sample_indices[train_indices])
-
-                model = clone(estimator)
-                model.fit(features[train_indices, :], y[train_indices])
-
-                ensemble.append(model)
-                train_probas = model.predict_proba(features[train_indices, :])
-                test_probas = model.predict_proba(features[test_indices, :])
-
-                train_predictions = (train_probas > 0.5)[:, 1].astype(int)
-                test_predictions = (test_probas > 0.5)[:, 1].astype(int)
-
-                scores['train_AUROC'].append(roc_auc_score(y[train_indices], train_predictions))
-                scores['test_AUROC'].append(roc_auc_score(y[test_indices], test_predictions))
-
-                scores['train_AUPRC'].append(average_precision_score(y[train_indices], train_predictions))
-                scores['test_AUPRC'].append(average_precision_score(y[test_indices], test_predictions))
-
-                scores['train_precision'].append(precision_score(y[train_indices], train_predictions))
-                scores['test_precision'].append(precision_score(y[test_indices], test_predictions))
-
-                scores['train_recall'].append(recall_score(y[train_indices], train_predictions))
-                scores['test_recall'].append(recall_score(y[test_indices], test_predictions))
-
-                scores['train_F1'].append(f1_score(y[train_indices], train_predictions))
-                scores['test_F1'].append(f1_score(y[test_indices], test_predictions))
+            scores['train_F1'].append(f1_score(y[train_indices], train_predictions))
+            scores['test_F1'].append(f1_score(y[test_indices], test_predictions))
 
     logger.info('--- Average performance ---')
     performance_log = list()
