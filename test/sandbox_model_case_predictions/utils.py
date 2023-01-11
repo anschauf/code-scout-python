@@ -9,13 +9,11 @@ from typing import Optional
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-import seaborn as sns
 from beartype import beartype
 # noinspection PyPackageRequirements
 from humps import decamelize
 from loguru import logger
 # noinspection PyProtectedMember
-from matplotlib import pyplot as plt
 from numpy._typing import ArrayLike
 from pandas import DataFrame
 from pandas.api.types import is_numeric_dtype
@@ -35,6 +33,7 @@ tqdm.pandas()
 
 FEATURE_TYPE = np.float32
 
+S3_PREFIX = 's3://'
 ONE_HOT_ENCODED_FEATURE_SUFFIX = 'OHE'
 RAW_FEATURE_SUFFIX = 'RAW'
 RANDOM_SEED = 42

@@ -1,15 +1,17 @@
 import os
 
+import awswrangler as wr
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib import pyplot as plt
+from tqdm import tqdm
 
-from src import venn
+from src import ROOT_DIR
 from src.files import load_revised_cases, load_all_rankings
 from src.schema import case_id_col, prob_most_likely_code_col
 from src.utils.general_utils import save_figure_to_pdf_on_s3
-import awswrangler as wr
+from test.sandbox_model_case_predictions.utils import S3_PREFIX
 
 
 def create_rankings_of_revised_cases(*,
@@ -40,7 +42,7 @@ def create_rankings_of_revised_cases(*,
     cdf_delta_cw = dict()
     num_cases = dict()
     probabilities = dict()
-    for hospital_year, method_name, rankings in all_rankings:
+    for hospital_year, method_name, rankings in tqdm(all_rankings):
         # Sort the cases based on probabilities, and add a column indicating the rank
         rankings = rankings.sort_values(by=prob_most_likely_code_col, ascending=False).reset_index(drop=True)
         rankings[rank_col] = rankings[prob_most_likely_code_col].rank(method='max', ascending=False)
@@ -68,16 +70,21 @@ def create_rankings_of_revised_cases(*,
         num_cases[method_name] = rankings.shape[0]
         cdf_delta_cw[method_name] = (x, y)
 
-        # Computation of the Venn diagram
-        all_cases = set(rankings[rank_col].tolist())
-        revised_codescout_overlap = set(revised_codescout[rank_col].tolist())
+        # # Computation of the Venn diagram
+        # all_cases = set(rankings[rank_col].tolist())
+        # revised_codescout_overlap = set(revised_codescout[rank_col].tolist())
 
-        labels = venn.get_labels([top100, top1000, all_cases, revised_codescout_overlap],
-                                 fill=['number', 'logic'])
-        fig, ax = venn.venn4(labels, names=['Top 100', 'Top 1000', 'All cases', 'Revised cases'])
-        fig.suptitle(f'Case Ranking Tier ({hospital_year})', fontsize=40)
-        save_figure_to_pdf_on_s3(fig, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_venn.pdf'))
-        fig.show()
+        # labels = venn.get_labels([top100, top1000, all_cases, revised_codescout_overlap],
+        #                          fill=['number', 'logic'])
+        # plt.figure()
+        # fig, ax = venn.venn4(labels, names=['Top 100', 'Top 1000', 'All cases', 'Revised cases'])
+        # fig.suptitle(f'Case Ranking Tier ({hospital_year})', fontsize=40)
+        # if dir_output.startswith(S3_PREFIX):
+        #     save_figure_to_pdf_on_s3(fig, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_venn.pdf'))
+        # else:
+        #     plt.savefig(os.path.join(dir_output, 'case_ranking_plot_venn.pdf'), bbox_inches='tight')
+        # plt.close()
+
 
     # Cumulative plot for each method from cdf_delta_cw
     cdf_list = list()
@@ -96,8 +103,13 @@ def create_rankings_of_revised_cases(*,
     plt.xlabel("# cases")
     plt.ylabel("delta CW")
     plt.suptitle("Cumulative distribution of delta cost weight (CW_delta)")
-    plt.legend(loc='best', fancybox=True, framealpha=0.8, bbox_to_anchor=(1.05, 1.05))
-    save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf.pdf'))
+    if len(cdf_delta_cw.items()) < 20:
+        plt.legend(loc='best', fancybox=True, framealpha=0.8, bbox_to_anchor=(1.05, 1.05))
+    if dir_output.startswith(S3_PREFIX):
+        save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf.pdf'))
+    else:
+        plt.savefig(os.path.join(dir_output, 'case_ranking_plot_cdf.pdf'), bbox_inches='tight')
+    plt.close()
 
     list_areas = list()
     list_areas_top_10_percent = list()
@@ -138,21 +150,32 @@ def create_rankings_of_revised_cases(*,
     n_cases_min = np.min(list(num_cases.values()))
     plt.xlim([0, 0.1*n_cases_min])
     plt.suptitle("Cumulative distribution of delta cost weight (CW_delta)")
-    plt.legend(loc='best', fancybox=True, framealpha=0.8, bbox_to_anchor=(1.05, 1.05))
-    save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf_top10_percent.pdf'))
+    if len(cdf_delta_cw.items()) < 20:
+        plt.legend(loc='best', fancybox=True, framealpha=0.8, bbox_to_anchor=(1.05, 1.05))
+    if dir_output.startswith(S3_PREFIX):
+        save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf_top10_percent.pdf'))
+    else:
+        plt.savefig(os.path.join(dir_output, 'case_ranking_plot_cdf_top10_percent.pdf'), bbox_inches='tight')
+    plt.close()
 
     df_areas = pd.DataFrame({
         'method': [method_name for method_name, _ in cdf_delta_cw.items()],
         'area': list_areas
     }).sort_values(by='area', ascending=False)
-    wr.s3.to_csv(df_areas, os.path.join(dir_output, 'area_under_the_curves.csv'), index=False)
+    if dir_output.startswith(S3_PREFIX):
+        wr.s3.to_csv(df_areas, os.path.join(dir_output, 'area_under_the_curves.csv'), index=False)
+    else:
+        df_areas.to_csv(os.path.join(dir_output, 'area_under_the_curves.csv'), index=False)
 
     df_areas_top_10_percent = pd.DataFrame({
         'method': [method_name for method_name, _ in cdf_delta_cw.items()],
         'area': list_areas_top_10_percent,
         'area_normalized': list_areas_top_10_percent_normalized
     }).sort_values(by='area', ascending=False)
-    wr.s3.to_csv(df_areas_top_10_percent, os.path.join(dir_output, 'area_under_the_curves_top_10.csv'), index=False)
+    if dir_output.startswith(S3_PREFIX):
+        wr.s3.to_csv(df_areas_top_10_percent, os.path.join(dir_output, 'area_under_the_curves_top_10.csv'), index=False)
+    else:
+        df_areas_top_10_percent.to_csv(os.path.join(dir_output, 'area_under_the_curves_top_10.csv'), index=False)
 
     # Cumulative plot for each method from cdf_delta_cw in percent
     plt.figure()
@@ -169,8 +192,13 @@ def create_rankings_of_revised_cases(*,
     plt.xlabel("cases in %")
     plt.ylabel("delta CW in %")
     plt.title("Cumulative distribution of delta cost weight (CW_delta) in %")
-    plt.legend(loc='best', fancybox=True, framealpha=0.8, bbox_to_anchor=(1.05, 1.05))
-    save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf_percentage.pdf'))
+    if len(cdf_delta_cw.items()) < 20:
+        plt.legend(loc='best', fancybox=True, framealpha=0.8, bbox_to_anchor=(1.05, 1.05))
+    if dir_output.startswith(S3_PREFIX):
+        save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_cdf_percentage.pdf'))
+    else:
+        plt.savefig(os.path.join(dir_output, 'case_ranking_plot_cdf_percentage.pdf'), bbox_inches='tight')
+    plt.close()
 
     # plot boxplots to compare probabilities between revised and non-revised cases
     probabilities_dfs = list()
@@ -185,13 +213,17 @@ def create_rankings_of_revised_cases(*,
 
     plt.figure()
     sns.boxplot(data=pd.concat(probabilities_dfs), x="Probability", y="Method", hue='Revision-Outcome')
-    save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, f'boxplot_probabilities_revised_vs_non-revised.pdf'))
+    if dir_output.startswith(S3_PREFIX):
+        save_figure_to_pdf_on_s3(plt, s3_bucket, os.path.join(dir_output, 'boxplot_probabilities_revised_vs_non-revised.pdf'))
+    else:
+        plt.savefig(os.path.join(dir_output, 'boxplot_probabilities_revised_vs_non-revised.pdf'), bbox_inches='tight')
+    plt.close()
 
 
 if __name__ == '__main__':
     create_rankings_of_revised_cases(
-        filename_revised_cases=f"s3://code-scout/brute_force_case_ranking_predictions/RF_5000/ground_truth_performance_app_case_ranking_KSW_2020.csv",
-        dir_rankings=f's3://code-scout/brute_force_case_ranking_predictions/RF_5000/test/',
-        dir_output=f"s3://code-scout/brute_force_case_ranking_predictions/RF_5000/test_plots/",
+        filename_revised_cases=os.path.join(ROOT_DIR, "results/02_rf_hyperparameter_screen/01_runKSW_2020/ground_truth_performance_app_case_ranking_KSW_2020.csv"),
+        dir_rankings=os.path.join(ROOT_DIR, 'results/02_rf_hyperparameter_screen/01_runKSW_2020/TEST_PREDICTIONS/'),
+        dir_output=os.path.join(ROOT_DIR, "results/02_rf_hyperparameter_screen/01_runKSW_2020_results"),
         s3_bucket='code-scout'
     )

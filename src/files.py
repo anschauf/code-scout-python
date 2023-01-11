@@ -1,5 +1,5 @@
 import os
-from os.path import basename, splitext
+from os.path import basename, splitext, join
 
 import awswrangler as wr
 import numpy as np
@@ -10,11 +10,15 @@ from loguru import logger
 from src.schema import case_id_col, suggested_code_rankings_split_col, prob_most_likely_code_col, \
     suggested_code_probabilities_split_col
 from src.utils.general_utils import split_codes
+from test.sandbox_model_case_predictions.utils import S3_PREFIX
 
 
 def load_revised_cases(filename_revised_cases: str) -> pd.DataFrame:
     logger.info(f'Reading revised cases from {filename_revised_cases} ...')
-    revised_cases = wr.s3.read_csv(filename_revised_cases, dtype='string')
+    if filename_revised_cases.startswith(S3_PREFIX):
+        revised_cases = wr.s3.read_csv(filename_revised_cases, dtype='string')
+    else:
+        revised_cases = pd.read_csv(filename_revised_cases, dtype='string')
     logger.info(f'Read {revised_cases.shape[0]} rows')
 
     revised_cases[['CaseId', 'AdmNo', 'FID', 'PatID']] = revised_cases[['CaseId', 'AdmNo', 'FID', 'PatID']].fillna("")
@@ -41,7 +45,10 @@ def load_revised_cases(filename_revised_cases: str) -> pd.DataFrame:
 def load_all_rankings(dir_rankings: str) -> list[tuple[str, str, pd.DataFrame]]:
     # load rankings and store them in a tuple
     logger.info(f'Listing files in {dir_rankings} ...')
-    all_ranking_filenames = wr.s3.list_objects(dir_rankings)
+    if dir_rankings.startswith(S3_PREFIX):
+        all_ranking_filenames = wr.s3.list_objects(dir_rankings)
+    else:
+        all_ranking_filenames = os.listdir(dir_rankings)
     if len(all_ranking_filenames) == 0:
         raise Exception(f'Found no ranking files')
     else:
@@ -50,7 +57,10 @@ def load_all_rankings(dir_rankings: str) -> list[tuple[str, str, pd.DataFrame]]:
     all_rankings = list()
     for filename in all_ranking_filenames:
         logger.info(f'Reading {filename} ...')
-        rankings = wr.s3.read_csv(filename, sep=";", dtype='string')
+        if filename.startswith(S3_PREFIX):
+            rankings = wr.s3.read_csv(filename, sep=";", dtype='string')
+        else:
+            rankings = pd.read_csv(join(dir_rankings, filename), sep=";", dtype='string')
         rankings = rankings.dropna(subset=['CaseId', 'UpcodingConfidenceScore'])
         rankings[prob_most_likely_code_col] = rankings[prob_most_likely_code_col].astype(float)
 

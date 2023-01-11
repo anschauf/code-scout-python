@@ -20,11 +20,13 @@ from test.sandbox_model_case_predictions.utils import create_predictions_output_
 
 def train_random_forest_only_reviewed_cases():
     for RANDOM_FOREST_NUM_TREES in [1000]:
-        for RANDOM_FOREST_MAX_DEPTH in [2, 3, 4, 5, 6, 7, 8, 9, 10, 50, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000]:
+        # for RANDOM_FOREST_MAX_DEPTH in [2, 3, 4, 5, 6, 7, 8, 9, 10, 50, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000]:
+        for RANDOM_FOREST_MAX_DEPTH in [2, 3, 4, 5, 6, 7, 8, 9, 10, 50, 100, 500, 1000, 5000, 10000]:
         # for RANDOM_FOREST_MAX_DEPTH in [50]:
             # for RANDOM_FOREST_MIN_SAMPLES_LEAF in [100, 200]:
             for RANDOM_FOREST_MIN_SAMPLES_LEAF in [1, 2, 3, 4, 5, 10, 100, 200, 300, 400, 500, 1000, 2000]:
-                for RANDOM_FOREST_MIN_SAMPLES_SPLIT in [1, 2, 3, 4, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000]:
+                # for RANDOM_FOREST_MIN_SAMPLES_SPLIT in [1, 2, 3, 4, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000]:
+                for RANDOM_FOREST_MIN_SAMPLES_SPLIT in [1, 5, 10, 50, 100, 500, 5000]:
                 # for RANDOM_FOREST_MIN_SAMPLES_SPLIT in [1]:
 
                     for LEAVE_ON_OUT in [
@@ -103,7 +105,6 @@ def train_random_forest_only_reviewed_cases():
                                     min_impurity_decrease=np.finfo(np.float32).eps,  # the smallest positive number, so that it is not 0
                                     criterion='entropy', n_jobs=-1, random_state=RANDOM_SEED,
                                 )
-
                                 cv = StratifiedShuffleSplit(n_splits=5, test_size=0.2, random_state=RANDOM_SEED)
 
                                 # https://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter
