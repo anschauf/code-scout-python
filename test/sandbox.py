@@ -1,27 +1,28 @@
-import gc
 import pickle
 from os.path import join
 
 import numpy as np
 import pandas as pd
 from loguru import logger
-from sklearn.preprocessing import MultiLabelBinarizer
+from sklearn.preprocessing import MultiLabelBinarizer, OrdinalEncoder
 from tqdm import tqdm
 
 from sandbox_model_case_predictions.data_handler import load_data
 from sandbox_model_case_predictions.experiments.random_forest import DISCARDED_FEATURES
 from sandbox_model_case_predictions.utils import get_list_of_all_predictors, get_revised_case_ids
 from src import ROOT_DIR
-from src.ml.explanation.tree.utilities.numerical import divide0
 from src.ml.explanation.tree.utilities.parallel import compute_feature_contributions_from_tree
 
 
-def load_model(model_indices: int | list[int] | None = None):
+def load_model(model_indices: int | list[int] | None = None, *, return_ensemble: bool = False):
     logger.info(f"Loading the model ...")
     with open(join(ROOT_DIR, 'results', 'random_forest_only_reviewed',
-                   'n_trees_5000-max_depth_None-min_samples_leaf_1',
+                   'n_trees_1000-max_depth_None-min_samples_leaf_1_wVectors',
                    'rf_cv.pkl'), 'rb') as f:
         ensemble = pickle.load(f, fix_imports=False)
+
+    if return_ensemble:
+        return ensemble
 
     if model_indices is None:
         model_indices = list(range(len(ensemble)))
@@ -55,7 +56,11 @@ def list_feature_names():
         if feature_name in encoders:
             encoder = encoders[feature_name]
             if isinstance(encoder, MultiLabelBinarizer):
-                encoded_names = encoder.classes_
+                all_feature_names.extend(f'{feature_name_wo_suffix}="{encoded_name}"' for encoded_name in encoder.classes_)
+
+            elif isinstance(encoder, OrdinalEncoder):
+                options = '|'.join(encoder.categories_[0])
+                all_feature_names.append(f'{feature_name_wo_suffix}_IN_[{options}]')
 
             else:
                 if isinstance(encoder.categories, str) and encoder.categories == 'auto':
@@ -63,7 +68,7 @@ def list_feature_names():
                 else:
                     encoded_names = encoder.categories
 
-            all_feature_names.extend(f'{feature_name_wo_suffix}="{encoded_name}"' for encoded_name in encoded_names)
+                all_feature_names.extend(f'{feature_name_wo_suffix}="{encoded_name}"' for encoded_name in encoded_names)
 
         else:
             all_feature_names.append(feature_name_wo_suffix)
@@ -87,12 +92,20 @@ def calculate_feature_importance(model, all_feature_names):
     return importances_df
 
 
-def get_features_and_targets(feature_names, feature_filenames):
+def get_features_and_targets(feature_names, feature_filenames, indices):
     logger.info('Assembling test set ...')
     revised_case_ids_filename = join(ROOT_DIR, 'resources', 'data', 'revised_case_ids.csv')
     # noinspection PyTypeChecker
     revised_cases_in_data = get_revised_case_ids(None, revised_case_ids_filename, overwrite=False)
-    revised_cases_in_data = revised_cases_in_data[revised_cases_in_data['is_revised'] == 1]
+
+    if indices is None:
+        revised_cases_in_data = revised_cases_in_data[revised_cases_in_data['is_revised'] == 1]
+    elif isinstance(indices, str) and indices == 'all':
+        pass
+    else:
+        indices = np.where(np.in1d(revised_cases_in_data['index'], indices))[0]
+        revised_cases_in_data = revised_cases_in_data.iloc[indices]
+
     y = revised_cases_in_data['is_revised'].values
     sample_indices = revised_cases_in_data['index'].values
 
@@ -105,64 +118,146 @@ def get_features_and_targets(feature_names, feature_filenames):
 
     logger.info(f'{features.shape=} {y.shape=}')
 
-    return features, y
+    return features, y, sample_indices
 
 
-def calculate_feature_contributions(model, features, y):
-    gc.collect()
-    logger.info('Calculating the feature contributions ...')
+def calculate_feature_contributions(feature_names, feature_filenames):
+    ensemble = load_model(return_ensemble=True)
 
-    n = model.n_estimators
-    contributions_shape = (features.shape[0], features.shape[1], 2)
+    results_dir = join(ROOT_DIR, 'results', 'random_forest_only_reviewed', 'n_trees_1000-max_depth_None-min_samples_leaf_1')
+    with open(join(results_dir, 'train_indices_per_model.pkl'), 'rb') as f:
+        train_indices_per_model = pickle.load(f, fix_imports=False)
 
-    contributions = np.zeros((n, ), dtype=object)
-    contributions_n_evaluations = np.zeros((n, ), dtype=object)
+    all_features, all_y, all_sample_indices = get_features_and_targets(feature_names, feature_filenames, indices='all')
 
-    for i_tree, estimator in tqdm(enumerate(model.estimators_), total=n):
-        tree_result = compute_feature_contributions_from_tree(
-            estimator=estimator,
-            data=features,
-            contributions_shape=contributions_shape,
-            features_split=None,
-            joint_contributions=False,
-            ignore_non_informative_nodes=True
-        )
+    predictions = np.zeros((all_features.shape[0], len(ensemble))) * np.nan
+    for idx, model in enumerate(tqdm(ensemble)):
+        all_predictions = model.predict_proba(all_features)[:, 1]
 
-        contributions[i_tree] = tree_result['contributions']
-        contributions_n_evaluations[i_tree] = tree_result['contributions_n_evaluations']
-        del tree_result
+        train_indices = train_indices_per_model[idx]
+        training_prediction_indices = np.in1d(all_sample_indices, train_indices, assume_unique=True)
+        all_predictions[training_prediction_indices] = np.nan
+        predictions[:, idx] = all_predictions
 
-    contributions = divide0(np.sum(np.stack(contributions, axis=3), axis=3),
-                            np.sum(np.stack(contributions_n_evaluations, axis=3), axis=3),
-                            replace_with=np.nan)
+    del all_features
+    del all_sample_indices
 
-    prediction_probabilities = model.predict_proba(features)
-    predictions = np.argmax(prediction_probabilities, axis=1)
-    correct_predictions = predictions == y
+    prediction_probabilities = np.nanmean(predictions, axis=1)
+    predictions = (prediction_probabilities >= 0.5).astype(int)
+    # noinspection PyTypeChecker
+    correct_predictions: np.ndarray = predictions == all_y
 
     logger.info(f'Number of correct predictions: {correct_predictions.sum()}/{correct_predictions.shape[0]}')
+
+    tp_indices = np.where((predictions == 1) & (all_y == 1))[0]
+    fp_indices = np.where((predictions == 1) & (all_y == 0))[0]
+    fn_indices = np.where((predictions == 0) & (all_y == 1))[0]
+    indices = np.unique(np.hstack((tp_indices, fp_indices, fn_indices)))
+
+    features, y, sample_indices = get_features_and_targets(feature_names, feature_filenames, indices=indices)
+
+    logger.info('Calculating the feature contributions ...')
+
+    contributions_shape = (features.shape[0], features.shape[1], 2)
+    contributions = np.zeros(contributions_shape, dtype=np.float64)
+    contributions_n_evaluations = np.zeros(contributions_shape, dtype=np.int64)
+
+    for model in ensemble:
+        for estimator in tqdm(model.estimators_):
+            tree_result = compute_feature_contributions_from_tree(
+                estimator=estimator,
+                data=features,
+                contributions_shape=contributions_shape,
+                features_split=None,
+                joint_contributions=False,
+                ignore_non_informative_nodes=True,
+                contribution_measure='impurity'
+            )
+
+            contributions += tree_result['contributions']
+            contributions_n_evaluations += tree_result['contributions_n_evaluations']
+            del tree_result
+
+    contributions[:, :, 1] *= -1
+
+    average_contributions = contributions / contributions_n_evaluations
+    average_contributions[~np.isfinite(average_contributions)] = 0.0
+
 
     # Average the contributions:
     # - across all the correct predictions for the positive label
     # - across all the incorrect predictions for the negative label
-    feature_contribution_correct = np.mean(contributions[correct_predictions, :, 1], axis=0)
-    feature_contribution_incorrect = np.mean(contributions[~correct_predictions, :, 0], axis=0)
+    tp_sample_indices = np.where(np.in1d(sample_indices, tp_indices))[0]
+    fp_sample_indices = np.where(np.in1d(sample_indices, fp_indices))[0]
+    fn_sample_indices = np.where(np.in1d(sample_indices, fn_indices))[0]
 
-    correct_col = 'contribution to correct prediction'
-    incorrect_col = 'contribution to wrong prediction'
-    delta_col = 'delta'
+    n_tp_sample_indices = tp_sample_indices.shape[0]
+    n_fp_sample_indices = fp_sample_indices.shape[0]
+    n_fn_sample_indices = fn_sample_indices.shape[0]
 
-    df = pd.DataFrame(np.vstack((feature_contribution_correct, feature_contribution_incorrect)).T, index=all_feature_names, columns=[correct_col, incorrect_col])
-    # df = df[df[correct_col] > 0]
-    df[delta_col] = df[correct_col] - df[incorrect_col]
-    df *= 1000
-    df = df.sort_values(by=delta_col, ascending=False).reset_index()
+    feature_contribution_tp = np.mean(average_contributions[tp_sample_indices, :, 1], axis=0)
+    feature_contribution_fp = np.mean(average_contributions[fp_sample_indices, :, 1], axis=0)
+    feature_contribution_fn = np.mean(average_contributions[fn_sample_indices, :, 0], axis=0)
+
+    feature_values_tp = list()
+    feature_values_fp = list()
+    feature_values_fn = list()
+
+    def _list_counts(values, unique_values, sample_indices, n):
+        s = list()
+
+        unique_values = sorted(unique_values, key=lambda x: -x)
+
+        for v in unique_values:
+            percentage = (values[sample_indices] == v).sum() / n * 100
+            if v == 0:
+                value = 'NO'
+            elif v == 1:
+                value = 'YES'
+            else:
+                raise ValueError(value)
+
+            s.append(f"{value}={percentage:.1f}%")
+
+        return ', '.join(s)
+
+    for idx, feature_name in enumerate(tqdm(all_feature_names)):
+        values = features[:, idx]
+        is_categorical = '=' in feature_name
+
+        if is_categorical:
+            values = values.astype(int)
+            all_values = np.unique(values)
+
+            feature_values_tp.append(_list_counts(values, all_values, tp_sample_indices, n_tp_sample_indices))
+            feature_values_fp.append(_list_counts(values, all_values, fp_sample_indices, n_fp_sample_indices))
+            feature_values_fn.append(_list_counts(values, all_values, fn_sample_indices, n_fn_sample_indices))
+
+        else:
+            # feature_values_tp.append(f'{np.mean(values[tp_sample_indices]):.2f} [{np.min(values[tp_sample_indices]):.2f} - {np.max(values[tp_sample_indices]):.2f}]')
+            # feature_values_fp.append(f'{np.mean(values[fp_sample_indices]):.2f} [{np.min(values[fp_sample_indices]):.2f} - {np.max(values[fp_sample_indices]):.2f}]')
+            # feature_values_fn.append(f'{np.mean(values[fn_sample_indices]):.2f} [{np.min(values[fn_sample_indices]):.2f} - {np.max(values[fn_sample_indices]):.2f}]')
+            feature_values_tp.append([f'{v:.2f}' for v in np.quantile(values[tp_sample_indices], (.25, .5, .75))])
+            feature_values_fp.append([f'{v:.2f}' for v in np.quantile(values[fp_sample_indices], (.25, .5, .75))])
+            feature_values_fn.append([f'{v:.2f}' for v in np.quantile(values[fn_sample_indices], (.25, .5, .75))])
+
+    df = pd.DataFrame(np.vstack((
+        feature_contribution_tp * 1000, feature_contribution_fp * 1000, feature_contribution_fn * 1000,
+        feature_values_tp, feature_values_fp, feature_values_fn,
+    )).T, index=all_feature_names, columns=[
+        'contribution TP', 'contribution FP', 'contribution FN',
+        f'avg value TP (n={n_tp_sample_indices})', f'avg value FP (n={n_fp_sample_indices})', f'avg value FN (n={n_fn_sample_indices})',
+        ])
+
+    df['contribution TP'] = df['contribution TP'].astype(np.float32)
+    df['contribution FP'] = df['contribution FP'].astype(np.float32)
+    df['contribution FN'] = df['contribution FN'].astype(np.float32)
+
+    # df['delta'] = df['contribution TP'] - df['contribution FP'] + df['contribution FN']
+    # df = df.sort_values(by='delta', ascending=False).reset_index()
+    df = df.sort_values(by='contribution TP', ascending=False).reset_index()
+
     pd.set_option('display.precision', 5); print(df[:20])
-
-    # df2 = pd.DataFrame(te.contributions[0, :, 1].reshape(-1, 1), index=te.feature_names, columns=['revised'])
-    # df2['feature_value'] = X_test[0, :]
-    # df2.sort_values(by='revised', ascending=False, inplace=True)
-    # print(df2[:20])
 
     return df
 
@@ -171,10 +266,8 @@ if __name__ == '__main__':
     feature_names, all_feature_names, feature_filenames = list_feature_names()
 
     model = load_model()
+    feature_importance = calculate_feature_importance(model, all_feature_names)
+    feature_importance.to_csv('feature_importance.csv', index=False)
 
-    # feature_importance = calculate_feature_importance(model, all_feature_names)
-    # feature_importance.to_csv('feature_importance.csv', index=False)
-
-    features, y = get_features_and_targets(feature_names, feature_filenames)
-    feature_contributions = calculate_feature_contributions(model, features, y)
+    feature_contributions = calculate_feature_contributions(feature_names, feature_filenames)
     feature_contributions.to_csv('feature_contributions.csv', index=False)

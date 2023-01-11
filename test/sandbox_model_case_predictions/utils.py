@@ -30,7 +30,6 @@ from src.service.database import Database
 
 tqdm.pandas()
 
-
 FEATURE_TYPE = np.float32
 
 S3_PREFIX = 's3://'
@@ -39,6 +38,7 @@ RAW_FEATURE_SUFFIX = 'RAW'
 RANDOM_SEED = 42
 
 
+# noinspection PyShadowingNames
 def get_list_of_all_predictors(
         data: pd.DataFrame,
         feature_folder: str,
@@ -62,7 +62,6 @@ def get_list_of_all_predictors(
         features_filenames[f'{standard_name}_{suffix}'] = feature_filename
         return feature_filename
 
-
     @beartype
     def store_engineered_feature(standard_name: str,
                                  feature: np.ndarray,
@@ -79,7 +78,6 @@ def get_list_of_all_predictors(
             logger.info(f"Stored the feature '{standard_name}'")
         else:
             logger.debug(f"Ignored existing feature '{standard_name}'")
-
 
     @beartype
     def store_engineered_feature_and_sklearn_encoder(standard_name: str,
@@ -111,7 +109,6 @@ def get_list_of_all_predictors(
 
             logger.debug(f"Ignored existing feature '{standard_name}'")
 
-
     @beartype
     def store_raw_feature(column_name: str):
         if column_name not in data.columns:
@@ -130,7 +127,6 @@ def get_list_of_all_predictors(
             feature_values = encoder.fit_transform(data[column_name].values.reshape(-1, 1)).ravel()
 
             store_engineered_feature_and_sklearn_encoder(standard_name, feature_values, encoder, feature_filename)
-
 
     @beartype
     def one_hot_encode(column_name: str, *, is_data_uniform: bool = True):
@@ -159,7 +155,6 @@ def get_list_of_all_predictors(
                 encoders[__get_full_feature_name(feature_filename)] = pickle.load(f)
 
             logger.debug(f"Ignoring existing feature '{standard_name}'")
-
 
     # -------------------------------------------------------------------------
     # FEATURE ENGINEERING
@@ -327,6 +322,58 @@ def get_list_of_all_predictors(
             data = calculate_delta_pccl(data, delta_value_for_max=10.0)
             store_raw_feature('delta_ccl_to_next_pccl')
 
+    if 'VectorizedCodes' not in data.columns:
+        logger.error("The columns 'VectorizedCodes' could not be found in the data")
+    else:
+        vectors_filename = __make_feature_filename('vectorized_codes', ONE_HOT_ENCODED_FEATURE_SUFFIX)
+        vectors_encoder_filename = f'{os.path.splitext(vectors_filename)[0]}_encoder.pkl'
+
+        if overwrite or not os.path.exists(vectors_filename) or not os.path.exists(vectors_encoder_filename):
+            # List all the indices of the sparse vectors across all vectors (basically ignoring empty columns)
+            all_indices = set()
+            # noinspection PyShadowingNames
+            def get_vector_indices(sparse_vector_info):
+                all_indices.update(sparse_vector_info['indices'])
+            data['VectorizedCodes'].progress_apply(lambda sparse_vector_info: get_vector_indices(sparse_vector_info))
+
+            vector_size = len(all_indices)
+            logger.debug(f'Will create dense vectors with length {vector_size}')
+            # Map each sparse index to a position in the compressed dense vector
+            all_indices = {idx: pos for pos, idx in enumerate(sorted(list(all_indices)))}
+
+            logger.debug('Storing all the vectors in a memory-mapped location ...')
+            temp_vectors_filename = os.path.splitext(vectors_filename)[0] + '_memmap.npy'
+            vectors = np.memmap(temp_vectors_filename, dtype=FEATURE_TYPE, mode='w+', shape=(data.shape[0], vector_size))
+
+            for idx, (_, sparse_vector_info) in enumerate(tqdm(data['VectorizedCodes'].items(), total=data.shape[0])):
+                vector = np.zeros(vector_size, dtype=FEATURE_TYPE)
+                vector_indices = [all_indices[real_idx] for real_idx in sparse_vector_info['indices']]
+                vector[vector_indices] = sparse_vector_info['values']
+
+                vectors[idx, :] = vector
+
+            logger.debug('Moving all the vectors to a pickled file ...')
+            # Files stored with `np.save()` contain enough information to be reloaded without knowing their shape or
+            # data-type
+            np.save(vectors_filename, vectors, allow_pickle=False, fix_imports=False)
+
+            logger.debug('Deleting the temporary file ...')
+            del vectors
+            os.remove(temp_vectors_filename)
+
+            vectors_encoder = OneHotEncoder(categories=sorted(list(all_indices.keys())), sparse_output=False, dtype=FEATURE_TYPE, handle_unknown='ignore')
+            if overwrite or not os.path.exists(vectors_encoder_filename):
+                with open(vectors_encoder_filename, 'wb') as f:
+                    pickle.dump(vectors_encoder, f)
+
+            logger.info(f"Stored the feature 'vectorized_codes' and its corresponding '{vectors_encoder.__class__.__name__}'")
+
+        else:
+            with open(vectors_encoder_filename, 'rb') as f:
+                encoders[__get_full_feature_name(vectors_filename)] = pickle.load(f)
+
+            logger.debug(f"Ignored existing feature 'vectorized_codes'")
+
     return features_filenames, encoders
 
 
@@ -345,7 +392,6 @@ def __extract_number_of_ccl_greater_null(row: dict):
     return num_ccl_greater_null
 
 
-
 def categorize_age(ages_years: npt.ArrayLike, ages_days: npt.ArrayLike):
     """ Compute age bins
 
@@ -353,7 +399,9 @@ def categorize_age(ages_years: npt.ArrayLike, ages_days: npt.ArrayLike):
     @param ages_days: The age in days.
     :return: (The age-categorized BFS data, the labels for the age bins)
     """
-    agebins_labels = ['age_below_28_days', 'age_28_days_to_2_years', 'age_2_to_5_years', 'age_6_to_15_years', 'age_16_to_29_years', 'age_30_to_39_years', 'age_40_to_49_years', 'age_50_to_59_years', 'age_60_to_69_years', 'age_70_to_79_years', 'age_80_and_older']
+    agebins_labels = ['age_below_28_days', 'age_28_days_to_2_years', 'age_2_to_5_years', 'age_6_to_15_years',
+                      'age_16_to_29_years', 'age_30_to_39_years', 'age_40_to_49_years', 'age_50_to_59_years',
+                      'age_60_to_69_years', 'age_70_to_79_years', 'age_80_and_older']
     categories_age = np.zeros((len(ages_years), len(agebins_labels)))
     for i, age_year_days in enumerate(zip(ages_years, ages_days)):
         age_year = age_year_days[0]
@@ -507,6 +555,49 @@ def prepare_train_eval_test_split(dir_output, revised_cases_in_data, hospital_le
     return ind_X_train, ind_X_test, y_train, y_test, ind_hospital_leave_out, y_hospital_leave_out
 
 
+def prepare_train_eval_test_split_p(revised_cases_in_data: pd.DataFrame,
+                                   hospital_leave_out: Optional[str],
+                                   year_leave_out: Optional[int],
+                                   *,
+                                   only_reviewed_cases: bool = False
+                                   ):
+    if hospital_leave_out is not None and hospital_leave_out not in revised_cases_in_data['hospital'].values:
+        raise ValueError(f'Unknown hospital {hospital_leave_out}')
+
+    if year_leave_out is not None and year_leave_out not in revised_cases_in_data['dischargeYear'].values:
+        raise ValueError(f'Unknown year {year_leave_out}')
+
+    y = revised_cases_in_data['is_revised'].values
+
+    ind_hospital_leave_out_filter = set(np.arange(revised_cases_in_data.shape[0]))
+    if hospital_leave_out is not None:
+        ind_hospital_leave_out_filter.intersection_update(
+            np.where(revised_cases_in_data['hospital'] == hospital_leave_out)[0])
+    if year_leave_out is not None:
+        ind_hospital_leave_out_filter.intersection_update(
+            np.where(revised_cases_in_data['dischargeYear'] == year_leave_out)[0])
+    ind_hospital_leave_out = np.sort(list(ind_hospital_leave_out_filter))
+    y_hospital_leave_out = y[ind_hospital_leave_out]
+
+    # get case_ids for reviewed but not revised cases
+    if only_reviewed_cases:
+        all_true_ground_truth_data = revised_cases_in_data[
+            (revised_cases_in_data['is_revised'] == 1) | (revised_cases_in_data['is_reviewed'] == 1)]
+        ind_train_test = all_true_ground_truth_data['index'].values
+
+    else:
+        n_samples = y.shape[0]
+        ind_train_test = np.setdiff1d(np.arange(n_samples), ind_hospital_leave_out)
+
+    ind_train, ind_eval = train_test_split(ind_train_test, stratify=y[ind_train_test], test_size=0.3,
+                                           random_state=RANDOM_SEED)
+
+    y_train = y[ind_train]
+    y_eval = y[ind_eval]
+
+    return ind_train, ind_eval, y_train, y_eval, ind_hospital_leave_out, y_hospital_leave_out
+
+
 # noinspection PyUnresolvedReferences
 def create_performance_app_ground_truth(dir_output: str, revised_cases_in_data: DataFrame, hospital: Optional[str], year: Optional[int], overwrite=False):
     """
@@ -616,9 +707,10 @@ def create_predictions_output_performance_app(filename: str, case_ids: ArrayLike
     """
     pd.DataFrame({
         'CaseId': case_ids,
-        'SuggestedCodeRankings': ['']*len(case_ids),
+        'SuggestedCodeRankings': [''] * len(case_ids),
         'UpcodingConfidenceScore': predictions
     }).to_csv(filename, index=False, sep=';')
+
 
 def list_all_feature_names(all_data: pd.DataFrame, features_dir: str, feature_indices: Optional[list] = None) -> list:
     feature_filenames, encoders = get_list_of_all_predictors(all_data, features_dir, overwrite=False)

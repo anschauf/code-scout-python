@@ -43,12 +43,13 @@ def calculate_features():
              'grouperDischargeCodeFlag', 'hoursMechanicalVentilationFlag', 'gestationAgeFlag', 'admissionWeightFlag',
              'effectiveCostWeight', 'drgCostWeight'],
             ['procedures', 'secondaryDiagnoses', 'diagnosesExtendedInfo', 'proceduresExtendedInfo'],
-            ['hoursMechanicalVentilation', 'mdc', 'medications', 'entryDate', 'exitDate', 'pccl', 'rawPccl']
+            ['hoursMechanicalVentilation', 'mdc', 'medications', 'entryDate', 'exitDate', 'pccl', 'rawPccl'],
+            ['VectorizedCodes']
         ]
 
         for column_batch in column_batches:
             all_data = load_data(columns=column_batch)
-            feature_filenames, _ = get_list_of_all_predictors(all_data, features_dir, overwrite=False)
+            feature_filenames, _ = get_list_of_all_predictors(all_data, features_dir, overwrite=True)
             feature_names = sorted(list(feature_filenames.keys()))
             n_features = len(feature_names)
             logger.success(f'Created {n_features} features')
@@ -56,7 +57,6 @@ def calculate_features():
             # Delete the large DataFrame from memory and force collection
             del all_data
             gc.collect()
-
 
 
 if __name__ == '__main__':

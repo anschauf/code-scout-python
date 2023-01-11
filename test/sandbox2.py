@@ -14,7 +14,7 @@ all_files = [x for x in listdir(dir_data) if x.endswith('.json')]
 all_pccl_diagnoses = list()
 for idx, file in enumerate(all_files):
     logger.info(f'{(idx+1)}/{len(all_files)}: Reading {file}')
-    df = pd.read_json(path_or_buf=join(dir_data, file), lines=True, dtype={'diagnosesForPccl': object})
+    df = pd.read_json(join(dir_data, file), lines=True, dtype={'diagnosesForPccl': object})
     pccl_diagnoses = df['diagnosesForPccl'].values.tolist()
     pccl_diagnoses = [d for d in pccl_diagnoses if len(d) > 0]
     pccl_diagnoses = [list(d.keys()) for d in pccl_diagnoses]

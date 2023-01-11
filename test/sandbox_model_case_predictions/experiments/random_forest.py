@@ -1,5 +1,6 @@
 import os
 import pickle
+import shutil
 import sys
 import warnings
 from os.path import join
@@ -21,17 +22,16 @@ RANDOM_FOREST_NUM_TREES = 1000
 RANDOM_FOREST_MAX_DEPTH = None
 RANDOM_FOREST_MIN_SAMPLES_LEAF = 1
 
-
-RESULTS_DIR = join(ROOT_DIR, 'results', 'random_forest_only_reviewed', f'n_trees_{RANDOM_FOREST_NUM_TREES}-max_depth_{RANDOM_FOREST_MAX_DEPTH}-min_samples_leaf_{RANDOM_FOREST_MIN_SAMPLES_LEAF}')
-if not os.path.exists(RESULTS_DIR):
-    os.makedirs(RESULTS_DIR)
-
+RESULTS_DIR = join(ROOT_DIR, 'results', 'random_forest_only_reviewed', f'n_trees_{RANDOM_FOREST_NUM_TREES}-max_depth_{RANDOM_FOREST_MAX_DEPTH}-min_samples_leaf_{RANDOM_FOREST_MIN_SAMPLES_LEAF}_wVectors')
 REVISED_CASE_IDS_FILENAME = join(ROOT_DIR, 'resources', 'data', 'revised_case_ids.csv')
-
 DISCARDED_FEATURES = ('hospital', 'month_admission', 'month_discharge', 'year_discharge')
 
 
+# noinspection PyUnresolvedReferences
 def train_random_forest_only_reviewed_cases():
+    shutil.rmtree(RESULTS_DIR, ignore_errors=True)
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+
     all_data = load_data(only_2_rows=True)
     features_dir = join(ROOT_DIR, 'resources', 'features')
     feature_filenames, encoders = get_list_of_all_predictors(all_data, features_dir, overwrite=False)
@@ -49,12 +49,10 @@ def train_random_forest_only_reviewed_cases():
 
     logger.info('Assembling features ...')
     features = list()
-
     for feature_name in feature_names:
         feature_filename = feature_filenames[feature_name]
         feature_values = np.load(feature_filename, mmap_mode='r', allow_pickle=False, fix_imports=False)
         features.append(feature_values[sample_indices, :])
-
     features = np.hstack(features)
 
     with warnings.catch_warnings():
@@ -72,8 +70,6 @@ def train_random_forest_only_reviewed_cases():
             criterion='entropy', n_jobs=-1, random_state=RANDOM_SEED,
         )
 
-        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_SEED)
-
         ensemble = list()
 
         # https://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter
@@ -88,6 +84,8 @@ def train_random_forest_only_reviewed_cases():
         }
 
         train_indices_per_model = list()
+
+        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_SEED)
 
         for train_indices, test_indices in tqdm(cv.split(features, y), total=5):
             train_indices = np.sort(train_indices)
@@ -149,6 +147,10 @@ def train_random_forest_only_reviewed_cases():
     logger.info('Storing models ...')
     with open(join(RESULTS_DIR, 'rf_cv.pkl'), 'wb') as f:
         pickle.dump(ensemble, f, fix_imports=False)
+
+    logger.info('Storing train indices per model ...')
+    with open(join(RESULTS_DIR, 'train_indices_per_model.pkl'), 'wb') as f:
+        pickle.dump(train_indices_per_model, f, fix_imports=False)
 
     logger.info('Calculating and storing predictions for each combination of hospital and year, which contains revised cases ...')
     # List the hospitals and years for which there are revised cases
