@@ -118,7 +118,8 @@ def analyze_tree_structure(estimator, feature_names, store_tree_path, i_tree, re
 def compute_feature_contributions_from_tree(estimator, data, contributions_shape,
                                             features_split,
                                             joint_contributions,
-                                            ignore_non_informative_nodes):
+                                            ignore_non_informative_nodes,
+                                            contribution_measure: str = 'frequency'):
     """For a given tree estimator computes target frequency at the tree root
     and feature contributions, such that prediction ≈ target_frequency_at_root +
     feature_contributions.
@@ -152,6 +153,9 @@ def compute_feature_contributions_from_tree(estimator, data, contributions_shape
         contributions are calculated. This information can be used to select
         subsets of observations in later analyses.
     """
+
+    if contribution_measure not in ('frequency', 'impurity'):
+        raise ValueError(f'The "contribution_measure" can only be one of ("entropy", "impurity". Found "{contribution_measure}" instead')
 
     # Tree structure
     paths, paths_sign = _get_tree_paths(estimator.tree_, node_id=0, depth=0)
@@ -195,14 +199,20 @@ def compute_feature_contributions_from_tree(estimator, data, contributions_shape
     # Convert class count to probabilities
     _, _, implementation, estimator_type = validate_model_type(estimator)
     if estimator_type == 'DecisionTreeClassifier' and implementation == 'sklearn':
-        probabilities_in_node = divide0(n_samples_in_node,
-                                        n_samples_in_node.sum(axis=1, keepdims=True),
-                                        replace_with=0)
+        if contribution_measure == 'frequency':
+            contributions_in_node = divide0(n_samples_in_node,
+                                            n_samples_in_node.sum(axis=1, keepdims=True),
+                                            replace_with=0)
+        else:
+            n_classes = estimator.tree_.n_classes[0]
+            impurity = estimator.tree_.impurity.reshape(-1, 1)
+            contributions_in_node = np.tile(impurity, (1, n_classes))
+
     else:
-        probabilities_in_node = n_samples_in_node.copy()
+        contributions_in_node = n_samples_in_node.copy()
 
     # Get the probability of each target at the root
-    target_probability_at_root = probabilities_in_node[paths[0][0]]
+    target_probability_at_root = contributions_in_node[paths[0][0]]
 
     # Get list of features used at each node
     node_features = estimator.tree_.feature
@@ -231,10 +241,8 @@ def compute_feature_contributions_from_tree(estimator, data, contributions_shape
     for i_obs, leaf in enumerate(leaves_X):
         # Get path where this leaf is located
         path = leaf_to_path[leaf].copy()
-        # Get final prediction
-        prediction = probabilities_in_node[leaf]
         # Get values of probabilities at each node
-        contrib_features = probabilities_in_node[path, :]
+        contrib_features = contributions_in_node[path, :]
 
         # Compute change in probability of each target at each node split along
         # the current path. The sum of these values along the path and
@@ -280,6 +288,9 @@ def compute_feature_contributions_from_tree(estimator, data, contributions_shape
                 # Get rows of nodes to analyze
                 nodes_to_analyze_idx = np.where(np.logical_not(analyzed_nodes))[0]
                 rows = nodes_rows[nodes_to_analyze_idx]
+
+                # Get final prediction
+                prediction = contributions_in_node[leaf]
 
                 # Transform values into how much (in percentage) each split
                 # contributes to final prediction

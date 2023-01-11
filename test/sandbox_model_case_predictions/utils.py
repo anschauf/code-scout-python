@@ -37,6 +37,7 @@ RAW_FEATURE_SUFFIX = 'RAW'
 RANDOM_SEED = 42
 
 
+# noinspection PyShadowingNames
 def get_list_of_all_predictors(
         data: pd.DataFrame,
         feature_folder: str,
@@ -324,6 +325,59 @@ def get_list_of_all_predictors(
         if overwrite or not os.path.exists(delta_ccl_to_next_pccl_feature_filename):
             data = calculate_delta_pccl(data, delta_value_for_max=10.0)
             store_raw_feature('delta_ccl_to_next_pccl')
+
+    if 'VectorizedCodes' not in data.columns:
+        logger.error("The columns 'VectorizedCodes' could not be found in the data")
+    else:
+        vectors_filename = __make_feature_filename('vectorized_codes', ONE_HOT_ENCODED_FEATURE_SUFFIX)
+        vectors_encoder_filename = f'{os.path.splitext(vectors_filename)[0]}_encoder.pkl'
+
+        if overwrite or not os.path.exists(vectors_filename) or not os.path.exists(vectors_encoder_filename):
+            # List all the indices of the sparse vectors across all vectors (basically ignoring empty columns)
+            all_indices = set()
+            # noinspection PyShadowingNames
+            def get_vector_indices(sparse_vector_info):
+                all_indices.update(sparse_vector_info['indices'])
+            data['VectorizedCodes'].progress_apply(lambda sparse_vector_info: get_vector_indices(sparse_vector_info))
+
+            vector_size = len(all_indices)
+            logger.debug(f'Will create dense vectors with length {vector_size}')
+            # Map each sparse index to a position in the compressed dense vector
+            all_indices = {idx: pos for pos, idx in enumerate(sorted(list(all_indices)))}
+
+            logger.debug('Storing all the vectors in a memory-mapped location ...')
+            temp_vectors_filename = os.path.splitext(vectors_filename)[0] + '_memmap.npy'
+            vectors = np.memmap(temp_vectors_filename, dtype=FEATURE_TYPE, mode='w+', shape=(data.shape[0], vector_size))
+
+            for idx, (_, sparse_vector_info) in enumerate(tqdm(data['VectorizedCodes'].items(), total=data.shape[0])):
+                vector = np.zeros(vector_size, dtype=FEATURE_TYPE)
+                vector_indices = [all_indices[real_idx] for real_idx in sparse_vector_info['indices']]
+                vector[vector_indices] = sparse_vector_info['values']
+
+                vectors[idx, :] = vector
+
+            logger.debug('Moving all the vectors to a pickled file ...')
+            # Files stored with `np.save()` contain enough information to be reloaded without knowing their shape or
+            # data-type
+            np.save(vectors_filename, vectors, allow_pickle=False, fix_imports=False)
+
+            logger.debug('Deleting the temporary file ...')
+            del vectors
+            os.remove(temp_vectors_filename)
+
+            vectors_encoder = OneHotEncoder(categories=sorted(list(all_indices.keys())), sparse_output=False, dtype=FEATURE_TYPE, handle_unknown='ignore')
+            if overwrite or not os.path.exists(vectors_encoder_filename):
+                with open(vectors_encoder_filename, 'wb') as f:
+                    pickle.dump(vectors_encoder, f)
+
+            logger.info(f"Stored the feature 'vectorized_codes' and its corresponding '{vectors_encoder.__class__.__name__}'")
+
+        else:
+            with open(vectors_encoder_filename, 'rb') as f:
+                encoders[__get_full_feature_name(vectors_filename)] = pickle.load(f)
+
+            logger.debug(f"Ignored existing feature 'vectorized_codes'")
+
 
     return features_filenames, encoders
 
