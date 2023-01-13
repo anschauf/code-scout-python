@@ -161,7 +161,7 @@ def create_rankings_of_revised_cases(*,
 if __name__ == '__main__':
     create_rankings_of_revised_cases(
         filename_revised_cases="s3://code-scout/brute_force_case_ranking_predictions/LR_default/ground_truth_performance_app_case_ranking_KSW_2020.csv",
-        dir_rankings='s3://code-scout/brute_force_case_ranking_predictions/LR_default/lr_baseline_use_hand_selected_features_KSW_2020/',
-        dir_output="s3://code-scout/brute_force_case_ranking_predictions/LR_default/lr_baseline_use_hand_selected_features_KSW_2020_plots/",
+        dir_rankings='s3://code-scout/brute_force_case_ranking_predictions/SVM/hand_selected_features/',
+        dir_output="s3://code-scout/brute_force_case_ranking_predictions/SVM/hand_selected_features_plots/",
         s3_bucket='code-scout'
     )

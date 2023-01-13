@@ -39,7 +39,6 @@ ind_X_train, ind_X_test, y_train, y_test = train_test_split(range(n_samples), y,
 
 n_positive_labels_train = int(y_train.sum())
 
-
 list_model_description = list()
 list_f1_measure_train = list()
 list_precision_train = list()

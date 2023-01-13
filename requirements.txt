@@ -12,6 +12,7 @@ scipy
 srsly
 pyhumps
 tqdm
+pygam
 
 # Plotting
 matplotlib

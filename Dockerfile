@@ -53,6 +53,7 @@ FROM eclipse-temurin:18.0.2.1_1-jre-jammy AS RUNTIME
 # Install python
 RUN apt-get update -y
 RUN apt-get install -y --no-install-recommends ca-certificates curl python3.10 python3-pip python3-dev python3-setuptools python3-wheel
+RUN apt-get install gcc-aarch64-linux-gnu -y
 
 # Link python3 to python (https://askubuntu.com/q/320996)
 RUN apt-get install python-is-python3 -y
