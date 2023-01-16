@@ -101,6 +101,8 @@ def feature_reduction_only_reviewed_cases():
     y_train = y[ind_train_test]
 
     # preprocessing features (scaler)
+    from sklearn.preprocessing import StandardScaler
+    # scaler = StandardScaler()
     scaler = MinMaxScaler()
     data_rescaled = scaler.fit_transform(features_train)
 
@@ -127,6 +129,8 @@ def feature_reduction_only_reviewed_cases():
 
     train_components_3_df = pd.DataFrame(train_components_3, columns=['component1', 'component2', 'component3'])
     train_components_3_df['revised'] = y_train
+
+
 
     fig = plt.figure(figsize=(10, 10))
     ax = plt.axes(projection='3d')
