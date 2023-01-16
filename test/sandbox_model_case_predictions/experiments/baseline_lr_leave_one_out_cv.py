@@ -7,6 +7,8 @@ from os.path import join
 import numpy as np
 import pandas as pd
 from loguru import logger
+from sklearn.preprocessing import StandardScaler
+
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_validate, StratifiedShuffleSplit
 from tqdm import tqdm
@@ -17,9 +19,9 @@ from test.sandbox_model_case_predictions.utils import create_predictions_output_
     get_list_of_all_predictors, get_revised_case_ids, RANDOM_SEED, prepare_train_eval_test_split
 
 # hand selected raw features
-USE_HAND_SELECTED_FEATURES = False
+USE_HAND_SELECTED_FEATURES = True
 # model selected processed features
-USE_MODEL_SELECTED_FEATURES = True
+USE_MODEL_SELECTED_FEATURES = False
 NUM_MODEL_SELECTED_FEATURES = 200
 
 # discarded features when using all features
@@ -146,7 +148,13 @@ def train_logistic_regression_only_reviewed_cases():
         }
 
         ind_train_test = np.concatenate([ind_train, ind_test])
-        scores = cross_validate(estimator, features[ind_train_test], y[ind_train_test], scoring=scoring, cv=cv,
+
+        train_features = features[ind_train_test]
+
+        normalizer = StandardScaler()
+        train_features_normalized = normalizer.fit_transform(train_features)
+
+        scores = cross_validate(estimator, train_features_normalized, y[ind_train_test], scoring=scoring, cv=cv,
                                 return_train_score=True, return_estimator=True, error_score=np.nan,
                                 n_jobs=None, verbose=10)
 
@@ -215,15 +223,16 @@ def train_logistic_regression_only_reviewed_cases():
                 feature_values = np.load(feature_filename, mmap_mode='r', allow_pickle=False, fix_imports=False)
                 test_features.append(feature_values[indices, :])
             test_features = np.hstack(test_features)
+            test_features_normalized = normalizer.transform(test_features)
 
             # selected a subset of feature if using Model selected features
             if USE_MODEL_SELECTED_FEATURES:
                 selected_feature_idx = np.where(np.isin(feature_ids, MODEL_SELECTED_FEATURES))[0]
-                test_features = test_features[:, selected_feature_idx]
+                test_features_normalized = test_features_normalized[:, selected_feature_idx]
 
             predictions = list()
             for model in scores['estimator']:
-                predictions.append(model.predict_proba(test_features)[:, 1])
+                predictions.append(model.predict_proba(test_features_normalized)[:, 1])
             predictions = np.mean(np.vstack(predictions), axis=0)
 
             filename_output = join(RESULTS_DIR_TEST_PREDICTIONS,
