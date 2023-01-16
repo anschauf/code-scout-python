@@ -1,3 +1,4 @@
+import math
 import os.path
 import pickle
 from itertools import chain, combinations
@@ -607,18 +608,25 @@ def create_performance_app_ground_truth(dir_output: str, revised_cases_in_data: 
             .to_csv(filename, index=False)
 
 
-def create_predictions_output_performance_app(filename: str, case_ids: ArrayLike, predictions: ArrayLike):
+def create_predictions_output_performance_app(filename: str, case_ids: ArrayLike, predictions: ArrayLike, add_on_information: DataFrame=None):
     """
     Write performance measuring output for model to file.
     @param filename: The filename where to store the results.
     @param case_ids: A list of case IDs.
     @param predictions: The probabilities to rank the case IDs.
     """
-    pd.DataFrame({
+    result = pd.DataFrame({
         'CaseId': case_ids,
         'SuggestedCodeRankings': ['']*len(case_ids),
         'UpcodingConfidenceScore': predictions
-    }).to_csv(filename, index=False, sep=';')
+    })
+
+    if add_on_information:
+        for col in add_on_information.columns:
+            result[col] = add_on_information[col].values
+
+    result.to_csv(filename, index=False, sep=';')
+
 
 def list_all_feature_names(all_data: pd.DataFrame, features_dir: str, feature_indices: Optional[list] = None) -> list:
     feature_filenames, encoders = get_list_of_all_predictors(all_data, features_dir, overwrite=False)
@@ -710,3 +718,6 @@ def get_screen_summary_random_forest(RESULTS_DIR):
     summary.to_csv(join(RESULTS_DIR, 'screen_summary.csv'), index=False)
 
     return summary
+
+def sigmoid(x):
+  return 1 / (1 + math.exp(-x))

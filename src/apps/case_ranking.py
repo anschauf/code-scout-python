@@ -1,4 +1,5 @@
 import os
+from os.path import exists
 
 import awswrangler as wr
 import numpy as np
@@ -28,6 +29,10 @@ def create_rankings_of_revised_cases(*,
     @param dir_output: Directory to store the results in.
     @param s3_bucket: Directory to store the results in.
     """
+    if not dir_output.startswith(S3_PREFIX):
+        if not exists(dir_output):
+            os.makedirs(dir_output)
+
     rank_col = 'prob_rank'
 
     top100 = set(np.arange(0, 100))
@@ -222,8 +227,27 @@ def create_rankings_of_revised_cases(*,
 
 if __name__ == '__main__':
     create_rankings_of_revised_cases(
-        filename_revised_cases=os.path.join(ROOT_DIR, "results/02_rf_hyperparameter_screen/01_runKSW_2020/ground_truth_performance_app_case_ranking_KSW_2020.csv"),
-        dir_rankings=os.path.join(ROOT_DIR, 'results/02_rf_hyperparameter_screen/01_runKSW_2020/TEST_PREDICTIONS/'),
-        dir_output=os.path.join(ROOT_DIR, "results/02_rf_hyperparameter_screen/01_runKSW_2020_results"),
+        filename_revised_cases=os.path.join(ROOT_DIR, "results/test_GP_pytorch_all_features_test_KSW_2020/ground_truth_performance_app_case_ranking_KSW_2020.csv"),
+        dir_rankings=os.path.join(ROOT_DIR, 'results/test_GP_pytorch_all_features_test_KSW_2020/TEST_PREDICTIONS/'),
+        dir_output=os.path.join(ROOT_DIR, "results/test_GP_pytorch_all_features_test_KSW_2020/TEST_PREDICTIONS_results"),
         s3_bucket='code-scout'
     )
+
+# if __name__ == '__main__':
+#     for hospital in [
+#         # 'FT_2019',
+#         # 'HI_2016',
+#         # 'KSSG_2021',
+#         # 'KSW_2017',
+#         # 'KSW_2018',
+#         # 'KSW_2019',
+#         # 'KSW_2020',
+#         # 'LI_2017',
+#         'LI_2018', 'SLI_2019', 'SRRWS_2019'
+#      ]:
+#         create_rankings_of_revised_cases(
+#             filename_revised_cases=f's3://code-scout/brute_force_case_ranking_predictions/02_rf_hyperparameter_screen/ground_truth_performance_app_case_ranking_{hospital}.csv',
+#             dir_rankings=f's3://code-scout/brute_force_case_ranking_predictions/02_rf_hyperparameter_screen/predictions_LOO_{hospital}',
+#             dir_output=f's3://code-scout/brute_force_case_ranking_predictions/02_rf_hyperparameter_screen/predictions_LOO_{hospital}_results',
+#             s3_bucket='code-scout'
+#         )
