@@ -11,6 +11,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_validate, StratifiedShuffleSplit
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
 from src import ROOT_DIR
@@ -83,7 +84,8 @@ def rf_pca_feature_reduction_only_reviewed_cases():
     y_train = y[ind_train_test]
 
     # preprocessing features (scaler)
-    scaler = MinMaxScaler()
+    # scaler = MinMaxScaler()
+    scaler = StandardScaler()
     data_rescaled = scaler.fit_transform(features_train)
     pca = PCA(VARIANCE_PERCENT_PCA)
 
@@ -97,10 +99,10 @@ def rf_pca_feature_reduction_only_reviewed_cases():
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
 
-        for RANDOM_FOREST_NUM_TREES in [200, 300, 500, 800, 1000]:
-            for RANDOM_FOREST_MAX_DEPTH in [4, 5, 10, 15, 20]:
-                for RANDOM_FOREST_MIN_SAMPLES_LEAF in [1, 2, 5, 10, 15, 20]:
-                    for RANDOM_FOREST_MIN_SAMPLES_SPLIT in [10, 20, 30,50, 80, 100, 150, 200, 400, 500]:
+        for RANDOM_FOREST_NUM_TREES in [300, 500, 800, 1000]:
+            for RANDOM_FOREST_MAX_DEPTH in [10, 15, 20]:
+                for RANDOM_FOREST_MIN_SAMPLES_LEAF in [2, 5, 10, 15, 20]:
+                    for RANDOM_FOREST_MIN_SAMPLES_SPLIT in [10,  30, 50, 80, 100, 200, 400, 500]:
 
 
                         hyperparameter_info = f'n_trees_{RANDOM_FOREST_NUM_TREES}-max_depth_{RANDOM_FOREST_MAX_DEPTH}-min_samples_leaf_{RANDOM_FOREST_MIN_SAMPLES_LEAF}-min_samples_split_{RANDOM_FOREST_MIN_SAMPLES_SPLIT}'
