@@ -241,9 +241,9 @@ if __name__ == '__main__':
 #         # 'KSW_2017',
 #         # 'KSW_2018',
 #         # 'KSW_2019',
-#         # 'KSW_2020',
+#         'KSW_2020',
 #         # 'LI_2017',
-#         'LI_2018', 'SLI_2019', 'SRRWS_2019'
+#         # 'LI_2018', 'SLI_2019', 'SRRWS_2019'
 #      ]:
 #         create_rankings_of_revised_cases(
 #             filename_revised_cases=f's3://code-scout/brute_force_case_ranking_predictions/02_rf_hyperparameter_screen/ground_truth_performance_app_case_ranking_{hospital}.csv',
