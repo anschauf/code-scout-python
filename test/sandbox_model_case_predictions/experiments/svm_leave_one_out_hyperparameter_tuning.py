@@ -8,7 +8,7 @@ import numpy as np
 from loguru import logger
 from sklearn.decomposition import PCA
 from sklearn.model_selection import cross_validate, StratifiedShuffleSplit
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.svm import SVC
 from tqdm import tqdm
 
@@ -83,8 +83,10 @@ def hyper_tuning_svm_pca_only_reviewed_cases():
     y_train = y[ind_train_test]
 
 
-    #  preprocessing features (scaler)
-    scaler = MinMaxScaler()
+    #  preprocessing features (scaler): MinMax scaler or Standard scaler
+    # scaler = MinMaxScaler()
+    scaler = StandardScaler()
+
     data_rescaled = scaler.fit_transform(features_train)
     pca = PCA(VARIANCE_PERCENT_PCA)
 

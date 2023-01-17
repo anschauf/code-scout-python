@@ -6,19 +6,18 @@ from os.path import join
 
 import matplotlib.pyplot as plt
 import numpy as np
-
+import pandas as pd
 from loguru import logger
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_validate, StratifiedShuffleSplit
-from sklearn.preprocessing import MinMaxScaler
 from tqdm import tqdm
+from sklearn.preprocessing import StandardScaler
 
 from src import ROOT_DIR
 from test.sandbox_model_case_predictions.data_handler import load_data
 from test.sandbox_model_case_predictions.utils import create_predictions_output_performance_app, \
     get_list_of_all_predictors, get_revised_case_ids, RANDOM_SEED, prepare_train_eval_test_split
-import pandas as pd
 
 VARIANCE_PERCENT_PCA = 0.99
 
@@ -101,9 +100,8 @@ def feature_reduction_only_reviewed_cases():
     y_train = y[ind_train_test]
 
     # preprocessing features (scaler)
-    from sklearn.preprocessing import StandardScaler
-    # scaler = StandardScaler()
-    scaler = MinMaxScaler()
+    scaler = StandardScaler()
+    # scaler = MinMaxScaler()
     data_rescaled = scaler.fit_transform(features_train)
 
     # get the first 2 priciple components for visualization
@@ -146,6 +144,7 @@ def feature_reduction_only_reviewed_cases():
 
     # get certain amount of variance
     pca = PCA(VARIANCE_PERCENT_PCA)
+    pca = PCA(0.95)
 
     pca.fit(data_rescaled)
     n_com = pca.n_components_
