@@ -13,6 +13,7 @@ srsly
 pyhumps
 tqdm
 xgboost
+pyod
 
 # Plotting
 matplotlib

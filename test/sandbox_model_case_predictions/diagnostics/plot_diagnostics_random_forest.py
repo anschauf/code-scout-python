@@ -93,4 +93,5 @@ plot_scatter(dir_results_plots, 'f1_test', 'f1_train-test', jitter_scale=0.01)
 plot_scatter(dir_results_plots, 'precision_test', 'precision_train-test', jitter_scale=0.01)
 plot_scatter(dir_results_plots, 'recall_test', 'recall_train-test', jitter_scale=0.01)
 
+plot_scatter(dir_results_plots, 'f1_test', 'precision_test', jitter_scale=0.01)
 
