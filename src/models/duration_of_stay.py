@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, VARCHAR
 from sqlalchemy import MetaData
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.ext.declarative import declarative_base
 
 
 metadata_obj = MetaData(schema="dimension")
