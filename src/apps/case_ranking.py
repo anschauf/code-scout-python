@@ -43,7 +43,7 @@ def create_rankings_of_revised_cases(*,
     for hospital_year, method_name, rankings in all_rankings:
         # Sort the cases based on probabilities, and add a column indicating the rank
         rankings = rankings.sort_values(by=prob_most_likely_code_col, ascending=False).reset_index(drop=True)
-        rankings[rank_col] = rankings[prob_most_likely_code_col].rank(method='min', ascending=False)
+        rankings[rank_col] = rankings[prob_most_likely_code_col].rank(method='max', ascending=False)
 
         # Perform an inner join between revised cases and ranked results from CodeScout
         revised_cases[case_id_col] = revised_cases['combined_id']
@@ -77,7 +77,7 @@ def create_rankings_of_revised_cases(*,
         fig, ax = venn.venn4(labels, names=['Top 100', 'Top 1000', 'All cases', 'Revised cases'])
         fig.suptitle(f'Case Ranking Tier ({hospital_year})', fontsize=40)
         save_figure_to_pdf_on_s3(fig, s3_bucket, os.path.join(dir_output, 'case_ranking_plot_venn.pdf'))
-        fig.show()
+        # fig.show()
 
     # Cumulative plot for each method from cdf_delta_cw
     cdf_list = list()

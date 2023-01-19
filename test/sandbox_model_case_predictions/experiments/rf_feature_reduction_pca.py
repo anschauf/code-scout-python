@@ -84,8 +84,8 @@ def rf_pca_feature_reduction_only_reviewed_cases():
     y_train = y[ind_train_test]
 
     # preprocessing features (scaler)
-    # scaler = MinMaxScaler()
-    scaler = StandardScaler()
+    scaler = MinMaxScaler()
+    # scaler = StandardScaler()
     data_rescaled = scaler.fit_transform(features_train)
     pca = PCA(VARIANCE_PERCENT_PCA)
 
@@ -99,10 +99,10 @@ def rf_pca_feature_reduction_only_reviewed_cases():
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
 
-        for RANDOM_FOREST_NUM_TREES in [300, 500, 800, 1000]:
-            for RANDOM_FOREST_MAX_DEPTH in [10, 15, 20]:
-                for RANDOM_FOREST_MIN_SAMPLES_LEAF in [2, 5, 10, 15, 20]:
-                    for RANDOM_FOREST_MIN_SAMPLES_SPLIT in [10,  30, 50, 80, 100, 200, 400, 500]:
+        for RANDOM_FOREST_NUM_TREES in [1000]:
+            for RANDOM_FOREST_MAX_DEPTH in [20]:
+                for RANDOM_FOREST_MIN_SAMPLES_LEAF in [20]:
+                    for RANDOM_FOREST_MIN_SAMPLES_SPLIT in [50]:
 
 
                         hyperparameter_info = f'n_trees_{RANDOM_FOREST_NUM_TREES}-max_depth_{RANDOM_FOREST_MAX_DEPTH}-min_samples_leaf_{RANDOM_FOREST_MIN_SAMPLES_LEAF}-min_samples_split_{RANDOM_FOREST_MIN_SAMPLES_SPLIT}'
@@ -193,7 +193,7 @@ def rf_pca_feature_reduction_only_reviewed_cases():
                                 test_features = np.hstack(test_features)
 
                                 # scale test data and extract the top number of components for test set from pca
-                                data_rescaled_test = scaler.fit_transform(test_features)
+                                data_rescaled_test = scaler.transform(test_features)
                                 feature_test_from_pca = pca.transform(data_rescaled_test)
 
                                 predictions = list()
