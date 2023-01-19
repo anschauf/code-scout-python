@@ -1,4 +1,5 @@
 import pickle
+import sys
 from os.path import join
 
 import numpy as np
@@ -13,11 +14,14 @@ from sandbox_model_case_predictions.utils import get_list_of_all_predictors, get
 from src import ROOT_DIR
 from src.ml.explanation.tree.utilities.parallel import compute_feature_contributions_from_tree
 
+DISCARDED_FEATURES = list(DISCARDED_FEATURES) + ['vectorized_codes']
+
 
 def load_model(model_indices: int | list[int] | None = None, *, return_ensemble: bool = False):
     logger.info(f"Loading the model ...")
     with open(join(ROOT_DIR, 'results', 'random_forest_only_reviewed',
-                   'n_trees_1000-max_depth_None-min_samples_leaf_1_wVectors',
+                   # 'n_trees_1000-max_depth_None-min_samples_leaf_1_wVectors',
+                   'n_trees_1000-max_depth_None-min_samples_leaf_1',
                    'rf_cv.pkl'), 'rb') as f:
         ensemble = pickle.load(f, fix_imports=False)
 
@@ -39,14 +43,14 @@ def load_model(model_indices: int | list[int] | None = None, *, return_ensemble:
     return model
 
 
-def list_feature_names():
+def list_feature_names(*, discarded_features: list[str]):
     all_data = load_data(only_2_rows=True)
     features_dir = join(ROOT_DIR, 'resources', 'features')
-    feature_filenames, encoders = get_list_of_all_predictors(all_data, features_dir, overwrite=False)
+    feature_filenames, encoders = get_list_of_all_predictors(all_data, features_dir, overwrite=False, log_ignored_features=False)
     feature_names = sorted(list(feature_filenames.keys()))
 
     feature_names = [feature_name for feature_name in feature_names
-                     if not any(feature_name.startswith(discarded_feature) for discarded_feature in DISCARDED_FEATURES)]
+                     if not any(feature_name.startswith(discarded_feature) for discarded_feature in discarded_features)]
 
     all_feature_names = list()
 
@@ -263,7 +267,7 @@ def calculate_feature_contributions(feature_names, feature_filenames):
 
 
 if __name__ == '__main__':
-    feature_names, all_feature_names, feature_filenames = list_feature_names()
+    feature_names, all_feature_names, feature_filenames = list_feature_names(discarded_features=DISCARDED_FEATURES)
 
     model = load_model()
     feature_importance = calculate_feature_importance(model, all_feature_names)
@@ -271,3 +275,6 @@ if __name__ == '__main__':
 
     feature_contributions = calculate_feature_contributions(feature_names, feature_filenames)
     feature_contributions.to_csv('feature_contributions.csv', index=False)
+
+    logger.success('done')
+    sys.exit(0)

@@ -2,7 +2,7 @@ import os.path
 import pickle
 from itertools import chain, combinations
 from os import listdir
-from os.path import join, exists
+from os.path import exists, join
 from pathlib import Path
 from typing import Optional
 
@@ -43,7 +43,8 @@ def get_list_of_all_predictors(
         data: pd.DataFrame,
         feature_folder: str,
         *,
-        overwrite: bool = False
+        overwrite: bool = False,
+        log_ignored_features: bool = True,
         ) -> (dict, dict):
 
     Path(feature_folder).mkdir(parents=True, exist_ok=True)
@@ -76,7 +77,7 @@ def get_list_of_all_predictors(
 
             np.save(feature_filename, feature.astype(FEATURE_TYPE), allow_pickle=False, fix_imports=False)
             logger.info(f"Stored the feature '{standard_name}'")
-        else:
+        elif log_ignored_features:
             logger.debug(f"Ignored existing feature '{standard_name}'")
 
     @beartype
@@ -107,7 +108,8 @@ def get_list_of_all_predictors(
             with open(encoder_filename, 'rb') as f:
                 encoders[__get_full_feature_name(feature_filename)] = pickle.load(f)
 
-            logger.debug(f"Ignored existing feature '{standard_name}'")
+            if log_ignored_features:
+                logger.debug(f"Ignored existing feature '{standard_name}'")
 
     @beartype
     def store_raw_feature(column_name: str):
@@ -154,7 +156,8 @@ def get_list_of_all_predictors(
             with open(encoder_filename, 'rb') as f:
                 encoders[__get_full_feature_name(feature_filename)] = pickle.load(f)
 
-            logger.debug(f"Ignoring existing feature '{standard_name}'")
+            if log_ignored_features:
+                logger.debug(f"Ignoring existing feature '{standard_name}'")
 
     # -------------------------------------------------------------------------
     # FEATURE ENGINEERING
@@ -162,7 +165,6 @@ def get_list_of_all_predictors(
     # TODO Ventilation hour bins: left out, because not much data for ventilation hours
     # TODO difficult to compare medication rate with different units
     # TODO not sure how to get the medication frequency
-    # TODO Store number of DRG-relevant codes
 
     # The following features are stored as-is
     for col_name in (
@@ -262,6 +264,22 @@ def get_list_of_all_predictors(
 
         has_complex_procedure = data.progress_apply(_has_complex_procedure, axis=1).values
         store_engineered_feature('has_complex_procedure', has_complex_procedure)
+
+    if 'diagnosesExtendedInfo' not in data.columns or 'proceduresExtendedInfo' not in data.columns:
+        logger.error("The columns 'diagnosesExtendedInfo' or 'proceduresExtendedInfo' could not be found in the data")
+    else:
+        print('')
+
+        def _count_num_drg_relevant_codes(extended_info) -> int:
+            # [_, value in extended_info.items()]
+            pass
+
+        def _count_num_all_drg_relevant_codes(row):
+            return _count_num_drg_relevant_codes(row['proceduresExtendedInfo']) + \
+                   _count_num_drg_relevant_codes(row['diagnosesExtendedInfo'])
+
+        num_drg_relevant_codes = data.progress_apply(_count_num_all_drg_relevant_codes, axis=1).values
+        store_engineered_feature('num_drg_relevant_codes', num_drg_relevant_codes)
 
     # Ventilation hours and interactions with it
     if 'hoursMechanicalVentilation' not in data.columns:
@@ -372,7 +390,8 @@ def get_list_of_all_predictors(
             with open(vectors_encoder_filename, 'rb') as f:
                 encoders[__get_full_feature_name(vectors_filename)] = pickle.load(f)
 
-            logger.debug(f"Ignored existing feature 'vectorized_codes'")
+            if log_ignored_features:
+                logger.debug(f"Ignored existing feature 'vectorized_codes'")
 
     return features_filenames, encoders
 
@@ -555,49 +574,6 @@ def prepare_train_eval_test_split(dir_output, revised_cases_in_data, hospital_le
     return ind_X_train, ind_X_test, y_train, y_test, ind_hospital_leave_out, y_hospital_leave_out
 
 
-def prepare_train_eval_test_split_p(revised_cases_in_data: pd.DataFrame,
-                                   hospital_leave_out: Optional[str],
-                                   year_leave_out: Optional[int],
-                                   *,
-                                   only_reviewed_cases: bool = False
-                                   ):
-    if hospital_leave_out is not None and hospital_leave_out not in revised_cases_in_data['hospital'].values:
-        raise ValueError(f'Unknown hospital {hospital_leave_out}')
-
-    if year_leave_out is not None and year_leave_out not in revised_cases_in_data['dischargeYear'].values:
-        raise ValueError(f'Unknown year {year_leave_out}')
-
-    y = revised_cases_in_data['is_revised'].values
-
-    ind_hospital_leave_out_filter = set(np.arange(revised_cases_in_data.shape[0]))
-    if hospital_leave_out is not None:
-        ind_hospital_leave_out_filter.intersection_update(
-            np.where(revised_cases_in_data['hospital'] == hospital_leave_out)[0])
-    if year_leave_out is not None:
-        ind_hospital_leave_out_filter.intersection_update(
-            np.where(revised_cases_in_data['dischargeYear'] == year_leave_out)[0])
-    ind_hospital_leave_out = np.sort(list(ind_hospital_leave_out_filter))
-    y_hospital_leave_out = y[ind_hospital_leave_out]
-
-    # get case_ids for reviewed but not revised cases
-    if only_reviewed_cases:
-        all_true_ground_truth_data = revised_cases_in_data[
-            (revised_cases_in_data['is_revised'] == 1) | (revised_cases_in_data['is_reviewed'] == 1)]
-        ind_train_test = all_true_ground_truth_data['index'].values
-
-    else:
-        n_samples = y.shape[0]
-        ind_train_test = np.setdiff1d(np.arange(n_samples), ind_hospital_leave_out)
-
-    ind_train, ind_eval = train_test_split(ind_train_test, stratify=y[ind_train_test], test_size=0.3,
-                                           random_state=RANDOM_SEED)
-
-    y_train = y[ind_train]
-    y_eval = y[ind_eval]
-
-    return ind_train, ind_eval, y_train, y_eval, ind_hospital_leave_out, y_hospital_leave_out
-
-
 # noinspection PyUnresolvedReferences
 def create_performance_app_ground_truth(dir_output: str, revised_cases_in_data: DataFrame, hospital: Optional[str], year: Optional[int], overwrite=False):
     """
@@ -696,6 +672,11 @@ def create_performance_app_ground_truth(dir_output: str, revised_cases_in_data: 
         ground_truth[ground_truth['cw_delta'] > 0] \
             .drop(columns=['cw_delta']) \
             .to_csv(filename, index=False)
+
+    else:
+        ground_truth = pd.read_csv(filename)
+
+    return ground_truth.shape[0]
 
 
 def create_predictions_output_performance_app(filename: str, case_ids: ArrayLike, predictions: ArrayLike):

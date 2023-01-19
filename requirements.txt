@@ -1,5 +1,6 @@
 # Core packages
 scikit-learn
+xgboost
 beartype
 loguru
 awswrangler
@@ -12,6 +13,7 @@ scipy
 srsly
 pyhumps
 tqdm
+srsly
 
 # Plotting
 matplotlib

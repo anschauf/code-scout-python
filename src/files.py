@@ -1,14 +1,15 @@
 import os
-from os.path import basename, splitext, join
+from os.path import basename, join, splitext
 
 import awswrangler as wr
 import numpy as np
 import pandas as pd
 from beartype import beartype
 from loguru import logger
+from tqdm import tqdm
 
-from src.schema import case_id_col, suggested_code_rankings_split_col, prob_most_likely_code_col, \
-    suggested_code_probabilities_split_col
+from src.schema import case_id_col, prob_most_likely_code_col, suggested_code_probabilities_split_col, \
+    suggested_code_rankings_split_col
 from src.utils.general_utils import split_codes
 from test.sandbox_model_case_predictions.utils import S3_PREFIX
 
@@ -25,7 +26,6 @@ def load_revised_cases(filename_revised_cases: str) -> pd.DataFrame:
     revised_cases['combined_id'] = revised_cases['FID'] + revised_cases['AdmNo'] + revised_cases['CaseId'] + revised_cases['PatID']
 
     all_case_ids = np.asarray(revised_cases['combined_id'].values)
-    # unique_case_ids = np.unique(all_case_ids)
     unique_case_ids, case_id_counts = np.unique(all_case_ids, return_counts=True)
     unique_case_ids = unique_case_ids[case_id_counts == 1]
 
@@ -48,15 +48,14 @@ def load_all_rankings(dir_rankings: str) -> list[tuple[str, str, pd.DataFrame]]:
     if dir_rankings.startswith(S3_PREFIX):
         all_ranking_filenames = wr.s3.list_objects(dir_rankings)
     else:
-        all_ranking_filenames = os.listdir(dir_rankings)
+        all_ranking_filenames = [f for f in os.listdir(dir_rankings) if f.endswith('.csv')]
     if len(all_ranking_filenames) == 0:
         raise Exception(f'Found no ranking files')
     else:
         logger.info(f'Found {len(all_ranking_filenames)} files')
 
     all_rankings = list()
-    for filename in all_ranking_filenames:
-        logger.info(f'Reading {filename} ...')
+    for filename in tqdm(all_ranking_filenames):
         if filename.startswith(S3_PREFIX):
             rankings = wr.s3.read_csv(filename, sep=";", dtype='string')
         else:

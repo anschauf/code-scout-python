@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import awswrangler as wr
 import numpy as np
@@ -8,7 +9,7 @@ from matplotlib import pyplot as plt
 from tqdm import tqdm
 
 from src import ROOT_DIR
-from src.files import load_revised_cases, load_all_rankings
+from src.files import load_all_rankings, load_revised_cases
 from src.schema import case_id_col, prob_most_likely_code_col
 from src.utils.general_utils import save_figure_to_pdf_on_s3
 from test.sandbox_model_case_predictions.utils import S3_PREFIX
@@ -28,6 +29,10 @@ def create_rankings_of_revised_cases(*,
     @param dir_output: Directory to store the results in.
     @param s3_bucket: Directory to store the results in.
     """
+
+    if not dir_output.startswith(S3_PREFIX):
+        Path(dir_output).mkdir(parents=True, exist_ok=True)
+
     rank_col = 'prob_rank'
 
     top100 = set(np.arange(0, 100))
@@ -221,9 +226,12 @@ def create_rankings_of_revised_cases(*,
 
 
 if __name__ == '__main__':
+    # folder = '02_rf_hyperparameter_screen/01_runKSW_2020'
+    folder = 'global_performance_xgb/test_KSW_2020'
+
     create_rankings_of_revised_cases(
-        filename_revised_cases=os.path.join(ROOT_DIR, "results/02_rf_hyperparameter_screen/01_runKSW_2020/ground_truth_performance_app_case_ranking_KSW_2020.csv"),
-        dir_rankings=os.path.join(ROOT_DIR, 'results/02_rf_hyperparameter_screen/01_runKSW_2020/TEST_PREDICTIONS/'),
-        dir_output=os.path.join(ROOT_DIR, "results/02_rf_hyperparameter_screen/01_runKSW_2020_results"),
+        filename_revised_cases=os.path.join(ROOT_DIR, f"results/{folder}/ground_truth_performance_app_case_ranking_KSW_2020.csv"),
+        dir_rankings=os.path.join(ROOT_DIR, f'results/{folder}/TEST_PREDICTIONS/'),
+        dir_output=os.path.join(ROOT_DIR, f"results/{folder}/results"),
         s3_bucket='code-scout'
     )
