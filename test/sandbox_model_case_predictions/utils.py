@@ -1,7 +1,9 @@
+import math
 import os.path
 import pickle
 from itertools import chain, combinations
-from os.path import join
+from os import listdir
+from os.path import exists, join
 from pathlib import Path
 from typing import Optional
 
@@ -24,13 +26,15 @@ from src.apps.feature_engineering.ccl_sensitivity import calculate_delta_pccl
 from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
 from src.service.bfs_cases_db_service import get_all_reviewed_cases, get_all_revised_cases, \
     get_grouped_revisions_for_sociodemographic_ids, get_sociodemographics_by_case_id, \
-    get_sociodemographics_by_sociodemographics_ids
+    get_sociodemographics_by_sociodemographics_ids, get_diagnoses_codes_from_revision_id, \
+    get_procedures_codes_from_revision_id
 from src.service.database import Database
 
 tqdm.pandas()
 
 FEATURE_TYPE = np.float32
 
+S3_PREFIX = 's3://'
 ONE_HOT_ENCODED_FEATURE_SUFFIX = 'OHE'
 RAW_FEATURE_SUFFIX = 'RAW'
 RANDOM_SEED = 42
@@ -41,8 +45,10 @@ def get_list_of_all_predictors(
         data: pd.DataFrame,
         feature_folder: str,
         *,
-        overwrite: bool = False
-) -> (dict, dict):
+        overwrite: bool = False,
+        log_ignored_features: bool = True,
+        ) -> (dict, dict):
+
     Path(feature_folder).mkdir(parents=True, exist_ok=True)
 
     # Store a memory-mapped file for each feature
@@ -73,7 +79,7 @@ def get_list_of_all_predictors(
 
             np.save(feature_filename, feature.astype(FEATURE_TYPE), allow_pickle=False, fix_imports=False)
             logger.info(f"Stored the feature '{standard_name}'")
-        else:
+        elif log_ignored_features:
             logger.debug(f"Ignored existing feature '{standard_name}'")
 
     @beartype
@@ -104,7 +110,8 @@ def get_list_of_all_predictors(
             with open(encoder_filename, 'rb') as f:
                 encoders[__get_full_feature_name(feature_filename)] = pickle.load(f)
 
-            logger.debug(f"Ignored existing feature '{standard_name}'")
+            if log_ignored_features:
+                logger.debug(f"Ignored existing feature '{standard_name}'")
 
     @beartype
     def store_raw_feature(column_name: str):
@@ -119,8 +126,7 @@ def get_list_of_all_predictors(
             store_engineered_feature(standard_name, data[column_name].values, feature_filename)
 
         else:
-            encoder = OrdinalEncoder(dtype=FEATURE_TYPE, handle_unknown='use_encoded_value', unknown_value=-2,
-                                     encoded_missing_value=-1)
+            encoder = OrdinalEncoder(dtype=FEATURE_TYPE, handle_unknown='use_encoded_value', unknown_value=-2, encoded_missing_value=-1)
             encoders[__get_full_feature_name(feature_filename)] = encoder
             feature_values = encoder.fit_transform(data[column_name].values.reshape(-1, 1)).ravel()
 
@@ -152,7 +158,8 @@ def get_list_of_all_predictors(
             with open(encoder_filename, 'rb') as f:
                 encoders[__get_full_feature_name(feature_filename)] = pickle.load(f)
 
-            logger.debug(f"Ignoring existing feature '{standard_name}'")
+            if log_ignored_features:
+                logger.debug(f"Ignoring existing feature '{standard_name}'")
 
     # -------------------------------------------------------------------------
     # FEATURE ENGINEERING
@@ -160,17 +167,16 @@ def get_list_of_all_predictors(
     # TODO Ventilation hour bins: left out, because not much data for ventilation hours
     # TODO difficult to compare medication rate with different units
     # TODO not sure how to get the medication frequency
-    # TODO Store number of DRG-relevant codes
 
     # The following features are stored as-is
     for col_name in (
-            # Sociodemographics
-            'ageYears', 'ErfassungDerAufwandpunkteFuerIMC', 'hoursMechanicalVentilation', 'AufenthaltIntensivstation',
-            'NEMSTotalAllerSchichten', 'durationOfStay', 'leaveDays', 'hospital',
-            # DRG-related
-            'drgCostWeight', 'effectiveCostWeight', 'NumDrgRelevantDiagnoses', 'NumDrgRelevantProcedures', 'rawPccl',
-            'supplementCharges'
-    ):
+        # Sociodemographics
+        'ageYears', 'ErfassungDerAufwandpunkteFuerIMC', 'hoursMechanicalVentilation', 'AufenthaltIntensivstation',
+        'NEMSTotalAllerSchichten', 'durationOfStay', 'leaveDays', 'hospital',
+        # DRG-related
+        'drgCostWeight', 'effectiveCostWeight', 'NumDrgRelevantDiagnoses', 'NumDrgRelevantProcedures', 'rawPccl',
+        'supplementCharges'
+        ):
         store_raw_feature(col_name)
 
     # The following features are stored as raw values as well as one-hot encoded
@@ -201,9 +207,7 @@ def get_list_of_all_predictors(
         store_engineered_feature(decamelize('IsCaseBelowPcclSplit'), data['IsCaseBelowPcclSplit'].values)
 
     # Get the "used" status from the flag columns
-    for col_name in (
-    'ageFlag', 'genderFlag', 'durationOfStayFlag', 'grouperAdmissionCodeFlag', 'grouperDischargeCodeFlag',
-    'hoursMechanicalVentilationFlag', 'gestationAgeFlag'):
+    for col_name in ('ageFlag', 'genderFlag', 'durationOfStayFlag', 'grouperAdmissionCodeFlag', 'grouperDischargeCodeFlag', 'hoursMechanicalVentilationFlag', 'gestationAgeFlag'):
         if col_name not in data.columns:
             logger.error(f"The column '{col_name}' could not be found in the data")
             continue
@@ -228,8 +232,7 @@ def get_list_of_all_predictors(
         logger.error("The columns 'effectiveCostWeight' and 'drgCostWeight' could not be found in the data")
     else:
         delta_effective_to_base_drg_cost_weight = data['effectiveCostWeight'] - data['drgCostWeight']
-        store_engineered_feature('delta_effective_to_base_drg_cost_weight',
-                                 delta_effective_to_base_drg_cost_weight.values.astype(FEATURE_TYPE))
+        store_engineered_feature('delta_effective_to_base_drg_cost_weight', delta_effective_to_base_drg_cost_weight.values.astype(FEATURE_TYPE))
 
     if 'procedures' not in data.columns:
         logger.error("The column 'procedures' could not be found in the data")
@@ -246,8 +249,7 @@ def get_list_of_all_predictors(
     if 'diagnosesExtendedInfo' not in data.columns:
         logger.error("The column 'diagnosesExtendedInfo' could not be found in the data")
     else:
-        data['number_of_diags_ccl_greater_0'] = data['diagnosesExtendedInfo'].progress_apply(
-            __extract_number_of_ccl_greater_null)
+        data['number_of_diags_ccl_greater_0'] = data['diagnosesExtendedInfo'].progress_apply(__extract_number_of_ccl_greater_null)
         store_raw_feature('number_of_diags_ccl_greater_0')
 
     if 'proceduresExtendedInfo' not in data.columns:
@@ -265,12 +267,27 @@ def get_list_of_all_predictors(
         has_complex_procedure = data.progress_apply(_has_complex_procedure, axis=1).values
         store_engineered_feature('has_complex_procedure', has_complex_procedure)
 
+    if 'diagnosesExtendedInfo' not in data.columns or 'proceduresExtendedInfo' not in data.columns:
+        logger.error("The columns 'diagnosesExtendedInfo' or 'proceduresExtendedInfo' could not be found in the data")
+    else:
+        print('')
+
+        def _count_num_drg_relevant_codes(extended_info) -> int:
+            # [_, value in extended_info.items()]
+            pass
+
+        def _count_num_all_drg_relevant_codes(row):
+            return _count_num_drg_relevant_codes(row['proceduresExtendedInfo']) + \
+                   _count_num_drg_relevant_codes(row['diagnosesExtendedInfo'])
+
+        num_drg_relevant_codes = data.progress_apply(_count_num_all_drg_relevant_codes, axis=1).values
+        store_engineered_feature('num_drg_relevant_codes', num_drg_relevant_codes)
+
     # Ventilation hours and interactions with it
     if 'hoursMechanicalVentilation' not in data.columns:
         logger.error("The column 'hoursMechanicalVentilation' could not be found in the data")
     else:
-        has_ventilation_hours = data['hoursMechanicalVentilation'].progress_apply(__int_to_bool).values.astype(
-            FEATURE_TYPE)
+        has_ventilation_hours = data['hoursMechanicalVentilation'].progress_apply(__int_to_bool).values.astype(FEATURE_TYPE)
         store_engineered_feature('has_ventilation_hours', has_ventilation_hours)
 
     if 'mdc' not in data.columns or 'hoursMechanicalVentilation' not in data.columns:
@@ -286,10 +303,8 @@ def get_list_of_all_predictors(
     if 'medications' not in data.columns:
         logger.error("The column 'medications' could not be found in the data")
     else:
-        data['medications_atc3'] = data['medications'].progress_apply(
-            lambda all_meds: tuple([x.split(':')[0][:3] for x in all_meds]))
-        data['medications_kind'] = data['medications'].progress_apply(
-            lambda all_meds: tuple([x.split(':')[2] for x in all_meds]))
+        data['medications_atc3'] = data['medications'].progress_apply(lambda all_meds: tuple([x.split(':')[0][:3] for x in all_meds]))
+        data['medications_kind'] = data['medications'].progress_apply(lambda all_meds: tuple([x.split(':')[2] for x in all_meds]))
         # one_hot_encode('medications_atc', is_data_uniform=False)
         one_hot_encode('medications_atc3', is_data_uniform=False)
         one_hot_encode('medications_kind', is_data_uniform=False)
@@ -299,8 +314,7 @@ def get_list_of_all_predictors(
         logger.error("The columns 'ageYears' and 'ageDays' could not be found in the data")
     else:
         age_bin, age_bin_label = categorize_age(data['ageYears'].values, data['ageDays'].values)
-        age_encoder = OneHotEncoder(categories=age_bin_label, sparse_output=False, dtype=FEATURE_TYPE,
-                                    handle_unknown='ignore')
+        age_encoder = OneHotEncoder(categories=age_bin_label, sparse_output=False, dtype=FEATURE_TYPE, handle_unknown='ignore')
         store_engineered_feature_and_sklearn_encoder('binned_age', age_bin, age_encoder)
 
     # Noisy features, which are very unlikely to be correlated but they can be used to evaluate training performance
@@ -378,8 +392,8 @@ def get_list_of_all_predictors(
             with open(vectors_encoder_filename, 'rb') as f:
                 encoders[__get_full_feature_name(vectors_filename)] = pickle.load(f)
 
-            logger.debug(f"Ignored existing feature 'vectorized_codes'")
-
+            if log_ignored_features:
+                logger.debug(f"Ignored existing feature 'vectorized_codes'")
 
     return features_filenames, encoders
 
@@ -458,46 +472,108 @@ def get_revised_case_ids(all_data: pd.DataFrame,
                          *,
                          overwrite: bool = False
                          ) -> pd.DataFrame:
+
     if overwrite or not os.path.exists(revised_case_ids_filename):
         with Database() as db:
             revised_cases_all = get_all_revised_cases(db.session)
             revised_case_sociodemographic_ids = revised_cases_all['sociodemographic_id'].values.tolist()
-            sociodemographics_revised_cases = get_sociodemographics_by_sociodemographics_ids(
-                revised_case_sociodemographic_ids, db.session)
+            sociodemographics_revised_cases = get_sociodemographics_by_sociodemographics_ids(revised_case_sociodemographic_ids, db.session)
 
             reviewed_cases_all = get_all_reviewed_cases(db.session)
             reviewed_case_sociodemographic_ids = reviewed_cases_all['sociodemographic_id'].values.tolist()
-            sociodemographics_reviewed_cases = get_sociodemographics_by_sociodemographics_ids(
-                reviewed_case_sociodemographic_ids, db.session)
+            sociodemographics_reviewed_cases = get_sociodemographics_by_sociodemographics_ids(reviewed_case_sociodemographic_ids, db.session)
 
-        revised_cases = sociodemographics_revised_cases[['case_id', 'age_years', 'gender', 'duration_of_stay']].copy()
+            grouped_revisions = get_grouped_revisions_for_sociodemographic_ids(revised_case_sociodemographic_ids, db.session)
+            grouped_reviewed = get_grouped_revisions_for_sociodemographic_ids(reviewed_case_sociodemographic_ids, db.session)
+
+            def get_revision_id(row, revised=True):
+                if len(np.intersect1d([True, False], row.revised)) == 2:
+                    ind = np.where(np.asarray(row.revised) == revised)[0][0]
+                    return row.revision_id[ind]
+                else:
+                    return np.nan
+
+            grouped_revisions_id_revised = grouped_revisions.apply(get_revision_id, axis=1)
+            grouped_revisions_id_original = grouped_revisions.apply(get_revision_id, revised=False, axis=1)
+
+            # get diagnoses added
+            diagnoses_codes_revised = get_diagnoses_codes_from_revision_id(grouped_revisions_id_revised.values.tolist(), db.session)
+            diagnoses_codes_revised_grouped = diagnoses_codes_revised.groupby(by='sociodemographic_id').agg(set)
+            diagnoses_codes_revised_grouped.reset_index(inplace=True)
+            diagnoses_codes_revised_grouped['revision_id'] = diagnoses_codes_revised_grouped['revision_id'].apply(lambda x: list(x)[0])
+
+            diagnoses_codes_original = get_diagnoses_codes_from_revision_id(grouped_revisions_id_original.values.tolist(), db.session)
+            diagnoses_codes_original_grouped = diagnoses_codes_original.groupby(by='sociodemographic_id').agg(set)
+            diagnoses_codes_original_grouped.reset_index(inplace=True)
+            diagnoses_codes_original_grouped['revision_id'] = diagnoses_codes_original_grouped['revision_id'].apply(lambda x: list(x)[0])
+
+            diagnoses_merged = pd.merge(diagnoses_codes_revised_grouped, diagnoses_codes_original_grouped, on=('sociodemographic_id'), suffixes=('_revised', '_original'))
+            diagnoses_merged['diagnoses_added'] = diagnoses_merged['code_revised'] - diagnoses_merged['code_original']
+            diagnoses_merged['diagnoses_added'] = diagnoses_merged['diagnoses_added'].apply('|'.join)
+            diagnoses_merged.reset_index(inplace=True)
+            grouped_revisions = pd.merge(grouped_revisions, diagnoses_merged[['sociodemographic_id', 'diagnoses_added']], on='sociodemographic_id', how='left')
+
+            # get procedures added
+            procedures_codes_revised = get_procedures_codes_from_revision_id(grouped_revisions_id_revised.values.tolist(), db.session)
+            procedures_codes_revised_grouped = procedures_codes_revised.groupby(by='sociodemographic_id').agg(set)
+            procedures_codes_revised_grouped.reset_index(inplace=True)
+            procedures_codes_revised_grouped['revision_id'] = procedures_codes_revised_grouped['revision_id'].apply(lambda x: list(x)[0])
+
+            procedures_codes_original = get_procedures_codes_from_revision_id(grouped_revisions_id_original.values.tolist(), db.session)
+            procedures_codes_original_grouped = procedures_codes_original.groupby(by='sociodemographic_id').agg(set)
+            procedures_codes_original_grouped.reset_index(inplace=True)
+            procedures_codes_original_grouped['revision_id'] = procedures_codes_original_grouped['revision_id'].apply(lambda x: list(x)[0])
+
+            procedures_merged = pd.merge(procedures_codes_revised_grouped, procedures_codes_original_grouped, on=('sociodemographic_id'), suffixes=('_revised', '_original'))
+            procedures_merged['procedures_added'] = procedures_merged['code_revised'] - procedures_merged['code_original']
+            procedures_merged['procedures_added'] = procedures_merged['procedures_added'].apply('|'.join)
+            procedures_merged.reset_index(inplace=True)
+            grouped_revisions = pd.merge(grouped_revisions, procedures_merged[['sociodemographic_id', 'procedures_added']], on='sociodemographic_id', how='left')
+
+        def split_col_in_old_new(row, col, is_revised=True):
+            if is_revised in row.revised_grouped:
+                ind = np.where(np.asarray(row.revised_grouped) == is_revised)[0][0]
+                return row[col][ind]
+            else:
+                return np.nan
+
+        revised_cases = sociodemographics_revised_cases[['sociodemographic_id', 'case_id', 'age_years', 'gender', 'duration_of_stay']].copy()
         revised_cases['revised'] = 1
+        revised_cases_grouped = pd.merge(revised_cases, grouped_revisions, on='sociodemographic_id', how='left', suffixes=('', '_grouped'))
+        revised_cases_grouped.rename(columns={'reviewed': 'reviewed_grouped'}, inplace=True)
+        revised_cases_grouped['drg_old'] = revised_cases_grouped.apply(split_col_in_old_new, col='drg', is_revised=False, axis=1)
+        revised_cases_grouped['drg_new'] = revised_cases_grouped.apply(split_col_in_old_new, col='drg', is_revised=True, axis=1)
+        revised_cases_grouped['cw_old'] = revised_cases_grouped.apply(split_col_in_old_new, col='effective_cost_weight', is_revised=False, axis=1)
+        revised_cases_grouped['cw_new'] = revised_cases_grouped.apply(split_col_in_old_new, col='effective_cost_weight', is_revised=True, axis=1)
+        revised_cases_grouped['pccl_old'] = revised_cases_grouped.apply(split_col_in_old_new, col='pccl', is_revised=False, axis=1)
+        revised_cases_grouped['pccl_new'] = revised_cases_grouped.apply(split_col_in_old_new, col='pccl', is_revised=True, axis=1)
+
         logger.info(f'There are {revised_cases.shape[0]} revised cases in the DB')
 
-        reviewed_cases = sociodemographics_reviewed_cases[['case_id', 'age_years', 'gender', 'duration_of_stay']].copy()
+        reviewed_cases = sociodemographics_reviewed_cases[['sociodemographic_id', 'case_id', 'age_years', 'gender', 'duration_of_stay']].copy()
         reviewed_cases['reviewed'] = 1
+        reviewed_cases_grouped = pd.merge(reviewed_cases, grouped_reviewed, on='sociodemographic_id', how='left', suffixes=('', '_grouped'))
+        reviewed_cases_grouped.rename(columns={'revised': 'revised_grouped'}, inplace=True)
+        reviewed_cases_grouped['drg_old'] = reviewed_cases_grouped.apply(split_col_in_old_new, col='drg', is_revised=False, axis=1)
+        reviewed_cases_grouped['drg_new'] = reviewed_cases_grouped.apply(split_col_in_old_new, col='drg', is_revised=True, axis=1)
+        reviewed_cases_grouped['cw_old'] = reviewed_cases_grouped.apply(split_col_in_old_new, col='effective_cost_weight', is_revised=False, axis=1)
+        reviewed_cases_grouped['cw_new'] = reviewed_cases_grouped.apply(split_col_in_old_new, col='effective_cost_weight', is_revised=True, axis=1)
+        reviewed_cases_grouped['pccl_old'] = reviewed_cases_grouped.apply(split_col_in_old_new, col='pccl', is_revised=False, axis=1)
+        reviewed_cases_grouped['pccl_new'] = reviewed_cases_grouped.apply(split_col_in_old_new, col='pccl', is_revised=True, axis=1)
         logger.info(f'There are {reviewed_cases.shape[0]} reviewed cases in the DB')
 
-        revised_cases['case_id'] = revised_cases['case_id'].str.lstrip('0')
-        reviewed_cases['case_id'] = reviewed_cases['case_id'].str.lstrip('0')
+        revised_cases_grouped['case_id'] = revised_cases_grouped['case_id'].str.lstrip('0')
+        reviewed_cases_grouped['case_id'] = reviewed_cases_grouped['case_id'].str.lstrip('0')
         all_data['id'] = all_data['id'].str.lstrip('0')
 
+        revised_reviewed_merged = pd.concat([revised_cases_grouped, reviewed_cases_grouped])
+
         revised_cases_in_data = pd.merge(
-            revised_cases,
-            all_data[
-                ['id', 'AnonymerVerbindungskode', 'ageYears', 'gender', 'durationOfStay', 'hospital', 'dischargeYear',
-                 'index']].copy(),
+            revised_reviewed_merged[['case_id', 'age_years', 'gender', 'duration_of_stay', 'revised', 'reviewed', 'drg_old', 'drg_new', 'cw_old', 'cw_new', 'pccl_old', 'pccl_new', 'diagnoses_added', 'procedures_added']],
+            all_data[['id', 'AnonymerVerbindungskode', 'ageYears', 'gender', 'durationOfStay', 'hospital', 'dischargeYear', 'index']].copy(),
             how='outer',
             left_on=('case_id', 'age_years', 'gender', 'duration_of_stay'),
             right_on=('id', 'ageYears', 'gender', 'durationOfStay'),
-        )
-
-        revised_cases_in_data = pd.merge(
-            revised_cases_in_data,
-            reviewed_cases,
-            how='outer',
-            left_on=('id', 'ageYears', 'gender', 'durationOfStay'),
-            right_on=('case_id', 'age_years', 'gender', 'duration_of_stay'),
         )
 
         revised_cases_in_data['revised'].fillna(0, inplace=True)
@@ -511,16 +587,13 @@ def get_revised_case_ids(all_data: pd.DataFrame,
         # Create the label columns
         revised_cases_in_data['is_revised'] = revised_cases_in_data['revised'].astype(int)
         revised_cases_in_data['is_reviewed'] = revised_cases_in_data['reviewed'].astype(int)
-        revised_cases_in_data = revised_cases_in_data[
-            ['index', 'id', 'hospital', 'dischargeYear', 'is_revised', 'is_reviewed']]
+        revised_cases_in_data = revised_cases_in_data[['index', 'id', 'hospital', 'dischargeYear', 'is_revised', 'is_reviewed', 'drg_old', 'drg_new', 'cw_old', 'cw_new', 'pccl_old', 'pccl_new', 'diagnoses_added', 'procedures_added']]
 
         num_revised_cases_in_data = int(revised_cases_in_data['is_revised'].sum())
         num_reviewed_cases_in_data = int(revised_cases_in_data['is_reviewed'].sum())
         num_cases = revised_cases_in_data.shape[0]
-        logger.info(
-            f'{num_revised_cases_in_data}/{num_cases} ({float(num_revised_cases_in_data) / num_cases * 100:.1f}%) cases were revised')
-        logger.info(
-            f'{num_reviewed_cases_in_data}/{num_cases} ({float(num_reviewed_cases_in_data) / num_cases * 100:.1f}%) cases were reviewed')
+        logger.info(f'{num_revised_cases_in_data}/{num_cases} ({float(num_revised_cases_in_data) / num_cases * 100:.1f}%) cases were revised')
+        logger.info(f'{num_reviewed_cases_in_data}/{num_cases} ({float(num_reviewed_cases_in_data) / num_cases * 100:.1f}%) cases were reviewed')
 
         # Re-sort the joined dataset according to the original order
         revised_cases_in_data = revised_cases_in_data.sort_values('index', ascending=True).reset_index(drop=True)
@@ -544,52 +617,32 @@ def get_revised_case_ids(all_data: pd.DataFrame,
     return revised_cases_in_data
 
 
-def prepare_train_eval_test_split(revised_cases_in_data: pd.DataFrame,
-                                  hospital_leave_out: Optional[str],
-                                  year_leave_out: Optional[int],
-                                  *,
-                                  only_reviewed_cases: bool = False
-                                  ):
-    if hospital_leave_out is not None and hospital_leave_out not in revised_cases_in_data['hospital'].values:
-        raise ValueError(f'Unknown hospital {hospital_leave_out}')
+def prepare_train_eval_test_split(dir_output, revised_cases_in_data, hospital_leave_out='KSW', year_leave_out=2020, only_reviewed_cases=False):
+    assert hospital_leave_out in revised_cases_in_data['hospital'].values
+    assert year_leave_out in revised_cases_in_data['dischargeYear'].values
+    revised_cases_in_data['id'] = revised_cases_in_data['id'].astype('string')
 
-    if year_leave_out is not None and year_leave_out not in revised_cases_in_data['dischargeYear'].values:
-        raise ValueError(f'Unknown year {year_leave_out}')
-
+    # get indices to leave out from training routine for performance app
     y = revised_cases_in_data['is_revised'].values
-
-    ind_hospital_leave_out_filter = set(np.arange(revised_cases_in_data.shape[0]))
-    if hospital_leave_out is not None:
-        ind_hospital_leave_out_filter.intersection_update(
-            np.where(revised_cases_in_data['hospital'] == hospital_leave_out)[0])
-    if year_leave_out is not None:
-        ind_hospital_leave_out_filter.intersection_update(
-            np.where(revised_cases_in_data['dischargeYear'] == year_leave_out)[0])
-    ind_hospital_leave_out = np.sort(list(ind_hospital_leave_out_filter))
+    ind_hospital_leave_out = np.where((revised_cases_in_data['hospital'].values == hospital_leave_out) &
+                                      (revised_cases_in_data['dischargeYear'].values == year_leave_out))[0]
     y_hospital_leave_out = y[ind_hospital_leave_out]
 
-    # get case_ids for reviewed but not revised cases
+    n_samples = y.shape[0]
     if only_reviewed_cases:
-        all_true_ground_truth_data = revised_cases_in_data[
-            (revised_cases_in_data['is_revised'] == 1) | (revised_cases_in_data['is_reviewed'] == 1)]
-        ind_train_test = all_true_ground_truth_data['index'].values
-
+        ind_not_validated = list(np.where(np.logical_and(revised_cases_in_data['is_reviewed'] == 0, revised_cases_in_data['is_revised'] == 0))[0])
+        ind_train_test = list(set(range(n_samples)) - set(ind_hospital_leave_out) - set(ind_not_validated))
     else:
-        n_samples = y.shape[0]
-        ind_train_test = np.setdiff1d(np.arange(n_samples), ind_hospital_leave_out)
+        ind_train_test = list(set(range(n_samples)) - set(ind_hospital_leave_out))
+    ind_X_train, ind_X_test = train_test_split(ind_train_test, stratify=y[ind_train_test], test_size=0.3,random_state=RANDOM_SEED)
+    y_train = y[ind_X_train]
+    y_test = y[ind_X_test]
 
-    ind_train, ind_eval = train_test_split(ind_train_test, stratify=y[ind_train_test], test_size=0.3,
-                                           random_state=RANDOM_SEED)
-
-    y_train = y[ind_train]
-    y_eval = y[ind_eval]
-
-    return ind_train, ind_eval, y_train, y_eval, ind_hospital_leave_out, y_hospital_leave_out
+    return ind_X_train, ind_X_test, y_train, y_test, ind_hospital_leave_out, y_hospital_leave_out
 
 
 # noinspection PyUnresolvedReferences
-def create_performance_app_ground_truth(dir_output: str, revised_cases_in_data: DataFrame, hospital: Optional[str],
-                                        year: Optional[int]):
+def create_performance_app_ground_truth(dir_output: str, revised_cases_in_data: DataFrame, hospital: Optional[str], year: Optional[int], overwrite=False):
     """
     Create performance ground truth file for case ranking purposes only.
     @param dir_output: The output directory to store the file in.
@@ -611,94 +664,62 @@ def create_performance_app_ground_truth(dir_output: str, revised_cases_in_data: 
     else:
         year_msg = 'all_years'
 
-    case_ids_revised = revised_cases_in_data[case_ids_revised_filter]
+    filename = join(dir_output, f'ground_truth_performance_app_case_ranking_{hospital_msg}_{year_msg}.csv')
+    if not np.logical_and(exists(filename) == True, overwrite == False):
+        revised_cases_in_data_hospital_year = revised_cases_in_data[case_ids_revised_filter]
 
-    logger.info(f'Selected {case_ids_revised.shape[0]} cases from {hospital_msg} ({year_msg})')
+        logger.info(f'Selected {revised_cases_in_data_hospital_year.shape[0]} cases from {hospital_msg} ({year_msg})')
 
-    with Database() as db:
-        logger.trace('Reading the sociodemographics from the DB ...')
-        sociodemographic_revised = get_sociodemographics_by_case_id(case_ids_revised['id'].values.tolist(), db.session)
-        sociodemographic_ids_revised = sociodemographic_revised[SOCIODEMOGRAPHIC_ID_COL]
+        placeholder = np.repeat('', revised_cases_in_data_hospital_year.shape[0])
+        ground_truth = pd.DataFrame({
+            'CaseId': revised_cases_in_data_hospital_year['id'].values,
+            'AdmNo': placeholder,
+            'FID': placeholder,
+            'PatID': placeholder,
+            'ICD_added': revised_cases_in_data_hospital_year['diagnoses_added'].values,
+            'ICD_dropped': placeholder,
+            'CHOP_added': revised_cases_in_data_hospital_year['procedures_added'].values,
+            'CHOP_dropped': placeholder,
+            'DRG_old': revised_cases_in_data_hospital_year['drg_old'].values,
+            'DRG_new': revised_cases_in_data_hospital_year['drg_new'].values,
+            'CW_old': revised_cases_in_data_hospital_year['cw_old'].astype(float).values,
+            'CW_new': revised_cases_in_data_hospital_year['cw_new'].astype(float).values,
+            'PCCL_old': revised_cases_in_data_hospital_year['pccl_old'].values,
+            'PCCL_new': revised_cases_in_data_hospital_year['pccl_new'].values
+        })
 
-        logger.trace('Reading and grouping the revisions ...')
-        grouped_revisions = get_grouped_revisions_for_sociodemographic_ids(sociodemographic_ids_revised, db.session)
-        socio_revised_merged = pd.merge(sociodemographic_revised, grouped_revisions, on=SOCIODEMOGRAPHIC_ID_COL)
+        #TODO maybe remove this filter again, just for the time being till we checked the revised cases in the DB
+        ground_truth = ground_truth[ground_truth['CW_new'] > 0]
+        ground_truth['cw_delta'] = ground_truth['CW_new'] - ground_truth['CW_old']
+        ground_truth[ground_truth['cw_delta'] > 0] \
+            .drop(columns=['cw_delta']) \
+            .to_csv(filename, index=False)
 
-    logger.info('Assembling info on revisions ...')
-    n_rows = socio_revised_merged.shape[0]
+    else:
+        ground_truth = pd.read_csv(filename)
 
-    drg_old = np.empty(n_rows, dtype=object)
-    drg_new = np.empty_like(drg_old)
-
-    cw_old = np.empty(n_rows, dtype=float)
-    cw_new = np.empty_like(cw_old)
-
-    pccl_old = np.empty(n_rows, dtype=int)
-    pccl_new = np.empty_like(pccl_old)
-
-    for i, row in enumerate(tqdm(socio_revised_merged.itertuples())):
-        is_revised = set(row.reviewed) == {True, False}
-
-        if is_revised:
-            ind_original = row.reviewed.index(False)
-            ind_reviewed = row.reviewed.index(True)
-
-            drg_old[i] = row.drg[ind_original]
-            drg_new[i] = row.drg[ind_reviewed]
-
-            cw_old[i] = row.effective_cost_weight[ind_original]
-            cw_new[i] = row.effective_cost_weight[ind_reviewed]
-
-            pccl_old[i] = row.pccl[ind_original]
-            pccl_new[i] = row.pccl[ind_reviewed]
-
-        else:
-            drg_old[i] = ''
-            drg_new[i] = ''
-            cw_old[i] = 0
-            cw_new[i] = 0
-            pccl_old[i] = 0
-            pccl_new[i] = 0
-
-    placeholder = np.repeat('', n_rows)
-    ground_truth = pd.DataFrame({
-        'CaseId': socio_revised_merged['case_id'].values,
-        'AdmNo': placeholder,
-        'FID': placeholder,
-        'PatID': placeholder,
-        'ICD_added': placeholder,
-        'ICD_dropped': placeholder,
-        'CHOP_added': placeholder,
-        'CHOP_dropped': placeholder,
-        'DRG_old': drg_old,
-        'DRG_new': drg_new,
-        'CW_old': cw_old,
-        'CW_new': cw_new,
-        'PCCL_old': pccl_old,
-        'PCCL_new': pccl_new
-    })
-
-    # TODO maybe remove this filter again, just for the time being till we checked the revised cases in the DB
-    ground_truth = ground_truth[ground_truth['CW_new'] > 0]
-    ground_truth['cw_delta'] = ground_truth['CW_new'] - ground_truth['CW_old']
-    ground_truth[ground_truth['cw_delta'] > 0] \
-        .drop(columns=['cw_delta']) \
-        .to_csv(join(dir_output, f'ground_truth_performance_app_case_ranking_{hospital_msg}_{year_msg}.csv'),
-                index=False)
+    return ground_truth.shape[0]
 
 
-def create_predictions_output_performance_app(filename: str, case_ids: ArrayLike, predictions: ArrayLike):
+def create_predictions_output_performance_app(filename: str, case_ids: ArrayLike, predictions: ArrayLike, add_on_information: DataFrame=None):
     """
     Write performance measuring output for model to file.
     @param filename: The filename where to store the results.
     @param case_ids: A list of case IDs.
     @param predictions: The probabilities to rank the case IDs.
     """
-    pd.DataFrame({
+    result = pd.DataFrame({
         'CaseId': case_ids,
         'SuggestedCodeRankings': [''] * len(case_ids),
         'UpcodingConfidenceScore': predictions
-    }).to_csv(filename, index=False, sep=';')
+    })
+
+    if add_on_information:
+        for col in add_on_information.columns:
+            result[col] = add_on_information[col].values
+
+    result.to_csv(filename, index=False, sep=';')
+
 
 
 def list_all_feature_names(all_data: pd.DataFrame, features_dir: str, feature_indices: Optional[list] = None) -> list:
@@ -731,3 +752,66 @@ def list_all_feature_names(all_data: pd.DataFrame, features_dir: str, feature_in
             all_feature_names.append(feature_name_wo_suffix)
 
     return all_feature_names
+
+
+def get_screen_summary_random_forest(RESULTS_DIR):
+    all_runs = listdir(RESULTS_DIR)
+    all_runs = [f for f in all_runs if f.startswith('n_trees')]
+
+    n_estimator = list()
+    max_depth = list()
+    min_sample_leaf = list()
+    min_sample_split = list()
+    precision_train = list()
+    precision_test = list()
+    recall_train = list()
+    recall_test = list()
+    f1_train = list()
+    f1_test = list()
+
+    for file in all_runs:
+        full_filename = join(RESULTS_DIR, file, 'performance.txt')
+
+        if exists(full_filename):
+            split_name = file.split('-')
+            n_estimator.append(int(split_name[0].split('_')[-1]))
+            max_depth.append(int(split_name[1].split('_')[-1]))
+            min_sample_leaf.append(int(split_name[2].split('_')[-1]))
+            if len(split_name) > 3:
+                min_sample_split.append(int(split_name[3].split('_')[-1]))
+            else:
+                min_sample_split.append('')
+
+            with open(full_filename) as f:
+                lines = f.readlines()
+
+            precision_train.append(float(lines[4].split(',')[0].split(' ')[-1]))
+            precision_test.append(float(lines[4].split(',')[1].split(' ')[-1]))
+
+            recall_train.append(float(lines[5].split(',')[0].split(' ')[-1]))
+            recall_test.append(float(lines[5].split(',')[1].split(' ')[-1]))
+
+            f1_train.append(float(lines[6].split(',')[0].split(' ')[-1]))
+            f1_test.append(float(lines[6].split(',')[1].split(' ')[-1]))
+
+    summary = pd.DataFrame({
+        'n_estimator': n_estimator,
+        'max_depth': max_depth,
+        'min_sample_leaf': min_sample_leaf,
+        'min_sample_split': min_sample_split,
+        'precision_train': precision_train,
+        'precision_test': precision_test,
+        'precision_train-test': np.asarray(precision_train) - np.asarray(precision_test),
+        'recall_train': recall_train,
+        'recall_test': recall_test,
+        'recall_train-test': np.asarray(recall_train) - np.asarray(recall_test),
+        'f1_train': f1_train,
+        'f1_test': f1_test,
+        'f1_train-test': np.asarray(f1_train) - np.asarray(f1_test)
+    }).sort_values('f1_test', ascending=False)
+    summary.to_csv(join(RESULTS_DIR, 'screen_summary.csv'), index=False)
+
+    return summary
+
+def sigmoid(x):
+  return 1 / (1 + math.exp(-x))

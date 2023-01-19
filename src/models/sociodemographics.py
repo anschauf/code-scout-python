@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, CHAR, Date, SmallInteger, BOOLEAN, VARCHAR
 from sqlalchemy import MetaData
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.ext.declarative import declarative_base
 
 from src.models.clinic import Clinic
 from src.models.hospital import Hospital

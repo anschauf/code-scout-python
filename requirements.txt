@@ -1,5 +1,7 @@
 # Core packages
+python-crfsuite
 scikit-learn
+xgboost
 beartype
 loguru
 awswrangler
@@ -12,6 +14,9 @@ scipy
 srsly
 pyhumps
 tqdm
+srsly
+gpytorch
+dataprep
 
 # Plotting
 matplotlib
