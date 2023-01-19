@@ -19,7 +19,6 @@ from test.sandbox_model_case_predictions.data_handler import load_data
 from test.sandbox_model_case_predictions.utils import create_predictions_output_performance_app, \
     get_list_of_all_predictors, get_revised_case_ids, RANDOM_SEED, prepare_train_eval_test_split
 
-
 VARIANCE_PERCENT_PCA = 0.99
 
 # discarded features when using all features
@@ -53,7 +52,7 @@ def rf_pca_feature_reduction_only_reviewed_cases():
     # create_performance_app_ground_truth(dir_output, revised_cases_in_data, hospital_year_for_performance_app[0], hospital_year_for_performance_app[1])
 
     ind_train, ind_test, y_train, y_test, ind_hospital_leave_out, y_hospital_leave_out = \
-        prepare_train_eval_test_split(revised_cases_in_data=revised_cases_in_data,
+        prepare_train_eval_test_split(dir_output=RESULTS_DIR_TEST_PREDICTIONS, revised_cases_in_data=revised_cases_in_data,
                                       hospital_leave_out=LEAVE_ON_OUT[0],
                                       year_leave_out=LEAVE_ON_OUT[1],
                                       only_reviewed_cases=True)
@@ -100,9 +99,9 @@ def rf_pca_feature_reduction_only_reviewed_cases():
         warnings.simplefilter('ignore')
 
         for RANDOM_FOREST_NUM_TREES in [1000]:
-            for RANDOM_FOREST_MAX_DEPTH in [20]:
-                for RANDOM_FOREST_MIN_SAMPLES_LEAF in [20]:
-                    for RANDOM_FOREST_MIN_SAMPLES_SPLIT in [50]:
+            for RANDOM_FOREST_MAX_DEPTH in [2, 5, 10, 15, 20, 25]:
+                for RANDOM_FOREST_MIN_SAMPLES_LEAF in [1, 3, 5, 10, 15, 20, 25, 30]:
+                    for RANDOM_FOREST_MIN_SAMPLES_SPLIT in [20, 30, 50, 80, 100, 150, 200, 400, 500]:
 
 
                         hyperparameter_info = f'n_trees_{RANDOM_FOREST_NUM_TREES}-max_depth_{RANDOM_FOREST_MAX_DEPTH}-min_samples_leaf_{RANDOM_FOREST_MIN_SAMPLES_LEAF}-min_samples_split_{RANDOM_FOREST_MIN_SAMPLES_SPLIT}'

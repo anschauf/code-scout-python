@@ -202,8 +202,8 @@ def get_list_of_all_predictors(
 
     # Get the "used" status from the flag columns
     for col_name in (
-    'ageFlag', 'genderFlag', 'durationOfStayFlag', 'grouperAdmissionCodeFlag', 'grouperDischargeCodeFlag',
-    'hoursMechanicalVentilationFlag', 'gestationAgeFlag'):
+            'ageFlag', 'genderFlag', 'durationOfStayFlag', 'grouperAdmissionCodeFlag', 'grouperDischargeCodeFlag',
+            'hoursMechanicalVentilationFlag', 'gestationAgeFlag'):
         if col_name not in data.columns:
             logger.error(f"The column '{col_name}' could not be found in the data")
             continue
@@ -337,9 +337,11 @@ def get_list_of_all_predictors(
         if overwrite or not os.path.exists(vectors_filename) or not os.path.exists(vectors_encoder_filename):
             # List all the indices of the sparse vectors across all vectors (basically ignoring empty columns)
             all_indices = set()
+
             # noinspection PyShadowingNames
             def get_vector_indices(sparse_vector_info):
                 all_indices.update(sparse_vector_info['indices'])
+
             data['VectorizedCodes'].progress_apply(lambda sparse_vector_info: get_vector_indices(sparse_vector_info))
 
             vector_size = len(all_indices)
@@ -349,7 +351,8 @@ def get_list_of_all_predictors(
 
             logger.debug('Storing all the vectors in a memory-mapped location ...')
             temp_vectors_filename = os.path.splitext(vectors_filename)[0] + '_memmap.npy'
-            vectors = np.memmap(temp_vectors_filename, dtype=FEATURE_TYPE, mode='w+', shape=(data.shape[0], vector_size))
+            vectors = np.memmap(temp_vectors_filename, dtype=FEATURE_TYPE, mode='w+',
+                                shape=(data.shape[0], vector_size))
 
             for idx, (_, sparse_vector_info) in enumerate(tqdm(data['VectorizedCodes'].items(), total=data.shape[0])):
                 vector = np.zeros(vector_size, dtype=FEATURE_TYPE)
@@ -367,19 +370,20 @@ def get_list_of_all_predictors(
             del vectors
             os.remove(temp_vectors_filename)
 
-            vectors_encoder = OneHotEncoder(categories=sorted(list(all_indices.keys())), sparse_output=False, dtype=FEATURE_TYPE, handle_unknown='ignore')
+            vectors_encoder = OneHotEncoder(categories=sorted(list(all_indices.keys())), sparse_output=False,
+                                            dtype=FEATURE_TYPE, handle_unknown='ignore')
             if overwrite or not os.path.exists(vectors_encoder_filename):
                 with open(vectors_encoder_filename, 'wb') as f:
                     pickle.dump(vectors_encoder, f)
 
-            logger.info(f"Stored the feature 'vectorized_codes' and its corresponding '{vectors_encoder.__class__.__name__}'")
+            logger.info(
+                f"Stored the feature 'vectorized_codes' and its corresponding '{vectors_encoder.__class__.__name__}'")
 
         else:
             with open(vectors_encoder_filename, 'rb') as f:
                 encoders[__get_full_feature_name(vectors_filename)] = pickle.load(f)
 
             logger.debug(f"Ignored existing feature 'vectorized_codes'")
-
 
     return features_filenames, encoders
 
@@ -544,47 +548,31 @@ def get_revised_case_ids(all_data: pd.DataFrame,
     return revised_cases_in_data
 
 
-def prepare_train_eval_test_split(revised_cases_in_data: pd.DataFrame,
-                                  hospital_leave_out: Optional[str],
-                                  year_leave_out: Optional[int],
-                                  *,
-                                  only_reviewed_cases: bool = False
-                                  ):
-    if hospital_leave_out is not None and hospital_leave_out not in revised_cases_in_data['hospital'].values:
-        raise ValueError(f'Unknown hospital {hospital_leave_out}')
+def prepare_train_eval_test_split(dir_output, revised_cases_in_data, hospital_leave_out='KSW', year_leave_out=2020,
+                                  only_reviewed_cases=False):
+    assert hospital_leave_out in revised_cases_in_data['hospital'].values
+    assert year_leave_out in revised_cases_in_data['dischargeYear'].values
+    revised_cases_in_data['id'] = revised_cases_in_data['id'].astype('string')
 
-    if year_leave_out is not None and year_leave_out not in revised_cases_in_data['dischargeYear'].values:
-        raise ValueError(f'Unknown year {year_leave_out}')
-
+    # get indices to leave out from training routine for performance app
     y = revised_cases_in_data['is_revised'].values
-
-    ind_hospital_leave_out_filter = set(np.arange(revised_cases_in_data.shape[0]))
-    if hospital_leave_out is not None:
-        ind_hospital_leave_out_filter.intersection_update(
-            np.where(revised_cases_in_data['hospital'] == hospital_leave_out)[0])
-    if year_leave_out is not None:
-        ind_hospital_leave_out_filter.intersection_update(
-            np.where(revised_cases_in_data['dischargeYear'] == year_leave_out)[0])
-    ind_hospital_leave_out = np.sort(list(ind_hospital_leave_out_filter))
+    ind_hospital_leave_out = np.where((revised_cases_in_data['hospital'].values == hospital_leave_out) &
+                                      (revised_cases_in_data['dischargeYear'].values == year_leave_out))[0]
     y_hospital_leave_out = y[ind_hospital_leave_out]
 
-    # get case_ids for reviewed but not revised cases
+    n_samples = y.shape[0]
     if only_reviewed_cases:
-        all_true_ground_truth_data = revised_cases_in_data[
-            (revised_cases_in_data['is_revised'] == 1) | (revised_cases_in_data['is_reviewed'] == 1)]
-        ind_train_test = all_true_ground_truth_data['index'].values
-
+        ind_not_validated = list(np.where(
+            np.logical_and(revised_cases_in_data['is_reviewed'] == 0, revised_cases_in_data['is_revised'] == 0))[0])
+        ind_train_test = list(set(range(n_samples)) - set(ind_hospital_leave_out) - set(ind_not_validated))
     else:
-        n_samples = y.shape[0]
-        ind_train_test = np.setdiff1d(np.arange(n_samples), ind_hospital_leave_out)
+        ind_train_test = list(set(range(n_samples)) - set(ind_hospital_leave_out))
+    ind_X_train, ind_X_test = train_test_split(ind_train_test, stratify=y[ind_train_test], test_size=0.3,
+                                               random_state=RANDOM_SEED)
+    y_train = y[ind_X_train]
+    y_test = y[ind_X_test]
 
-    ind_train, ind_eval = train_test_split(ind_train_test, stratify=y[ind_train_test], test_size=0.3,
-                                           random_state=RANDOM_SEED)
-
-    y_train = y[ind_train]
-    y_eval = y[ind_eval]
-
-    return ind_train, ind_eval, y_train, y_eval, ind_hospital_leave_out, y_hospital_leave_out
+    return ind_X_train, ind_X_test, y_train, y_test, ind_hospital_leave_out, y_hospital_leave_out
 
 
 # noinspection PyUnresolvedReferences
