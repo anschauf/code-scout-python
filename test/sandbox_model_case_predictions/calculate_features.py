@@ -6,12 +6,12 @@ from os.path import join
 from loguru import logger
 
 from src import ROOT_DIR
-from test.sandbox_model_case_predictions.data_handler import load_data
+from test.sandbox_model_case_predictions.data_handler import load_data, trim_codes
 from test.sandbox_model_case_predictions.utils import get_list_of_all_predictors, get_revised_case_ids
 
 # -----------------------------------------------------------------------------
 OVERWRITE_REVISED_CASE_IDs = False
-OVERWRITE_FEATURE_FILES = False
+OVERWRITE_FEATURE_FILES = True
 # -----------------------------------------------------------------------------
 
 def calculate_features():
@@ -30,20 +30,21 @@ def calculate_features():
         shutil.rmtree(features_dir, ignore_errors=True)
 
         column_batches = [
-            ['ageYears', 'ageDays', 'ErfassungDerAufwandpunkteFuerIMC', 'AufenthaltIntensivstation',
-             'NEMSTotalAllerSchichten', 'durationOfStay', 'leaveDays', 'hospital', 'drgCostWeight',
-             'effectiveCostWeight', 'NumDrgRelevantDiagnoses', 'NumDrgRelevantProcedures', 'rawPccl',
-             'supplementCharges'],
-            ['gender', 'Hauptkostenstelle', 'mdc', 'mdcPartition', 'durationOfStayCaseType', 'AufenthaltNachAustritt',
-             'AufenthaltsKlasse', 'Eintrittsart', 'EntscheidFuerAustritt', 'AufenthaltsortVorDemEintritt',
-             'BehandlungNachAustritt', 'EinweisendeInstanz', 'HauptkostentraegerFuerGrundversicherungsleistungen',
-             'grouperDischargeCode', 'grouperAdmissionCode'],
-            ['AufenthaltIntensivstation', 'NEMSTotalAllerSchichten', 'ErfassungDerAufwandpunkteFuerIMC',
-             'IsCaseBelowPcclSplit', 'ageFlag', 'genderFlag', 'durationOfStayFlag', 'grouperAdmissionCodeFlag',
-             'grouperDischargeCodeFlag', 'hoursMechanicalVentilationFlag', 'gestationAgeFlag', 'admissionWeightFlag',
-             'effectiveCostWeight', 'drgCostWeight'],
-            ['procedures', 'secondaryDiagnoses', 'diagnosesExtendedInfo', 'proceduresExtendedInfo'],
-            ['hoursMechanicalVentilation', 'mdc', 'medications', 'entryDate', 'exitDate', 'pccl', 'rawPccl']
+            # ['ageYears', 'ageDays', 'ErfassungDerAufwandpunkteFuerIMC', 'AufenthaltIntensivstation',
+            #  'NEMSTotalAllerSchichten', 'durationOfStay', 'leaveDays', 'hospital', 'drgCostWeight',
+            #  'effectiveCostWeight', 'NumDrgRelevantDiagnoses', 'NumDrgRelevantProcedures', 'rawPccl',
+            #  'supplementCharges'],
+            # ['gender', 'Hauptkostenstelle', 'mdc', 'mdcPartition', 'durationOfStayCaseType', 'AufenthaltNachAustritt',
+            #  'AufenthaltsKlasse', 'Eintrittsart', 'EntscheidFuerAustritt', 'AufenthaltsortVorDemEintritt',
+            #  'BehandlungNachAustritt', 'EinweisendeInstanz', 'HauptkostentraegerFuerGrundversicherungsleistungen',
+            #  'grouperDischargeCode', 'grouperAdmissionCode'],
+            # ['AufenthaltIntensivstation', 'NEMSTotalAllerSchichten', 'ErfassungDerAufwandpunkteFuerIMC',
+            #  'IsCaseBelowPcclSplit', 'ageFlag', 'genderFlag', 'durationOfStayFlag', 'grouperAdmissionCodeFlag',
+            #  'grouperDischargeCodeFlag', 'hoursMechanicalVentilationFlag', 'gestationAgeFlag', 'admissionWeightFlag',
+            #  'effectiveCostWeight', 'drgCostWeight'],
+            ['secondaryDiagnoses'],
+            # ['primaryDiagnosis', 'procedures', 'secondaryDiagnoses', 'diagnosesExtendedInfo', 'proceduresExtendedInfo'],
+            # ['hoursMechanicalVentilation', 'mdc', 'medications', 'entryDate', 'exitDate', 'pccl', 'rawPccl']
         ]
 
         for column_batch in column_batches:

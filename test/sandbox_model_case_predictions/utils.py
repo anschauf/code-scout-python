@@ -191,7 +191,7 @@ def get_list_of_all_predictors(
                      'AufenthaltNachAustritt', 'AufenthaltsKlasse', 'Eintrittsart', 'EntscheidFuerAustritt',
                      'AufenthaltsortVorDemEintritt', 'BehandlungNachAustritt', 'EinweisendeInstanz',
                      'HauptkostentraegerFuerGrundversicherungsleistungen',
-                     'grouperDischargeCode', 'grouperAdmissionCode'):
+                     'grouperDischargeCode', 'grouperAdmissionCode', 'drgRelevantDiagnoses', 'drgRelevantProcedures'):
         one_hot_encode(col_name)
 
     # The following features are booleans
@@ -239,14 +239,30 @@ def get_list_of_all_predictors(
     if 'procedures' not in data.columns:
         logger.error("The column 'procedures' could not be found in the data")
     else:
+        data['procedures'] = data['procedures'].progress_apply(lambda xs: set([x[:4] for x in xs]))
+        one_hot_encode('procedures', is_data_uniform=False)
         data['number_of_chops'] = data['procedures'].progress_apply(lambda x: len(x))
         store_raw_feature('number_of_chops')
 
     if 'secondaryDiagnoses' not in data.columns:
         logger.error("The column 'secondaryDiagnoses' could not be found in the data")
     else:
+        data['secondaryDiagnoses'] = data['secondaryDiagnoses'].progress_apply(lambda xs: set([x[:1] for x in xs]))
+        one_hot_encode('secondaryDiagnoses', is_data_uniform=False)
         data['number_of_diags'] = data['secondaryDiagnoses'].progress_apply(lambda x: len(x) + 1)
         store_raw_feature('number_of_diags')
+
+    if 'drgRelevantDiagnoses' not in data.columns:
+        logger.error("The column 'drgRelevantDiagnoses' could not be found in the data")
+    else:
+        data['drgRelevantDiagnoses'] = data['drgRelevantDiagnoses'].progress_apply(lambda xs: set([x[:3] for x in xs]))
+        one_hot_encode('drgRelevantDiagnoses', is_data_uniform=False)
+
+    if 'drgRelevantProcedures' not in data.columns:
+        logger.error("The column 'drgRelevantProcedures' could not be found in the data")
+    else:
+        data['drgRelevantProcedures'] = data['drgRelevantProcedures'].progress_apply(lambda xs: set([x[:3] for x in xs]))
+        one_hot_encode('drgRelevantProcedures', is_data_uniform=False)
 
     if 'diagnosesExtendedInfo' not in data.columns:
         logger.error("The column 'diagnosesExtendedInfo' could not be found in the data")

@@ -65,7 +65,7 @@ def train_random_forest_only_reviewed_cases():
                         ('SRRWS', 2019)
                     ]:
 
-                        folder_name = f'02_rf_hyperparameter_screen/predictions_LOO_full_data/{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
+                        folder_name = f'02_rf_hyperparameter_screen/predictions_LOO_full_data_trimed_codes/{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
                         RESULTS_DIR = join(ROOT_DIR, 'results', folder_name,
                                            f'n_trees_{RANDOM_FOREST_NUM_TREES}-max_depth_{RANDOM_FOREST_MAX_DEPTH}-min_samples_leaf_{RANDOM_FOREST_MIN_SAMPLES_LEAF}-min_samples_split_{RANDOM_FOREST_MIN_SAMPLES_SPLIT}')
                         if not os.path.exists(RESULTS_DIR):

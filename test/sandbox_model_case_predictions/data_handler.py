@@ -115,8 +115,9 @@ def load_data(
             .reset_index(drop=False)
         )
         logger.success(f'Loaded {all_data.shape[0]} rows')
-
-    return __preprocess_data(all_data)
+    df = __preprocess_data(all_data)
+    df = trim_codes(df)
+    return df
 
 
 def __preprocess_data(df: pd.DataFrame):
@@ -128,5 +129,27 @@ def __preprocess_data(df: pd.DataFrame):
     # compute discharge year
     if 'exitDate' in df.columns:
         df['dischargeYear'] = df['exitDate'].apply(lambda x: x[:4] if isinstance(x, str) else '')
+
+    return df
+
+
+def trim_codes(df: pd.DataFrame, diagnosis_trim: int = 3, procedure_trim: int = 4):
+
+    if 'primaryDiagnosis' in df:
+        df['primaryDiagnosis'] = df['primaryDiagnosis'].apply(lambda d: d[:diagnosis_trim])
+
+    if 'secondaryDiagnoses' in df:
+        df['secondaryDiagnoses'] = df['secondaryDiagnoses'].apply(lambda ds: list(set([d[:diagnosis_trim] for d in ds])))
+
+    # if 'secondaryDiagnoses' in df and 'primaryDiagnosis' in df:
+    #     df['allDiagnoses'] = df['secondaryDiagnoses'].append(df['primaryDiagnosis'])
+    if 'procedures' in df:
+        df['procedures'] = df['procedures'].apply(lambda ps: list(set([p[:procedure_trim] for p in ps])))
+
+    if 'drgRelevantDiagnoses' in df:
+        df['drgRelevantDiagnoses'] = df['drgRelevantDiagnoses'].apply(lambda ps: list(set([p[:procedure_trim] for p in ps])))
+
+    if 'drgRelevantProcedures' in df:
+        df['drgRelevantProcedures'] = df['drgRelevantProcedures'].apply(lambda ps: list(set([p[:procedure_trim] for p in ps])))
 
     return df
