@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 import awswrangler as wr
@@ -249,3 +250,5 @@ if __name__ == '__main__':
     #         dir_output=os.path.join(ROOT_DIR, f"results/{folder}/results"),
     #         s3_bucket='code-scout'
     # )
+
+    sys.exit(0)
