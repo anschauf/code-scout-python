@@ -56,16 +56,17 @@ def train_random_forest_only_reviewed_cases():
                     # ]:
 
                     for LEAVE_ON_OUT in [
-                        ('FT', 2019),
-                        ('HI', 2016),
-                        ('KSSG', 2021),
-                        ('KSW', 2017), ('KSW', 2018), ('KSW', 2019), ('KSW', 2020),
-                        ('LI', 2017), ('LI', 2018),
-                        ('SLI', 2019),
-                        ('SRRWS', 2019)
+                        # ('FT', 2019),
+                        # ('HI', 2016),
+                        # ('KSSG', 2021),
+                        # ('KSW', 2017), ('KSW', 2018), ('KSW', 2019),
+                        ('KSW', 2020),
+                        # ('LI', 2017), ('LI', 2018),
+                        # ('SLI', 2019),
+                        # ('SRRWS', 2019)
                     ]:
 
-                        folder_name = f'02_rf_hyperparameter_screen/predictions_LOO_full_data/{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
+                        folder_name = f'RF_reviewed_as_positive_label/{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
                         RESULTS_DIR = join(ROOT_DIR, 'results', folder_name,
                                            f'n_trees_{RANDOM_FOREST_NUM_TREES}-max_depth_{RANDOM_FOREST_MAX_DEPTH}-min_samples_leaf_{RANDOM_FOREST_MIN_SAMPLES_LEAF}-min_samples_split_{RANDOM_FOREST_MIN_SAMPLES_SPLIT}')
                         if not os.path.exists(RESULTS_DIR):
@@ -91,7 +92,7 @@ def train_random_forest_only_reviewed_cases():
                             create_performance_app_ground_truth(dir_ground_truth, revised_cases_in_data, LEAVE_ON_OUT[0], LEAVE_ON_OUT[1])
                             # create_performance_app_ground_truth(dir_output, revised_cases_in_data, hospital_year_for_performance_app[0], hospital_year_for_performance_app[1])
 
-                            ind_train, ind_test, y_train, y_test, ind_hospital_leave_out, y_hospital_leave_out = \
+                            ind_train, ind_test, _, _, ind_hospital_leave_out, _ = \
                                 prepare_train_eval_test_split(dir_output=RESULTS_DIR, revised_cases_in_data=revised_cases_in_data,
                                                               hospital_leave_out=LEAVE_ON_OUT[0],
                                                               year_leave_out=LEAVE_ON_OUT[1],
@@ -99,7 +100,8 @@ def train_random_forest_only_reviewed_cases():
 
                             # reviewed_cases = revised_cases_in_data[(revised_cases_in_data['is_revised'] == 1) | (revised_cases_in_data['is_reviewed'] == 1)]
                             reviewed_cases = revised_cases_in_data
-                            y = reviewed_cases['is_revised'].values
+                            y = reviewed_cases['is_revised'].values + reviewed_cases['is_reviewed'].values
+                            y[y > 0] = 1
                             sample_indices = reviewed_cases['index'].values
 
                             logger.info('Assembling features ...')

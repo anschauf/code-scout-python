@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, VARCHAR, ForeignKey, Boolean
 from sqlalchemy import MetaData
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.ext.declarative import declarative_base
 
 from src.models.revision import REVISION_ID_COL, Revision
 from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL, Sociodemographics

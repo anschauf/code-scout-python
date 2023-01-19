@@ -1,3 +1,4 @@
+import math
 import os.path
 import pickle
 from itertools import chain, combinations
@@ -25,7 +26,8 @@ from src.apps.feature_engineering.ccl_sensitivity import calculate_delta_pccl
 from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
 from src.service.bfs_cases_db_service import get_all_reviewed_cases, get_all_revised_cases, \
     get_grouped_revisions_for_sociodemographic_ids, get_sociodemographics_by_case_id, \
-    get_sociodemographics_by_sociodemographics_ids
+    get_sociodemographics_by_sociodemographics_ids, get_diagnoses_codes_from_revision_id, \
+    get_procedures_codes_from_revision_id
 from src.service.database import Database
 
 tqdm.pandas()
@@ -481,32 +483,97 @@ def get_revised_case_ids(all_data: pd.DataFrame,
             reviewed_case_sociodemographic_ids = reviewed_cases_all['sociodemographic_id'].values.tolist()
             sociodemographics_reviewed_cases = get_sociodemographics_by_sociodemographics_ids(reviewed_case_sociodemographic_ids, db.session)
 
-        revised_cases = sociodemographics_revised_cases[['case_id', 'age_years', 'gender', 'duration_of_stay']].copy()
+            grouped_revisions = get_grouped_revisions_for_sociodemographic_ids(revised_case_sociodemographic_ids, db.session)
+            grouped_reviewed = get_grouped_revisions_for_sociodemographic_ids(reviewed_case_sociodemographic_ids, db.session)
+
+            def get_revision_id(row, revised=True):
+                if len(np.intersect1d([True, False], row.revised)) == 2:
+                    ind = np.where(np.asarray(row.revised) == revised)[0][0]
+                    return row.revision_id[ind]
+                else:
+                    return np.nan
+
+            grouped_revisions_id_revised = grouped_revisions.apply(get_revision_id, axis=1)
+            grouped_revisions_id_original = grouped_revisions.apply(get_revision_id, revised=False, axis=1)
+
+            # get diagnoses added
+            diagnoses_codes_revised = get_diagnoses_codes_from_revision_id(grouped_revisions_id_revised.values.tolist(), db.session)
+            diagnoses_codes_revised_grouped = diagnoses_codes_revised.groupby(by='sociodemographic_id').agg(set)
+            diagnoses_codes_revised_grouped.reset_index(inplace=True)
+            diagnoses_codes_revised_grouped['revision_id'] = diagnoses_codes_revised_grouped['revision_id'].apply(lambda x: list(x)[0])
+
+            diagnoses_codes_original = get_diagnoses_codes_from_revision_id(grouped_revisions_id_original.values.tolist(), db.session)
+            diagnoses_codes_original_grouped = diagnoses_codes_original.groupby(by='sociodemographic_id').agg(set)
+            diagnoses_codes_original_grouped.reset_index(inplace=True)
+            diagnoses_codes_original_grouped['revision_id'] = diagnoses_codes_original_grouped['revision_id'].apply(lambda x: list(x)[0])
+
+            diagnoses_merged = pd.merge(diagnoses_codes_revised_grouped, diagnoses_codes_original_grouped, on=('sociodemographic_id'), suffixes=('_revised', '_original'))
+            diagnoses_merged['diagnoses_added'] = diagnoses_merged['code_revised'] - diagnoses_merged['code_original']
+            diagnoses_merged['diagnoses_added'] = diagnoses_merged['diagnoses_added'].apply('|'.join)
+            diagnoses_merged.reset_index(inplace=True)
+            grouped_revisions = pd.merge(grouped_revisions, diagnoses_merged[['sociodemographic_id', 'diagnoses_added']], on='sociodemographic_id', how='left')
+
+            # get procedures added
+            procedures_codes_revised = get_procedures_codes_from_revision_id(grouped_revisions_id_revised.values.tolist(), db.session)
+            procedures_codes_revised_grouped = procedures_codes_revised.groupby(by='sociodemographic_id').agg(set)
+            procedures_codes_revised_grouped.reset_index(inplace=True)
+            procedures_codes_revised_grouped['revision_id'] = procedures_codes_revised_grouped['revision_id'].apply(lambda x: list(x)[0])
+
+            procedures_codes_original = get_procedures_codes_from_revision_id(grouped_revisions_id_original.values.tolist(), db.session)
+            procedures_codes_original_grouped = procedures_codes_original.groupby(by='sociodemographic_id').agg(set)
+            procedures_codes_original_grouped.reset_index(inplace=True)
+            procedures_codes_original_grouped['revision_id'] = procedures_codes_original_grouped['revision_id'].apply(lambda x: list(x)[0])
+
+            procedures_merged = pd.merge(procedures_codes_revised_grouped, procedures_codes_original_grouped, on=('sociodemographic_id'), suffixes=('_revised', '_original'))
+            procedures_merged['procedures_added'] = procedures_merged['code_revised'] - procedures_merged['code_original']
+            procedures_merged['procedures_added'] = procedures_merged['procedures_added'].apply('|'.join)
+            procedures_merged.reset_index(inplace=True)
+            grouped_revisions = pd.merge(grouped_revisions, procedures_merged[['sociodemographic_id', 'procedures_added']], on='sociodemographic_id', how='left')
+
+        def split_col_in_old_new(row, col, is_revised=True):
+            if is_revised in row.revised_grouped:
+                ind = np.where(np.asarray(row.revised_grouped) == is_revised)[0][0]
+                return row[col][ind]
+            else:
+                return np.nan
+
+        revised_cases = sociodemographics_revised_cases[['sociodemographic_id', 'case_id', 'age_years', 'gender', 'duration_of_stay']].copy()
         revised_cases['revised'] = 1
+        revised_cases_grouped = pd.merge(revised_cases, grouped_revisions, on='sociodemographic_id', how='left', suffixes=('', '_grouped'))
+        revised_cases_grouped.rename(columns={'reviewed': 'reviewed_grouped'}, inplace=True)
+        revised_cases_grouped['drg_old'] = revised_cases_grouped.apply(split_col_in_old_new, col='drg', is_revised=False, axis=1)
+        revised_cases_grouped['drg_new'] = revised_cases_grouped.apply(split_col_in_old_new, col='drg', is_revised=True, axis=1)
+        revised_cases_grouped['cw_old'] = revised_cases_grouped.apply(split_col_in_old_new, col='effective_cost_weight', is_revised=False, axis=1)
+        revised_cases_grouped['cw_new'] = revised_cases_grouped.apply(split_col_in_old_new, col='effective_cost_weight', is_revised=True, axis=1)
+        revised_cases_grouped['pccl_old'] = revised_cases_grouped.apply(split_col_in_old_new, col='pccl', is_revised=False, axis=1)
+        revised_cases_grouped['pccl_new'] = revised_cases_grouped.apply(split_col_in_old_new, col='pccl', is_revised=True, axis=1)
+
         logger.info(f'There are {revised_cases.shape[0]} revised cases in the DB')
 
-        reviewed_cases = sociodemographics_reviewed_cases[['case_id', 'age_years', 'gender', 'duration_of_stay']].copy()
+        reviewed_cases = sociodemographics_reviewed_cases[['sociodemographic_id', 'case_id', 'age_years', 'gender', 'duration_of_stay']].copy()
         reviewed_cases['reviewed'] = 1
+        reviewed_cases_grouped = pd.merge(reviewed_cases, grouped_reviewed, on='sociodemographic_id', how='left', suffixes=('', '_grouped'))
+        reviewed_cases_grouped.rename(columns={'revised': 'revised_grouped'}, inplace=True)
+        reviewed_cases_grouped['drg_old'] = reviewed_cases_grouped.apply(split_col_in_old_new, col='drg', is_revised=False, axis=1)
+        reviewed_cases_grouped['drg_new'] = reviewed_cases_grouped.apply(split_col_in_old_new, col='drg', is_revised=True, axis=1)
+        reviewed_cases_grouped['cw_old'] = reviewed_cases_grouped.apply(split_col_in_old_new, col='effective_cost_weight', is_revised=False, axis=1)
+        reviewed_cases_grouped['cw_new'] = reviewed_cases_grouped.apply(split_col_in_old_new, col='effective_cost_weight', is_revised=True, axis=1)
+        reviewed_cases_grouped['pccl_old'] = reviewed_cases_grouped.apply(split_col_in_old_new, col='pccl', is_revised=False, axis=1)
+        reviewed_cases_grouped['pccl_new'] = reviewed_cases_grouped.apply(split_col_in_old_new, col='pccl', is_revised=True, axis=1)
         logger.info(f'There are {reviewed_cases.shape[0]} reviewed cases in the DB')
 
-        revised_cases['case_id'] = revised_cases['case_id'].str.lstrip('0')
-        reviewed_cases['case_id'] = reviewed_cases['case_id'].str.lstrip('0')
+        revised_cases_grouped['case_id'] = revised_cases_grouped['case_id'].str.lstrip('0')
+        reviewed_cases_grouped['case_id'] = reviewed_cases_grouped['case_id'].str.lstrip('0')
         all_data['id'] = all_data['id'].str.lstrip('0')
 
+        revised_reviewed_merged = pd.concat([revised_cases_grouped, reviewed_cases_grouped])
+
         revised_cases_in_data = pd.merge(
-            revised_cases,
+            revised_reviewed_merged[['case_id', 'age_years', 'gender', 'duration_of_stay', 'revised', 'reviewed', 'drg_old', 'drg_new', 'cw_old', 'cw_new', 'pccl_old', 'pccl_new', 'diagnoses_added', 'procedures_added']],
             all_data[['id', 'AnonymerVerbindungskode', 'ageYears', 'gender', 'durationOfStay', 'hospital', 'dischargeYear', 'index']].copy(),
             how='outer',
             left_on=('case_id', 'age_years', 'gender', 'duration_of_stay'),
             right_on=('id', 'ageYears', 'gender', 'durationOfStay'),
-        )
-
-        revised_cases_in_data = pd.merge(
-            revised_cases_in_data,
-            reviewed_cases,
-            how='outer',
-            left_on=('id', 'ageYears', 'gender', 'durationOfStay'),
-            right_on=('case_id', 'age_years', 'gender', 'duration_of_stay'),
         )
 
         revised_cases_in_data['revised'].fillna(0, inplace=True)
@@ -520,7 +587,7 @@ def get_revised_case_ids(all_data: pd.DataFrame,
         # Create the label columns
         revised_cases_in_data['is_revised'] = revised_cases_in_data['revised'].astype(int)
         revised_cases_in_data['is_reviewed'] = revised_cases_in_data['reviewed'].astype(int)
-        revised_cases_in_data = revised_cases_in_data[['index', 'id', 'hospital', 'dischargeYear', 'is_revised', 'is_reviewed']]
+        revised_cases_in_data = revised_cases_in_data[['index', 'id', 'hospital', 'dischargeYear', 'is_revised', 'is_reviewed', 'drg_old', 'drg_new', 'cw_old', 'cw_new', 'pccl_old', 'pccl_new', 'diagnoses_added', 'procedures_added']]
 
         num_revised_cases_in_data = int(revised_cases_in_data['is_revised'].sum())
         num_reviewed_cases_in_data = int(revised_cases_in_data['is_reviewed'].sum())
@@ -599,71 +666,26 @@ def create_performance_app_ground_truth(dir_output: str, revised_cases_in_data: 
 
     filename = join(dir_output, f'ground_truth_performance_app_case_ranking_{hospital_msg}_{year_msg}.csv')
     if not np.logical_and(exists(filename) == True, overwrite == False):
-        case_ids_revised = revised_cases_in_data[case_ids_revised_filter]
+        revised_cases_in_data_hospital_year = revised_cases_in_data[case_ids_revised_filter]
 
-        logger.info(f'Selected {case_ids_revised.shape[0]} cases from {hospital_msg} ({year_msg})')
+        logger.info(f'Selected {revised_cases_in_data_hospital_year.shape[0]} cases from {hospital_msg} ({year_msg})')
 
-        with Database() as db:
-            logger.trace('Reading the sociodemographics from the DB ...')
-            sociodemographic_revised = get_sociodemographics_by_case_id(case_ids_revised['id'].values.tolist(), db.session)
-            sociodemographic_ids_revised = sociodemographic_revised[SOCIODEMOGRAPHIC_ID_COL]
-
-            logger.trace('Reading and grouping the revisions ...')
-            grouped_revisions = get_grouped_revisions_for_sociodemographic_ids(sociodemographic_ids_revised, db.session)
-            socio_revised_merged = pd.merge(sociodemographic_revised, grouped_revisions, on=SOCIODEMOGRAPHIC_ID_COL)
-
-        logger.info('Assembling info on revisions ...')
-        n_rows = socio_revised_merged.shape[0]
-
-        drg_old = np.empty(n_rows, dtype=object)
-        drg_new = np.empty_like(drg_old)
-
-        cw_old = np.empty(n_rows, dtype=float)
-        cw_new = np.empty_like(cw_old)
-
-        pccl_old = np.empty(n_rows, dtype=int)
-        pccl_new = np.empty_like(pccl_old)
-
-        for i, row in enumerate(tqdm(socio_revised_merged.itertuples())):
-            is_revised = set(row.reviewed) == {True, False}
-
-            if is_revised:
-                ind_original = row.reviewed.index(False)
-                ind_reviewed = row.reviewed.index(True)
-
-                drg_old[i] = row.drg[ind_original]
-                drg_new[i] = row.drg[ind_reviewed]
-
-                cw_old[i] = row.effective_cost_weight[ind_original]
-                cw_new[i] = row.effective_cost_weight[ind_reviewed]
-
-                pccl_old[i] = row.pccl[ind_original]
-                pccl_new[i] = row.pccl[ind_reviewed]
-
-            else:
-                drg_old[i] = ''
-                drg_new[i] = ''
-                cw_old[i] = 0
-                cw_new[i] = 0
-                pccl_old[i] = 0
-                pccl_new[i] = 0
-
-        placeholder = np.repeat('', n_rows)
+        placeholder = np.repeat('', revised_cases_in_data_hospital_year.shape[0])
         ground_truth = pd.DataFrame({
-            'CaseId': socio_revised_merged['case_id'].values,
+            'CaseId': revised_cases_in_data_hospital_year['id'].values,
             'AdmNo': placeholder,
             'FID': placeholder,
             'PatID': placeholder,
-            'ICD_added': placeholder,
+            'ICD_added': revised_cases_in_data_hospital_year['diagnoses_added'].values,
             'ICD_dropped': placeholder,
-            'CHOP_added': placeholder,
+            'CHOP_added': revised_cases_in_data_hospital_year['procedures_added'].values,
             'CHOP_dropped': placeholder,
-            'DRG_old': drg_old,
-            'DRG_new': drg_new,
-            'CW_old': cw_old,
-            'CW_new': cw_new,
-            'PCCL_old': pccl_old,
-            'PCCL_new': pccl_new
+            'DRG_old': revised_cases_in_data_hospital_year['drg_old'].values,
+            'DRG_new': revised_cases_in_data_hospital_year['drg_new'].values,
+            'CW_old': revised_cases_in_data_hospital_year['cw_old'].astype(float).values,
+            'CW_new': revised_cases_in_data_hospital_year['cw_new'].astype(float).values,
+            'PCCL_old': revised_cases_in_data_hospital_year['pccl_old'].values,
+            'PCCL_new': revised_cases_in_data_hospital_year['pccl_new'].values
         })
 
         #TODO maybe remove this filter again, just for the time being till we checked the revised cases in the DB
@@ -679,18 +701,25 @@ def create_performance_app_ground_truth(dir_output: str, revised_cases_in_data: 
     return ground_truth.shape[0]
 
 
-def create_predictions_output_performance_app(filename: str, case_ids: ArrayLike, predictions: ArrayLike):
+def create_predictions_output_performance_app(filename: str, case_ids: ArrayLike, predictions: ArrayLike, add_on_information: DataFrame=None):
     """
     Write performance measuring output for model to file.
     @param filename: The filename where to store the results.
     @param case_ids: A list of case IDs.
     @param predictions: The probabilities to rank the case IDs.
     """
-    pd.DataFrame({
+    result = pd.DataFrame({
         'CaseId': case_ids,
         'SuggestedCodeRankings': [''] * len(case_ids),
         'UpcodingConfidenceScore': predictions
-    }).to_csv(filename, index=False, sep=';')
+    })
+
+    if add_on_information:
+        for col in add_on_information.columns:
+            result[col] = add_on_information[col].values
+
+    result.to_csv(filename, index=False, sep=';')
+
 
 
 def list_all_feature_names(all_data: pd.DataFrame, features_dir: str, feature_indices: Optional[list] = None) -> list:
@@ -783,3 +812,6 @@ def get_screen_summary_random_forest(RESULTS_DIR):
     summary.to_csv(join(RESULTS_DIR, 'screen_summary.csv'), index=False)
 
     return summary
+
+def sigmoid(x):
+  return 1 / (1 + math.exp(-x))

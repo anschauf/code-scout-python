@@ -252,6 +252,32 @@ def get_diagnoses_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.D
 
     return codes_df
 
+@beartype
+def get_diagnoses_codes_from_revision_id(revision_ids: list[int], session: Session) -> pd.DataFrame:
+
+    query_diagnoses = (
+        session
+        .query(Diagnosis)
+        .with_entities(Diagnosis.sociodemographic_id, Diagnosis.revision_id, Diagnosis.code)
+        .filter(Diagnosis.revision_id.in_(revision_ids))
+    )
+
+    df = pd.read_sql(query_diagnoses.statement, session.bind)
+    return df
+
+
+@beartype
+def get_procedures_codes_from_revision_id(revision_ids: list[int], session: Session) -> pd.DataFrame:
+
+    query_procedures = (
+        session
+        .query(Procedure)
+        .with_entities(Procedure.sociodemographic_id, Procedure.revision_id, Procedure.code)
+        .filter(Procedure.revision_id.in_(revision_ids))
+    )
+
+    df = pd.read_sql(query_procedures.statement, session.bind)
+    return df
 
 @beartype
 def get_procedures_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
