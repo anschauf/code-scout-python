@@ -83,8 +83,8 @@ def rf_pca_feature_reduction_only_reviewed_cases():
     y_train = y[ind_train_test]
 
     # preprocessing features (scaler)
-    scaler = MinMaxScaler()
-    # scaler = StandardScaler()
+    # scaler = MinMaxScaler()
+    scaler = StandardScaler()
     data_rescaled = scaler.fit_transform(features_train)
     pca = PCA(VARIANCE_PERCENT_PCA)
 
