@@ -5,6 +5,7 @@ resources/data
 resources/db_data
 resources/features
 resources/jars
+resources/mind_bend_suggestions/*
 
 results
 logs

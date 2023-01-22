@@ -23,11 +23,9 @@ from sklearn.preprocessing import MultiLabelBinarizer, OneHotEncoder, OrdinalEnc
 from tqdm import tqdm
 
 from src.apps.feature_engineering.ccl_sensitivity import calculate_delta_pccl
-from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
 from src.service.bfs_cases_db_service import get_all_reviewed_cases, get_all_revised_cases, \
-    get_grouped_revisions_for_sociodemographic_ids, get_sociodemographics_by_case_id, \
-    get_sociodemographics_by_sociodemographics_ids, get_diagnoses_codes_from_revision_id, \
-    get_procedures_codes_from_revision_id
+    get_diagnoses_codes_from_revision_id, get_grouped_revisions_for_sociodemographic_ids, \
+    get_procedures_codes_from_revision_id, get_sociodemographics_by_sociodemographics_ids
 from src.service.database import Database
 
 tqdm.pandas()
@@ -267,22 +265,6 @@ def get_list_of_all_predictors(
         has_complex_procedure = data.progress_apply(_has_complex_procedure, axis=1).values
         store_engineered_feature('has_complex_procedure', has_complex_procedure)
 
-    if 'diagnosesExtendedInfo' not in data.columns or 'proceduresExtendedInfo' not in data.columns:
-        logger.error("The columns 'diagnosesExtendedInfo' or 'proceduresExtendedInfo' could not be found in the data")
-    else:
-        print('')
-
-        def _count_num_drg_relevant_codes(extended_info) -> int:
-            # [_, value in extended_info.items()]
-            pass
-
-        def _count_num_all_drg_relevant_codes(row):
-            return _count_num_drg_relevant_codes(row['proceduresExtendedInfo']) + \
-                   _count_num_drg_relevant_codes(row['diagnosesExtendedInfo'])
-
-        num_drg_relevant_codes = data.progress_apply(_count_num_all_drg_relevant_codes, axis=1).values
-        store_engineered_feature('num_drg_relevant_codes', num_drg_relevant_codes)
-
     # Ventilation hours and interactions with it
     if 'hoursMechanicalVentilation' not in data.columns:
         logger.error("The column 'hoursMechanicalVentilation' could not be found in the data")
@@ -394,6 +376,11 @@ def get_list_of_all_predictors(
 
             if log_ignored_features:
                 logger.debug(f"Ignored existing feature 'vectorized_codes'")
+
+    # -------------------------------------------------------------------------
+    # MindBend suggestions
+    # -------------------------------------------------------------------------
+    print('')
 
     return features_filenames, encoders
 
@@ -507,7 +494,7 @@ def get_revised_case_ids(all_data: pd.DataFrame,
             diagnoses_codes_original_grouped.reset_index(inplace=True)
             diagnoses_codes_original_grouped['revision_id'] = diagnoses_codes_original_grouped['revision_id'].apply(lambda x: list(x)[0])
 
-            diagnoses_merged = pd.merge(diagnoses_codes_revised_grouped, diagnoses_codes_original_grouped, on=('sociodemographic_id'), suffixes=('_revised', '_original'))
+            diagnoses_merged = pd.merge(diagnoses_codes_revised_grouped, diagnoses_codes_original_grouped, on='sociodemographic_id', suffixes=('_revised', '_original'))
             diagnoses_merged['diagnoses_added'] = diagnoses_merged['code_revised'] - diagnoses_merged['code_original']
             diagnoses_merged['diagnoses_added'] = diagnoses_merged['diagnoses_added'].apply('|'.join)
             diagnoses_merged.reset_index(inplace=True)

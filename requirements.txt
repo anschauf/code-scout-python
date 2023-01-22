@@ -1,5 +1,5 @@
 # Core packages
-python-crfsuite
+# python-crfsuite
 scikit-learn
 xgboost
 beartype
@@ -15,7 +15,8 @@ srsly
 pyhumps
 tqdm
 srsly
-gpytorch
+natsort
+# gpytorch
 dataprep
 
 # Plotting

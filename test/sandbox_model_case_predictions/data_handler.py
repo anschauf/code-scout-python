@@ -1,13 +1,25 @@
+import itertools
+import os
+import re
 from os import listdir
 from os.path import join
 from typing import Optional
 
+import awswrangler.s3 as wr
+import boto3
+import numpy as np
 import pandas as pd
+import srsly
 from beartype import beartype
 from loguru import logger
+from natsort import natsorted
+from srsly.ujson import ujson
 from tqdm import tqdm
 
 from src import ROOT_DIR
+
+tqdm.pandas()
+
 
 DTYPES = {
     'id': 'string',
@@ -130,3 +142,159 @@ def __preprocess_data(df: pd.DataFrame):
         df['dischargeYear'] = df['exitDate'].apply(lambda x: x[:4] if isinstance(x, str) else '')
 
     return df
+
+
+@beartype
+def engineer_mind_bend_suggestions(
+        revised_case_info_df: pd.DataFrame,
+        files_path: str,
+        ) -> dict:
+
+    # Map each caseID to its original CW
+    case_id_to_cw_map = dict()
+    def _get_old_cw(row):
+        cw = row['cw_old']
+        if isinstance(cw, pd._libs.missing.NAType):
+            cw = 0.0
+        else:
+            cw = float(cw)
+
+        if not np.isnan(cw):
+            case_id_to_cw_map[row['id']] = cw
+    revised_case_info_df.progress_apply(_get_old_cw, axis=1)
+
+    # Map each caseID to its revisions
+    case_id_to_revisions_map = dict()
+    def _get_revision(row):
+        target_drg = row['drg_new']
+        diagnoses_added = row['diagnoses_added']
+        procedures_added = row['procedures_added']
+
+        codes_added = set()
+        if not isinstance(diagnoses_added, pd._libs.missing.NAType):
+            codes_added.update(diagnoses_added.split('|'))
+        if not isinstance(procedures_added, pd._libs.missing.NAType):
+            codes_added.update(procedures_added.split('|'))
+        case_id_to_revisions_map[row['id']] = (target_drg, codes_added)
+    revised_case_info_df[revised_case_info_df['is_revised'] == 1].progress_apply(_get_revision, axis=1)
+
+    revised_case_ids = set(revised_case_info_df[revised_case_info_df['is_revised'] == 1]['id'].values.tolist())
+
+    is_files_path_on_s3 = files_path.startswith('s3://')
+
+    if is_files_path_on_s3:
+        all_files = wr.list_objects(files_path)
+    else:
+        all_files = os.listdir(files_path)
+        all_files = [os.path.join(files_path, f) for f in all_files]
+    all_files = [f for f in all_files if f.endswith('.json')]
+    logger.info(f'Found {len(all_files)} files at {files_path=}')
+
+    if is_files_path_on_s3:
+        matches = list(re.compile('^s3://(.+?)/(.+)$').finditer(files_path))[0]
+        bucket, prefix = matches.groups()
+        s3 = boto3.client('s3')
+
+    all_files = natsorted(all_files)
+
+    all_data = list()
+
+    for filename in tqdm(all_files):
+        if is_files_path_on_s3:
+            # noinspection PyUnboundLocalVariable
+            key = prefix + filename.removeprefix(files_path)
+            # noinspection PyUnboundLocalVariable
+            json_text = s3.get_object(Bucket=bucket, Key=key)['Body'].read().decode('utf-8')
+            json = ujson.loads(json_text)
+        else:
+            json = srsly.read_json(filename)
+
+        feature_matrix = list()
+
+        for case_id, suggestions in json.items():
+            case_id = case_id.lstrip('0')
+
+            # if case_id != '20093870027':
+            #     continue
+
+            is_case_revised = case_id in revised_case_ids
+
+            added_codes = set()
+            does_contain_revised_drg = False
+            n_revised_codes_in_suggestions = 0
+            n_added_codes = 0
+
+            if is_case_revised:
+                revision = case_id_to_revisions_map.get(case_id, None)
+                if revision is not None:
+                    revised_drg, added_codes = revision
+                    n_added_codes = len(added_codes)
+
+                    does_contain_revised_drg = revised_drg in suggestions.keys()
+
+                    all_suggested_codes = {suggestion['code'] for suggestion in itertools.chain.from_iterable(s for s in suggestions.values())}
+                    n_revised_codes_in_suggestions = len(added_codes.intersection(all_suggested_codes))
+
+            case_drg_cost_weight = case_id_to_cw_map.get(case_id, None)
+
+            sum_p_suggestions_per_case = 0.0
+            sum_support_suggestions_per_case = 0
+
+            feature_rows_per_case = list()
+
+            for target_drg, suggested_codes in suggestions.items():
+                target_drg_cost_weight = suggested_codes[0]['targetDrgCostWeight']
+                if case_drg_cost_weight is not None:
+                    delta_target_drg_cost_weight = target_drg_cost_weight - case_drg_cost_weight
+                else:
+                    delta_target_drg_cost_weight = 0.0
+
+                if is_case_revised:
+                    all_suggested_codes = {s['code'] for s in suggested_codes}
+                    n_added_codes_in_suggestions = len(added_codes.intersection(all_suggested_codes))
+                else:
+                    n_added_codes_in_suggestions = 0
+
+                n_suggested_codes = len(suggested_codes)
+
+                p_suggestions = np.sort([suggestion['p'] for suggestion in suggested_codes])[::-1]
+                p_top_suggestion = p_suggestions[0]
+                p_top3_suggestion = p_suggestions[:3].sum()
+                sum_p_suggestion = p_suggestions.sum()
+                sum_p_suggestions_per_case += sum_p_suggestion
+
+                support_suggestions = np.array(sorted(list(itertools.chain.from_iterable([suggestion['support'] for suggestion in suggested_codes])))[::-1])
+                support_top_suggestion = support_suggestions[0]
+                support_top3_suggestion = support_suggestions[:3].sum()
+                sum_support_suggestion = support_suggestions.sum()
+                sum_support_suggestions_per_case += sum_support_suggestion
+
+                feature_rows_per_case.append([case_id,
+                                              target_drg, target_drg_cost_weight, delta_target_drg_cost_weight,
+                                              n_suggested_codes, n_added_codes_in_suggestions,
+                                              p_top_suggestion, p_top3_suggestion, sum_p_suggestion,
+                                              support_top_suggestion, support_top3_suggestion, sum_support_suggestion])
+
+            [row.extend([
+                sum_p_suggestions_per_case,
+                sum_support_suggestions_per_case,
+                does_contain_revised_drg,
+                n_added_codes,
+                n_revised_codes_in_suggestions,
+            ]) for row in feature_rows_per_case]
+            feature_matrix.extend(feature_rows_per_case)
+
+        df_batch = pd.DataFrame(feature_matrix,
+                                columns=['case_id', 'target_drg', 'target_drg_cost_weight', 'delta_target_drg_cost_weight',
+                                         'n_suggested_codes', 'n_added_codes_in_suggestions',
+                                         'p_top_suggestion', 'p_top3_suggestion', 'sum_p_suggestion',
+                                         'support_top_suggestion', 'support_top3_suggestion', 'sum_support_suggestion',
+                                         'sum_p_suggestions_per_case', 'sum_support_suggestions_per_case',
+                                         'does_contain_revised_drg', 'n_added_codes', 'n_revised_codes_in_suggestions',
+                                         ])
+
+        all_data.append(df_batch)
+
+    features = pd.concat(all_data, ignore_index=True)
+
+    return features

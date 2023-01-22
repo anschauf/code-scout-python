@@ -1,11 +1,12 @@
 import gc
+import os.path
 import sys
 from os.path import join
 
 from loguru import logger
 
 from src import ROOT_DIR
-from test.sandbox_model_case_predictions.data_handler import load_data
+from test.sandbox_model_case_predictions.data_handler import engineer_mind_bend_suggestions, load_data
 from test.sandbox_model_case_predictions.utils import get_list_of_all_predictors, get_revised_case_ids
 
 # -----------------------------------------------------------------------------
@@ -41,7 +42,7 @@ def calculate_features():
             #  'IsCaseBelowPcclSplit', 'ageFlag', 'genderFlag', 'durationOfStayFlag', 'grouperAdmissionCodeFlag',
             #  'grouperDischargeCodeFlag', 'hoursMechanicalVentilationFlag', 'gestationAgeFlag', 'admissionWeightFlag',
             #  'effectiveCostWeight', 'drgCostWeight'],
-            ['procedures', 'secondaryDiagnoses', 'diagnosesExtendedInfo', 'proceduresExtendedInfo'],
+            # ['procedures', 'secondaryDiagnoses', 'diagnosesExtendedInfo', 'proceduresExtendedInfo'],
             # ['hoursMechanicalVentilation', 'mdc', 'medications', 'entryDate', 'exitDate', 'pccl', 'rawPccl'],
             # ['VectorizedCodes'],
         ]
@@ -56,6 +57,23 @@ def calculate_features():
             # Delete the large DataFrame from memory and force collection
             del all_data
             gc.collect()
+
+        # ---------------------------------------------------------------------
+
+        # ---------------------------------------------------------------------
+        all_data = load_data(only_2_rows=True)
+        revised_case_info_df = get_revised_case_ids(all_data, revised_case_ids_filename, overwrite=False)
+
+        mind_bend_suggestions = engineer_mind_bend_suggestions(
+            revised_case_info_df=revised_case_info_df,
+            # files_path='s3://code-scout/mind_bend_output/revised_cases/',
+            files_path=os.path.join(ROOT_DIR, 'resources', 'mind_bend_suggestions', 'reviewed_cases'),
+        )
+        # logger.info(f'{len(revised_case_ids_with_suggestions)}/{len(revised_case_ids)} have suggestions from MindBend')
+
+
+
+        print('')
 
 
 if __name__ == '__main__':

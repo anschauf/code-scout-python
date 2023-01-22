@@ -1,10 +1,13 @@
 import pandas as pd
 from beartype import beartype
 from loguru import logger
+from tqdm import tqdm
 
 from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
 from src.service.aimedic_grouper import group_batch_group_cases
 from src.utils.global_configs import *
+
+tqdm.pandas()
 
 
 @beartype
@@ -92,7 +95,7 @@ def format_for_grouper(revised_cases: pd.DataFrame, *, with_sociodemographic_id:
         row[GROUPER_FORMAT_COL] = fields_str
         return row
 
-    revised_cases_formatted = revised_cases.apply(format_for_grouper_one_case, axis=1)
+    revised_cases_formatted = revised_cases.progress_apply(format_for_grouper_one_case, axis=1)
     return revised_cases_formatted
 
 
