@@ -130,9 +130,8 @@ def feature_reduction_only_reviewed_cases():
 
 
 
-    fig = plt.figure(figsize=(10, 10))
+    # fig = plt.figure(figsize=(10, 10))
     ax = plt.axes(projection='3d')
-    colors_3 = ['red' if i==0 else 'green' for i in y_train]
 
     for i, dff in train_components_3_df.groupby("revised"):
         col = dff.shape[0] * [colors[i]]
@@ -144,7 +143,6 @@ def feature_reduction_only_reviewed_cases():
 
     # get certain amount of variance
     pca = PCA(VARIANCE_PERCENT_PCA)
-    pca = PCA(0.95)
 
     pca.fit(data_rescaled)
     n_com = pca.n_components_
