@@ -107,7 +107,7 @@ def rf_pca_feature_reduction_only_reviewed_cases():
                         hyperparameter_info = f'n_trees_{RANDOM_FOREST_NUM_TREES}-max_depth_{RANDOM_FOREST_MAX_DEPTH}-min_samples_leaf_{RANDOM_FOREST_MIN_SAMPLES_LEAF}-min_samples_split_{RANDOM_FOREST_MIN_SAMPLES_SPLIT}'
 
                         RESULTS_DIR = join(ROOT_DIR, 'results', FOLDER_NAME,
-                                           f'{FOLDER_NAME}_{hyperparameter_info}')
+                                           f'{hyperparameter_info}')
                         if not os.path.exists(RESULTS_DIR):
                             os.makedirs(RESULTS_DIR)
 
@@ -201,7 +201,7 @@ def rf_pca_feature_reduction_only_reviewed_cases():
                                 predictions = np.mean(np.vstack(predictions), axis=0)
 
                                 filename_output = join(RESULTS_DIR_TEST_PREDICTIONS,
-                                                       f'{FOLDER_NAME}_{VARIANCE_PERCENT_PCA * 100}%_varaince_{hyperparameter_info}.csv')
+                                                       f'{VARIANCE_PERCENT_PCA * 100}%_varaince_{hyperparameter_info}.csv')
 
                                 create_predictions_output_performance_app(filename=filename_output,
                                                                           case_ids=case_ids,
