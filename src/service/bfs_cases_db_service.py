@@ -531,7 +531,7 @@ def get_revised_case_with_codes_before_revision(session: Session) -> pd.DataFram
     """
     revised_cases = get_all_revised_cases(session)
     revised_case_sociodemographic_ids = revised_cases[SOCIODEMOGRAPHIC_ID_COL].values.tolist()
-    revised_case_all_df = get_original_revision_id_for_sociodemographic_ids(revised_case_sociodemographic_ids)
+    revised_case_all_df = get_original_revision_id_for_sociodemographic_ids(revised_case_sociodemographic_ids, session)
     revision_ids = revised_case_all_df[REVISION_ID_COL].values.tolist()
 
     revised_case_orig = get_revision_for_revision_ids(revision_ids, session)
@@ -549,3 +549,28 @@ def get_revised_case_with_codes_before_revision(session: Session) -> pd.DataFram
          df_procedures[[PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL]]], axis=1)
     revised_cases_before_revision.rename(columns={'old_pd': 'pd'}, inplace=True)
     return revised_cases_before_revision
+
+def get_all_diagonosis(session: Session) -> pd.DataFrame:
+    """
+    Get all diagnoses from database
+    @param session:
+    @return: a dataframe with code as a list for each case
+    """
+
+    revised_cases = get_all_revised_cases(session)
+    revised_case_sociodemographic_ids = revised_cases[SOCIODEMOGRAPHIC_ID_COL].values.tolist()
+    original_revision_ids_revised_cases = get_original_revision_id_for_sociodemographic_ids(revised_case_sociodemographic_ids, session)[REVISION_ID_COL].tolist()
+
+    query_diagnoses = (
+        session
+        .query(Diagnosis)
+        .with_entities(Diagnosis.diagnoses_pk, Diagnosis.revision_id, Diagnosis.code)
+        .filter(Diagnosis.revision_id.notin_(original_revision_ids_revised_cases))
+        # .group_by(Diagnosis.revision_id)
+       )
+
+    all_diagonosis_df = pd.read_sql(query_diagnoses.statement, session.bind)
+    # all_diagonosis_df.groupby()
+    # delete original cases which are revised
+
+    return all_diagonosis_df
