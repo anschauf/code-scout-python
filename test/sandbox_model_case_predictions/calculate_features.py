@@ -14,6 +14,7 @@ OVERWRITE_REVISED_CASE_IDs = False
 OVERWRITE_FEATURE_FILES = True
 # -----------------------------------------------------------------------------
 
+
 def calculate_features():
     """Calculate the features and store the info regarding whether a case is reviewed or revised.
     Note: It's actually faster to read the columns / features in batches.
@@ -59,23 +60,23 @@ def calculate_features():
             gc.collect()
 
         # ---------------------------------------------------------------------
-
+        # MindBend suggestions
         # ---------------------------------------------------------------------
         all_data = load_data(only_2_rows=True)
         revised_case_info_df = get_revised_case_ids(all_data, revised_case_ids_filename, overwrite=False)
 
-        mind_bend_suggestions = engineer_mind_bend_suggestions(
+        mind_bend_features = engineer_mind_bend_suggestions(
             revised_case_info_df=revised_case_info_df,
             # files_path='s3://code-scout/mind_bend_output/revised_cases/',
-            files_path=os.path.join(ROOT_DIR, 'resources', 'mind_bend_suggestions', 'reviewed_cases'),
+            files_path=os.path.join(ROOT_DIR, 'resources', 'mind_bend_suggestions', 'ksw_2020'),
         )
-        # logger.info(f'{len(revised_case_ids_with_suggestions)}/{len(revised_case_ids)} have suggestions from MindBend')
 
-
-
-        print('')
+        feature_filename = os.path.join(features_dir, f'mind_bend_ksw_2020.csv')
+        logger.info(f'Storing MindBend features at {feature_filename} ...')
+        mind_bend_features.to_csv(feature_filename, index=False)
 
 
 if __name__ == '__main__':
     calculate_features()
+    logger.success('done')
     sys.exit(0)

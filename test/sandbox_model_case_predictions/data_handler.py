@@ -1,4 +1,5 @@
 import itertools
+import math
 import os
 import re
 from os import listdir
@@ -25,7 +26,7 @@ DTYPES = {
     'id': 'string',
     'entryDate': 'string',
     'exitDate': 'string',
-    'birthDate': 'string', # first to int to get rid of decimals
+    'birthDate': 'string',  # first to int to get rid of decimals
     'leaveDays': int,
     'ageYears': int,
     'ageDays': int,
@@ -94,7 +95,7 @@ DTYPES = {
 
 @beartype
 def load_data(
-        dir_data = join(ROOT_DIR, 'resources', 'data'),
+        dir_data=join(ROOT_DIR, 'resources', 'data'),
         *,
         columns: Optional[list[str]] = None,
         only_2_rows: bool = False
@@ -148,10 +149,12 @@ def __preprocess_data(df: pd.DataFrame):
 def engineer_mind_bend_suggestions(
         revised_case_info_df: pd.DataFrame,
         files_path: str,
-        ) -> dict:
+        ) -> pd.DataFrame:
 
     # Map each caseID to its original CW
     case_id_to_cw_map = dict()
+
+    # noinspection PyUnresolvedReferences,PyProtectedMember
     def _get_old_cw(row):
         cw = row['cw_old']
         if isinstance(cw, pd._libs.missing.NAType):
@@ -165,14 +168,18 @@ def engineer_mind_bend_suggestions(
 
     # Map each caseID to its revisions
     case_id_to_revisions_map = dict()
+
+    # noinspection PyShadowingNames
     def _get_revision(row):
         target_drg = row['drg_new']
         diagnoses_added = row['diagnoses_added']
         procedures_added = row['procedures_added']
 
         codes_added = set()
+        # noinspection PyUnresolvedReferences,PyProtectedMember
         if not isinstance(diagnoses_added, pd._libs.missing.NAType):
             codes_added.update(diagnoses_added.split('|'))
+        # noinspection PyUnresolvedReferences,PyProtectedMember
         if not isinstance(procedures_added, pd._libs.missing.NAType):
             codes_added.update(procedures_added.split('|'))
         case_id_to_revisions_map[row['id']] = (target_drg, codes_added)
@@ -211,11 +218,14 @@ def engineer_mind_bend_suggestions(
 
         feature_matrix = list()
 
+        def __is_suggestion_a_complex_procedure(s):
+            if 'globalFunctions' in s:
+                return any('kompl' in gf.lower() for gf in s['globalFunctions'])
+            else:
+                return False
+
         for case_id, suggestions in json.items():
             case_id = case_id.lstrip('0')
-
-            # if case_id != '20093870027':
-            #     continue
 
             is_case_revised = case_id in revised_case_ids
 
@@ -260,7 +270,9 @@ def engineer_mind_bend_suggestions(
                 p_suggestions = np.sort([suggestion['p'] for suggestion in suggested_codes])[::-1]
                 p_top_suggestion = p_suggestions[0]
                 p_top3_suggestion = p_suggestions[:3].sum()
+                p_top3_suggestion_norm = p_top3_suggestion / 3
                 sum_p_suggestion = p_suggestions.sum()
+                sum_p_suggestion_norm = sum_p_suggestion / p_suggestions.shape[0]
                 sum_p_suggestions_per_case += sum_p_suggestion
 
                 support_suggestions = np.array(sorted(list(itertools.chain.from_iterable([suggestion['support'] for suggestion in suggested_codes])))[::-1])
@@ -269,11 +281,25 @@ def engineer_mind_bend_suggestions(
                 sum_support_suggestion = support_suggestions.sum()
                 sum_support_suggestions_per_case += sum_support_suggestion
 
-                feature_rows_per_case.append([case_id,
+                suggestion_types = [suggestion['codeType'] for suggestion in suggested_codes]
+                is_top_suggestion_a_chop = suggestion_types[0] == 'CHOP'
+                is_top3_suggestion_a_chop = any(s == 'CHOP' for s in suggestion_types[:3])
+
+                is_top_suggestion_a_complex_procedure = __is_suggestion_a_complex_procedure(suggested_codes[0])
+                is_top3_suggestion_a_complex_procedure = any(__is_suggestion_a_complex_procedure(s) for s in suggested_codes[:3])
+
+                p_entropy = np.sum(-p * math.log(p, 2) for p in p_suggestions)
+                top3_p_entropy = np.sum(-p * math.log(p, 2) for p in p_suggestions[:3])
+
+                feature_rows_per_case.append([case_id, is_case_revised,
                                               target_drg, target_drg_cost_weight, delta_target_drg_cost_weight,
                                               n_suggested_codes, n_added_codes_in_suggestions,
                                               p_top_suggestion, p_top3_suggestion, sum_p_suggestion,
-                                              support_top_suggestion, support_top3_suggestion, sum_support_suggestion])
+                                              support_top_suggestion, support_top3_suggestion, sum_support_suggestion,
+
+                                              is_top_suggestion_a_chop, is_top3_suggestion_a_chop, is_top_suggestion_a_complex_procedure, is_top3_suggestion_a_complex_procedure,
+                                              p_top3_suggestion_norm, sum_p_suggestion_norm, p_entropy, top3_p_entropy,
+                                              ])
 
             [row.extend([
                 sum_p_suggestions_per_case,
@@ -285,16 +311,21 @@ def engineer_mind_bend_suggestions(
             feature_matrix.extend(feature_rows_per_case)
 
         df_batch = pd.DataFrame(feature_matrix,
-                                columns=['case_id', 'target_drg', 'target_drg_cost_weight', 'delta_target_drg_cost_weight',
+                                columns=['case_id', 'is_case_revised', 'target_drg', 'target_drg_cost_weight', 'delta_target_drg_cost_weight',
                                          'n_suggested_codes', 'n_added_codes_in_suggestions',
                                          'p_top_suggestion', 'p_top3_suggestion', 'sum_p_suggestion',
                                          'support_top_suggestion', 'support_top3_suggestion', 'sum_support_suggestion',
+                                         'is_top_suggestion_a_chop', 'is_top3_suggestion_a_chop',
+                                         'is_top_suggestion_a_complex_procedure', 'is_top3_suggestion_a_complex_procedure',
+                                         'p_top3_suggestion_norm', 'sum_p_suggestion_norm', 'p_entropy', 'top3_p_entropy',
                                          'sum_p_suggestions_per_case', 'sum_support_suggestions_per_case',
                                          'does_contain_revised_drg', 'n_added_codes', 'n_revised_codes_in_suggestions',
                                          ])
 
         all_data.append(df_batch)
 
-    features = pd.concat(all_data, ignore_index=True)
+    features = pd.concat(all_data, ignore_index=True) \
+        .sort_values(by=['is_case_revised', 'case_id'], ascending=[False, True]) \
+        .reset_index(drop=True)
 
     return features

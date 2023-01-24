@@ -9,6 +9,7 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
+from src import ROOT_DIR
 from src.files import load_all_rankings, load_revised_cases
 from src.schema import case_id_col, prob_most_likely_code_col
 from src.utils.general_utils import save_figure_to_pdf_on_s3
@@ -44,6 +45,16 @@ def create_rankings_of_revised_cases(*,
     # Load the rankings from CodeScout
     all_rankings = load_all_rankings(dir_rankings)
 
+    # -------------------------------------------
+    LEAVE_ONE_OUT = ('KSW', 2020)
+    features_dir = os.path.join(ROOT_DIR, 'resources', 'features')
+    test_feature_filename = os.path.join(features_dir, f'mind_bend_{LEAVE_ONE_OUT[0].lower()}_{LEAVE_ONE_OUT[1]}.csv')
+    test_features_df = pd.read_csv(test_feature_filename)[['case_id', 'p_top_suggestion']]
+    test_features_df.rename(columns={'case_id': 'CaseId'}, inplace=True)
+    test_features_df['CaseId'] = test_features_df['CaseId'].astype(str)
+    test_features_df = test_features_df.groupby('CaseId')['p_top_suggestion'].agg(np.max).reset_index(drop=False)
+    # -------------------------------------------
+
     cdf_delta_cw = dict()
     num_cases = dict()
     probabilities = dict()
@@ -65,6 +76,21 @@ def create_rankings_of_revised_cases(*,
 
         # Calculate the delta cost-weight
         revised_codescout['delta_CW'] = revised_codescout['CW_new'].astype(float) - revised_codescout['CW_old'].astype(float)
+
+        revised_codescout = pd.merge(revised_codescout, test_features_df, on='CaseId', how='left')
+        revised_codescout['p_top_suggestion'].fillna(0, inplace=True)
+
+        # Sort cases with the same rank, by ascending delta CW, to get the worst-case scenario, in which the lowest deltaCW
+        # are placed before the high deltaCW
+        all_groups = list()
+        for rank, group in revised_codescout.groupby(rank_col):
+            rank = int(rank)
+            group.sort_values(['p_top_suggestion', 'delta_CW'], ascending=[False, True], inplace=True)
+            n_cases_in_group = group.shape[0]
+            start_rank = rank - n_cases_in_group + 1
+            group[rank_col] = np.arange(start_rank, rank + 1)
+            all_groups.append(group)
+        revised_codescout = pd.concat(all_groups, ignore_index=True)
 
         # The cumsum is the empirical cumulative distribution function (ECDF)
         revised_codescout['cdf'] = revised_codescout['delta_CW'].cumsum()
@@ -152,7 +178,7 @@ def create_rankings_of_revised_cases(*,
         # plt.step(x, y, where='post', label=f'{method_name}')
     plt.xlabel("# cases")
     plt.ylabel("delta CW")
-    n_cases_min = np.min(list(num_cases.values()))
+    n_cases_min = np.max(list(num_cases.values()))
     plt.xlim([0, 0.1*n_cases_min])
     plt.suptitle("Cumulative distribution of delta cost weight (CW_delta)")
     if len(cdf_delta_cw.items()) < 20:
@@ -250,5 +276,13 @@ if __name__ == '__main__':
     #         dir_output=os.path.join(ROOT_DIR, f"results/{folder}/results"),
     #         s3_bucket='code-scout'
     # )
+
+    # --- MindBend ---
+    create_rankings_of_revised_cases(
+        filename_revised_cases=os.path.join(ROOT_DIR, "results/02_rf_hyperparameter_screen/01_runKSW_2020/ground_truth_performance_app_case_ranking_KSW_2020.csv"),
+        dir_rankings=os.path.join(ROOT_DIR, 'results/mind_bend_reviewed/test_KSW_2020/TEST_PREDICTIONS/'),
+        dir_output=os.path.join(ROOT_DIR, 'results/mind_bend_reviewed/test_KSW_2020/results/'),
+        s3_bucket='code-scout'
+    )
 
     sys.exit(0)

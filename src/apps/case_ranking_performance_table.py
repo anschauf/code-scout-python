@@ -139,16 +139,17 @@ def create_summary_for_coders(*,
             revisions_with_clinics = pd.merge(revised_codescout, sociodemographics, left_on='CaseId', right_on='case_id', how='inner')
 
             for clinic_code in clinic_codes:
-                revised_cases_in_clinic = revisions_with_clinics[revisions_with_clinics['clinic_code'] == clinic_code]
+                revised_cases_in_clinic = revisions_with_clinics[revisions_with_clinics['clinic_code'] == clinic_code].reset_index(drop=True)
                 if revised_cases_in_clinic.shape[0] == 0:
                     continue
+                revised_cases_in_clinic['cdf'] = revised_cases_in_clinic['delta_CW'].cumsum()
                 df = _calculate_performance_at_k(revised_cases_in_clinic, case_ranking_tiers, n_cases, n_reviewed_cases, total_delta_cw, tested_dataset_info, n_true_negatives)
                 performance_by_clinic[clinic_code].append(df)
 
     # ---------------------------------------------------------------------
     # Calculate performance by case-ranking tier
     # ---------------------------------------------------------------------
-    # _split_performance_table_for_each_n(all_tables, case_ranking_tiers, results_dir)
+    _split_performance_table_for_each_n(all_tables, case_ranking_tiers, results_dir)
 
     average_performance_per_clinic = list()
     fields = ['delta CW', 'delta CW %', 'n cases revised', 'n cases revised %', 'n cases reviewed']
@@ -226,7 +227,7 @@ def _split_performance_table_for_each_n(all_tables: list[pd.DataFrame], case_ran
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
 
-            precision = (performance_at_n['n cases revised'] / n)
+            precision = performance_at_n['n cases revised'] / n
             mean_weighted_precision = np.nansum(precision * performance_at_n['delta CW']) / np.nansum(performance_at_n['delta CW'])
             if np.isnan(mean_weighted_precision):
                 mean_weighted_precision = 0.0
