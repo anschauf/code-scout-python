@@ -32,3 +32,5 @@ marshmallow_sqlalchemy
 python-decouple
 
 coverage
+
+efficient-apriori
