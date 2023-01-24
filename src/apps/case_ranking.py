@@ -148,7 +148,8 @@ def create_rankings_of_revised_cases(*,
         area_top_10_percent_normalized = np.trapz(np.asarray(y)[:ind_top_10_percent] / np.max(y), np.asarray(x)[:ind_top_10_percent] / n_cases_top_10_percent)
         list_areas_top_10_percent_normalized.append(area_top_10_percent_normalized)
 
-        plt.step(x, y, where='post', label=f'{method_name}_AUC_%.4f' % area_top_10_percent_normalized)
+        plt.step(x, y, where='post', label=f'{method_name}_AUC_{area_top_10_percent_normalized: .4f}'
+                 )
         # plt.step(x, y, where='post', label=f'{method_name}')
     plt.xlabel("# cases")
     plt.ylabel("delta CW")
@@ -250,5 +251,13 @@ if __name__ == '__main__':
     #         dir_output=os.path.join(ROOT_DIR, f"results/{folder}/results"),
     #         s3_bucket='code-scout'
     # )
+
+    if __name__ == '__main__':
+        create_rankings_of_revised_cases(
+            filename_revised_cases="s3://code-scout/brute_force_case_ranking_predictions/LR_default/ground_truth_performance_app_case_ranking_KSW_2020.csv",
+            dir_rankings='s3://code-scout/brute_force_case_ranking_predictions/LR_default/lr_baseline_KSW_2020/',
+            dir_output="s3://code-scout/brute_force_case_ranking_predictions/LR_default/lr_baseline_KSW_2020_plots",
+            s3_bucket='code-scout'
+        )
 
     sys.exit(0)

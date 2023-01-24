@@ -40,7 +40,7 @@ LEAVE_ON_OUT = ('KSW', 2020)
 # ‘saga’ - [‘elasticnet’, ‘l1’, ‘l2’]
 
 
-HYPERPARAMETER = {'C': 1.0, 'penalty': 'l2', 'solver': 'saga'}
+HYPERPARAMETER = {'C': 1.0, 'penalty': 'l1', 'solver': 'liblinear'}
 hyperparameter_info = '_'.join([f'{key}-{value}' for key, value in HYPERPARAMETER.items()])
 
 if USE_HAND_SELECTED_FEATURES:
@@ -96,7 +96,7 @@ def train_logistic_regression_only_reviewed_cases():
     # create_performance_app_ground_truth(dir_output, revised_cases_in_data, hospital_year_for_performance_app[0], hospital_year_for_performance_app[1])
 
     ind_train, ind_test, y_train, y_test, ind_hospital_leave_out, y_hospital_leave_out = \
-        prepare_train_eval_test_split(revised_cases_in_data=revised_cases_in_data,
+        prepare_train_eval_test_split(dir_output=RESULTS_DIR, revised_cases_in_data=revised_cases_in_data,
                                       hospital_leave_out=LEAVE_ON_OUT[0],
                                       year_leave_out=LEAVE_ON_OUT[1],
                                       only_reviewed_cases=True)
