@@ -15,6 +15,7 @@ pyhumps
 tqdm
 gpytorch
 dataprep
+tensorflow
 
 # Plotting
 matplotlib
