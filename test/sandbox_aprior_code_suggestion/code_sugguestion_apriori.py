@@ -34,8 +34,7 @@ case_sd_after_revision = example_case_after_revision['secondary_diagnoses']
 
 
 
-d  = all_codes.groupby('revision_id', group_keys=False)[
-        'code'].apply(list).reset_index()
+d  = all_codes.groupby('revision_id', group_keys=False)['code'].apply(list).reset_index()
 
 case_with_case_pd = d[d['code'].apply(lambda row: case_pd_after_revision in row)]
 
@@ -48,7 +47,7 @@ min_support = 1.0/case_with_case_pd.shape[0]
 # for max_length in [2, 3, 4, 5]:
 for max_length in [2]:
     itemset_info = f'intemsets_{max_length=}'
-    itemsets, rules = apriori(codes,  min_support=min_support, min_confidence=1)
+    itemsets, rules = apriori(codes, max_length=max_length, min_support=min_support, min_confidence=1)
 
 
 print('')
