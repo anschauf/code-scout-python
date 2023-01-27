@@ -14,7 +14,7 @@ from src.models.duration_of_stay import DurationOfStay
 from src.models.hospital import Hospital
 from src.models.procedure import Procedure
 from src.models.revision import Revision
-from src.models.sociodemographics import Sociodemographics, SOCIODEMOGRAPHIC_ID_COL
+from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL, Sociodemographics
 from src.utils.global_configs import *
 
 
@@ -336,6 +336,7 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.
 def get_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.DataFrame:
     """
     Merging information on the diagnoses and procedures from the DB for usage in the revise function (revise.notebook_functions)
+     @rtype: object
      @param session: active DB session
      @param df_revision_ids: a Dataframe with aimedic_id and revision_id
      @return: a dataframe containing revision ids, diagnoses and procedures

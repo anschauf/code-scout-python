@@ -1,3 +1,5 @@
+clear
+
 echo "--- Reading environment variables ---"
 # shellcheck disable=SC2046
 export $(xargs < ./.env)

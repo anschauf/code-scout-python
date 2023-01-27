@@ -1,3 +1,4 @@
+import itertools
 import math
 import os.path
 import pickle
@@ -265,6 +266,74 @@ def get_list_of_all_predictors(
         has_complex_procedure = data.progress_apply(_has_complex_procedure, axis=1).values
         store_engineered_feature('has_complex_procedure', has_complex_procedure)
 
+    if not {'primaryDiagnosis', 'secondaryDiagnoses', 'procedures'}.issubset(data.columns):
+        logger.error("The columns 'primaryDiagnosis', 'secondaryDiagnoses' or 'procedures' could not be found in the data")
+    else:
+        vectors_filename = __make_feature_filename('trimmed_codes', ONE_HOT_ENCODED_FEATURE_SUFFIX)
+        vectors_encoder_filename = f'{os.path.splitext(vectors_filename)[0]}_encoder.pkl'
+
+        if overwrite or not os.path.exists(vectors_filename) or not os.path.exists(vectors_encoder_filename):
+            logger.debug('Trimming codes ...')
+            # Trim all the codes in all the columns
+            trimmed_pds = data['primaryDiagnosis'].str[:3].values.astype(str)
+            all_trimmed_pds = sorted(list(set(trimmed_pds)))
+            trimmed_sds = data['secondaryDiagnoses'].progress_apply(lambda codes: [code[:3] for code in codes]).values
+            all_trimmed_sds = sorted(list(set(itertools.chain.from_iterable(trimmed_sds))))
+            trimmed_procedures = data['procedures'].progress_apply(lambda codes: [code[:4] for code in codes]).values
+            all_trimmed_procedures = sorted(list(set(itertools.chain.from_iterable(trimmed_procedures))))
+
+            # We need to check the length because below we zip the arrays together, which does not raise an error, if
+            # they have different length
+            if trimmed_pds.shape[0] != trimmed_sds.shape[0] != trimmed_procedures.shape[0]:
+                raise ValueError('There was en error in the processing of the trimmed codes which generated arrays of different length')
+
+            all_trimmed_codes = sorted(list(set(all_trimmed_pds + all_trimmed_sds + all_trimmed_procedures)))
+            vector_size = len(all_trimmed_codes)
+            logger.debug(f'Found {vector_size} trimmed codes')
+
+            logger.debug(f'Will create dense vectors with length {vector_size}')
+            # Map each sparse index to a position in the compressed dense vector
+            all_indices = {idx: pos for pos, idx in enumerate(all_trimmed_codes)}
+
+            logger.debug('Storing all the vectors in a memory-mapped location ...')
+            temp_vectors_filename = os.path.splitext(vectors_filename)[0] + '_memmap.npy'
+            vectors = np.memmap(temp_vectors_filename, dtype=FEATURE_TYPE, mode='w+', shape=(data.shape[0], vector_size))
+
+            for idx, (case_pd, case_sds, case_procedures) in tqdm(enumerate(zip(trimmed_pds, trimmed_sds, trimmed_procedures)), total=trimmed_pds.shape[0]):
+                vector = np.zeros(vector_size, dtype=FEATURE_TYPE)
+                pd_index = all_indices[case_pd]
+                sd_indices = [all_indices[sd] for sd in case_sds]
+                procedures_indices = [all_indices[srg] for srg in case_procedures]
+                indices = np.sort(np.hstack(([pd_index], sd_indices, procedures_indices)).astype(int))
+                vector[indices] = 1
+
+                vectors[idx, :] = vector
+
+            logger.debug('Moving all the vectors to a pickled file ...')
+            # Files stored with `np.save()` contain enough information to be reloaded without knowing their shape or
+            # data-type
+            np.save(vectors_filename, vectors, allow_pickle=False, fix_imports=False)
+
+            logger.debug('Deleting the temporary file ...')
+            del vectors, trimmed_pds, trimmed_sds, trimmed_procedures, all_trimmed_pds, all_trimmed_sds, all_trimmed_procedures, all_trimmed_codes
+            os.remove(temp_vectors_filename)
+
+            vectors_encoder = OneHotEncoder(categories=sorted(list(all_indices.keys())), sparse_output=False, dtype=FEATURE_TYPE, handle_unknown='ignore')
+            if overwrite or not os.path.exists(vectors_encoder_filename):
+                with open(vectors_encoder_filename, 'wb') as f:
+                    pickle.dump(vectors_encoder, f)
+
+            del all_indices
+
+            logger.info(f"Stored the feature 'trimmed_codes' and its corresponding '{vectors_encoder.__class__.__name__}'")
+
+        else:
+            with open(vectors_encoder_filename, 'rb') as f:
+                encoders[__get_full_feature_name(vectors_filename)] = pickle.load(f)
+
+            if log_ignored_features:
+                logger.debug(f"Ignored existing feature 'trimmed_codes'")
+
     # Ventilation hours and interactions with it
     if 'hoursMechanicalVentilation' not in data.columns:
         logger.error("The column 'hoursMechanicalVentilation' could not be found in the data")
@@ -376,11 +445,6 @@ def get_list_of_all_predictors(
 
             if log_ignored_features:
                 logger.debug(f"Ignored existing feature 'vectorized_codes'")
-
-    # -------------------------------------------------------------------------
-    # MindBend suggestions
-    # -------------------------------------------------------------------------
-    print('')
 
     return features_filenames, encoders
 

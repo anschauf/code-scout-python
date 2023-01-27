@@ -43,7 +43,7 @@ def calculate_features():
             #  'IsCaseBelowPcclSplit', 'ageFlag', 'genderFlag', 'durationOfStayFlag', 'grouperAdmissionCodeFlag',
             #  'grouperDischargeCodeFlag', 'hoursMechanicalVentilationFlag', 'gestationAgeFlag', 'admissionWeightFlag',
             #  'effectiveCostWeight', 'drgCostWeight'],
-            # ['procedures', 'secondaryDiagnoses', 'diagnosesExtendedInfo', 'proceduresExtendedInfo'],
+            # ['primaryDiagnosis', 'secondaryDiagnoses', 'procedures', 'diagnosesExtendedInfo', 'proceduresExtendedInfo'],
             # ['hoursMechanicalVentilation', 'mdc', 'medications', 'entryDate', 'exitDate', 'pccl', 'rawPccl'],
             # ['VectorizedCodes'],
         ]
@@ -62,8 +62,7 @@ def calculate_features():
         # ---------------------------------------------------------------------
         # MindBend suggestions
         # ---------------------------------------------------------------------
-        all_data = load_data(only_2_rows=True)
-        revised_case_info_df = get_revised_case_ids(all_data, revised_case_ids_filename, overwrite=False)
+        revised_case_info_df = get_revised_case_ids(None, revised_case_ids_filename, overwrite=False)
 
         mind_bend_features = engineer_mind_bend_suggestions(
             revised_case_info_df=revised_case_info_df,
