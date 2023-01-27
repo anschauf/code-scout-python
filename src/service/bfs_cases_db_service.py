@@ -214,7 +214,7 @@ def get_diagnoses_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.D
     """
      Retrieve primary and secondary diagnoses of the revised cases from the DB.
      @param session: active DB session
-     @param df_revision_ids: a Dataframe with aimedic_id and revision_id
+     @param df_revision_ids: a Dataframe with sociodemographic_id and revision_id
      @return: a Dataframe containing revision ids, primary and secondary diagnoses
      """
 
@@ -517,7 +517,7 @@ def get_revised_case_with_codes_after_revision(session: Session) -> pd.DataFrame
 
     #  merge all data using revision_id
     revised_cases_df = pd.concat([revised_case, df_diagnoses[[PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL]],
-                                  df_procedures[[PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL]]], axis=1)
+                                  df_procedures[[PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL]]], axis=1).reset_index()
     revised_cases_df.rename(columns={'old_pd': 'pd'}, inplace=True)
 
     return revised_cases_df
@@ -546,7 +546,7 @@ def get_revised_case_with_codes_before_revision(session: Session) -> pd.DataFram
     #  merge all data using revision_id
     revised_cases_before_revision = pd.concat(
         [revised_case_orig, df_diagnoses[[PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL]],
-         df_procedures[[PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL]]], axis=1)
+         df_procedures[[PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL]]], axis=1).reset_index()
     revised_cases_before_revision.rename(columns={'old_pd': 'pd'}, inplace=True)
     return revised_cases_before_revision
 
@@ -564,7 +564,7 @@ def get_all_diagonosis(session: Session) -> pd.DataFrame:
     query_diagnoses = (
         session
         .query(Diagnosis)
-        .with_entities(Diagnosis.diagnoses_pk, Diagnosis.revision_id, Diagnosis.code)
+        .with_entities(Diagnosis.diagnoses_pk, Diagnosis.sociodemographic_id,Diagnosis.revision_id, Diagnosis.code, Diagnosis.is_primary, Diagnosis.ccl)
         .filter(Diagnosis.revision_id.notin_(original_revision_ids_revised_cases))
         # .group_by(Diagnosis.revision_id)
        )
