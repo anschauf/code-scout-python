@@ -1,21 +1,14 @@
-import itertools
 import os.path
 import os.path
 import re
 import subprocess
 
 # noinspection PyPackageRequirements
-import humps  # its pypi name is pyhumps
 import pandas as pd
-import srsly
 from beartype import beartype
-from loguru import logger
-from sqlalchemy.sql import null
+from decouple import config
 
 from src import ROOT_DIR
-from src.models.revision import REVISION_ID_COL
-from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
-from src.utils.global_configs import *
 
 # DataFrame column names
 _sociodemographic_id_field = 'aimedicId'
@@ -26,147 +19,55 @@ _procedures_field = 'procedures'
 _json_fields = (_sociodemographic_id_field, _revision_field, _diagnoses_field, _procedures_field, _dos_code_field)
 
 
-@beartype
-def group_batch_group_cases(batch_group_cases: list[str],
-                            separator_char: str = '#',
-                            delimiter_char: str = ';'
-                            ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """
-    Groups patient cases provided in the SwissDRG Batchgrouper Format 2017 (https://grouper-docs.swissdrg.org/batchgrouper2017-format.html)
-    It uses our aimedic-grouper as FAT Jar written in Scala to group the cases.
 
-    Parameters:
-    batch_group_cases (list[str]): patient cases info in SwissDrg Batchgrouper Format 2017.
+class AimedicGrouper:
+    def __init__(self):
+        self.jar_file_path = f'{ROOT_DIR}/resources/jars/aimedic-grouper-assembly.jar'
+        if not os.path.exists(self.jar_file_path):
+            raise IOError(f"The aimedic-grouper JAR file is not available at '{self.jar_file_path}")
 
-    Returns:
-    tuple:
-        - revision_df: revision info to enter into the Database.
-        - diagnoses_df: diagnoses info to enter into the Database (without revision_id).
-        - procedures_df: procedures info to enter into the Database (without revision_id).
-    """
-    # Make sure that the grouper is accessible, and Java running
-    jar_file_path = f'{ROOT_DIR}/resources/jars/aimedic-grouper-assembly.jar'
-    is_java_running = subprocess.check_call(['java', '-version'], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-    if is_java_running != 0:
-        raise Exception('Java is not accessible')
-    if not os.path.exists(jar_file_path):
-        raise IOError(f"The aimedic-grouper JAR file is not available at '{jar_file_path}")
+        is_java_running = subprocess.check_call(['java', '-version'], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+        if is_java_running != 0:
+            raise Exception('Java is not accessible')
 
-    # Check for unique sociodemographic IDs
-    sociodemographic_ids = [bgc.split(delimiter_char)[0] for bgc in batch_group_cases]
-    if len(set(sociodemographic_ids)) != (len(sociodemographic_ids)):
-        raise ValueError('The provided cases don''t have unique sociodemographic IDs. Make sure you pass only one revision case for one patient case.')
+        # Append the AWS credentials to the environment variables, so that the grouper can read files from S3. We copy all
+        # the variables because we need to know JAVA_HOME to be able to run java
+        self.env_vars = dict(os.environ)  # TODO Copy only JAVA_HOME instead of passing all the vars
+        self.env_vars['AWS_ACCESS_KEY_ID'] = config('AWS_ACCESS_KEY_ID')
+        self.env_vars['AWS_SECRET_ACCESS_KEY'] = config('AWS_SECRET_ACCESS_KEY')
 
-    # Make a string out of all the cases
-    cases_string = separator_char.join(batch_group_cases)
+        self._ansi_escape = re.compile(r'(?:\x9B|\x1B\[)[0-?]*[ -/]*[@-~]')
 
-    # Group the cases
-    grouped_cases_dicts = _get_grouper_output(jar_file_path=jar_file_path,
-                                              cases_string=cases_string,
-                                              separator_char=separator_char,
-                                              delimiter_char=delimiter_char)
+    def _run_java_grouper_and_collect_output(self, mode: str, grouper_input: str | list[str]) -> pd.DataFrame:
+        if isinstance(grouper_input, list):
+            grouper_input = ','.join(grouper_input)
 
-    # --- Make the revision DataFrame ---
-    revision_df = pd.json_normalize([d[_revision_field] for d in grouped_cases_dicts.values()])
-    revision_df.columns = [humps.decamelize(col) for col in revision_df.columns]
-    revision_df[REVISION_DATE_COL] = pd.to_datetime(revision_df[REVISION_DATE_COL], format='%Y%m%d')
+        raw_output = subprocess.check_output([
+            'java', '-cp', self.jar_file_path, 'ch.aimedic.grouper.apps.AimedicGrouperApp',
+            mode, '--input', grouper_input,
+            '--all-vars'
+        ], env=self.env_vars)
 
-    # --- Make the diagnoses DataFrame ---
-    all_diagnosis_rows = [d[_diagnoses_field] for d in grouped_cases_dicts.values()]
-    # noinspection PyTypeChecker
-    diagnoses_df = pd.json_normalize(itertools.chain.from_iterable(all_diagnosis_rows))
-    diagnoses_df.columns = [humps.decamelize(col) for col in diagnoses_df.columns]
+        # Read the data from the JSON format into a DataFrame
+        output = self._ansi_escape.sub('', raw_output.decode('UTF-8'))
+        lines = output.split('\n')
+        output_lines = [line for line in lines if line.startswith('{"')]
+        df = pd.read_json('\n'.join(output_lines), orient='records', typ='frame', lines=True)
+        return df
 
-    # --- Make the procedures DataFrame ---
-    all_procedure_rows = [d[_procedures_field] for d in grouped_cases_dicts.values()]
-    # noinspection PyTypeChecker
-    procedures_df = pd.json_normalize(itertools.chain.from_iterable(all_procedure_rows))
-    procedures_df.columns = [humps.decamelize(col) for col in procedures_df.columns]
+    @beartype
+    def run_batch_grouper(self, cases: str | list[str]) -> pd.DataFrame:
+        if len(cases) == 0:
+            raise ValueError('You must pass some cases to group')
 
-    procedures_df[PROCEDURE_DATE_COL] = pd.to_datetime(procedures_df[PROCEDURE_DATE_COL], format='%Y%m%d', errors='coerce')
-    # Replace NaT with NULL
-    # REFs: https://stackoverflow.com/a/42818550, https://stackoverflow.com/a/48765738
-    procedures_df[PROCEDURE_DATE_COL] = procedures_df[PROCEDURE_DATE_COL].astype(object).where(procedures_df[PROCEDURE_DATE_COL].notnull(), null())
+        return self._run_java_grouper_and_collect_output('batch-grouper-string', cases)
 
-    # Clear out empty strings
-    procedures_df[PROCEDURE_SIDE_COL] = procedures_df[PROCEDURE_SIDE_COL].str.strip()
+    @beartype
+    def run_bfs_file_parser(self, bfs_filenames: str | list[str]) -> pd.DataFrame:
+        if len(bfs_filenames) == 0:
+            raise ValueError('You must pass some BfS files to parse')
 
-    # Remove primary keys from each table
-    revision_df.drop(columns=[REVISION_ID_COL], inplace=True)
-    diagnoses_df.drop(columns=[REVISION_ID_COL], inplace=True)
-    procedures_df.drop(columns=[REVISION_ID_COL], inplace=True)
-
-    return revision_df, diagnoses_df, procedures_df
+        return self._run_java_grouper_and_collect_output('bfs-file', bfs_filenames)
 
 
-@beartype
-def _get_grouper_output(*,
-                        jar_file_path: str,
-                        cases_string: str,
-                        separator_char: str,
-                        delimiter_char: str
-                        ) -> dict:
-
-    # Convert to camel-case so that we can replace the field in place
-    camel_case_sociodemographic_id_col = humps.camelize(SOCIODEMOGRAPHIC_ID_COL)
-
-    raw_output: bytes = subprocess.check_output([
-        'java', '-cp', jar_file_path, 'ch.aimedic.grouper.apps.BatchGrouper',
-        cases_string, separator_char, delimiter_char])
-
-    output = _escape_ansi(raw_output.decode('UTF-8'))
-
-    # Split the captured output into lines, and filter only output lines, discarding log messages from the grouer
-    lines = output.split('\n')
-    output_lines = [line for line in lines
-                    if line.startswith('{"' + _sociodemographic_id_field)]
-
-    grouped_cases = dict()
-    ungrouped_cases = list()
-    for i, output_line in enumerate(output_lines):
-        # Deserialize the output into a dict
-        grouped_case_json = srsly.json_loads(output_line)
-
-        # Get the `sociodemographic_id` from the top-level dict
-        sociodemographic_id = grouped_case_json[_sociodemographic_id_field]
-
-        if len(grouped_case_json) != len(_json_fields):
-            ungrouped_case = output_line.replace(_sociodemographic_id_field, SOCIODEMOGRAPHIC_ID_COL)
-            ungrouped_cases.append(ungrouped_case)
-            continue
-
-        # Update dictionary in-place
-        grouped_case_json[_revision_field].update({
-            camel_case_sociodemographic_id_col: sociodemographic_id,
-            # Append the Duration-of-stay code, so that it can be mapped later to a DoS ID
-            _dos_code_field: grouped_case_json[_dos_code_field]
-        })
-
-        grouped_case_json[_diagnoses_field] = [_fix_code_field(diagnosis, camel_case_sociodemographic_id_col, sociodemographic_id) for diagnosis in grouped_case_json[_diagnoses_field]]
-        grouped_case_json[_procedures_field] = [_fix_code_field(procedure, camel_case_sociodemographic_id_col, sociodemographic_id) for procedure in grouped_case_json[_procedures_field]]
-
-        grouped_cases[sociodemographic_id] = grouped_case_json
-
-    if len(ungrouped_cases) > 0:
-        ungrouped_cases_str = '\n'.join(ungrouped_cases)
-        logger.info(f'{len(ungrouped_cases)} cases cannot be grouped. The output from grouper is:\n{ungrouped_cases_str}')
-
-    return grouped_cases
-
-
-def _fix_code_field(d: dict, camel_case_sociodemographic_id_col: str, sociodemographic_id: int) -> dict:
-    d[camel_case_sociodemographic_id_col] = sociodemographic_id
-    d = _fix_global_functions_list(d)
-    return d
-
-
-def _fix_global_functions_list(d: dict) -> dict:
-    global_functions_serialized = d.pop('globalFunctionsSerialized')
-    global_functions = ' | '.join(global_functions_serialized)
-    d['global_functions'] = global_functions
-    return d
-
-
-def _escape_ansi(line):
-    ansi_escape = re.compile(r'(?:\x9B|\x1B\[)[0-?]*[ -/]*[@-~]')
-    return ansi_escape.sub('', line)
+AIMEDIC_GROUPER = AimedicGrouper()

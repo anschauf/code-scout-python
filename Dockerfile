@@ -20,7 +20,7 @@ ENV AWS_REGION=$AWS_REGION
 
 # -----------------------------------------------------------------------------
 # The grouper version is hard-coded here, so that it can be versioned with git
-ENV AIMEDIC_GROUPER_VERSION=2.0.0_rc31
+ENV AIMEDIC_GROUPER_VERSION=2.0.0_rc30
 # -----------------------------------------------------------------------------
 
 RUN apt-get update -y
@@ -46,7 +46,7 @@ RUN ~/aws-cli/bin/aws codeartifact get-package-version-asset --domain aimedic --
 
 # -----------------------------------------------------------------------------
 # The runtime environment, containing python and our compiled Scala projects.
-# Note: It seems easier to download python on a Docker image containing Java, than the other way round.
+# Note: It seems easier to install python on a Docker image based on Java, than the other way round.
 # -----------------------------------------------------------------------------
 FROM eclipse-temurin:18.0.2.1_1-jre-jammy AS RUNTIME
 

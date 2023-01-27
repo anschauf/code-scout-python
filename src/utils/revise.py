@@ -2,6 +2,7 @@ import pandas as pd
 from beartype import beartype
 from loguru import logger
 
+from src.models.revision import Revision
 from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
 from src.service.bfs_cases_db_service import get_codes, get_original_revision_id_for_sociodemographic_ids, \
     get_sociodemographics_for_hospital_year
@@ -134,7 +135,7 @@ def __revise_secondary_procedure_codes(row):
             try:
                 revised_codes.remove(code_to_remove)
             except ValueError:
-                logger.error(f'{row[CASE_ID_COL]=}: Cannot remove [{code_to_remove}] from [{revised_codes}]')
+                logger.error(f"{row[CASE_ID_COL]=}: Cannot remove '{code_to_remove}' from {revised_codes}")
 
     row[SECONDARY_PROCEDURES_COL] = revised_codes
     return row
@@ -157,3 +158,53 @@ def apply_revisions(cases_df: pd.DataFrame, revisions_df: pd.DataFrame) -> pd.Da
 
     return revised_cases
 
+
+def validate_cost_weight(revisions_df: pd.DataFrame) -> (pd.DataFrame, list):
+    sociodemographic_ids = {int(sid) for sid in revisions_df[SOCIODEMOGRAPHIC_ID_COL].values}
+
+    with Database() as db:
+        query_revisions = (
+            db.session
+            .query(Revision)
+            .with_entities(Revision.revision_id, Revision.sociodemographic_id, Revision.effective_cost_weight)
+            .filter(Revision.sociodemographic_id.in_(sociodemographic_ids))
+        )
+
+        all_revisions_df = pd.read_sql(query_revisions.statement, db.session.bind)
+
+    def _filter_cost_weights(row):
+        cost_weights = row['effective_cost_weight']
+        ids = row[REVISION_ID_COL]
+
+        if len(ids) > 1:
+            lowest_cw = min(zip(cost_weights, ids), key=lambda x: x[0])
+            row['original_cost_weight'] = lowest_cw[0]
+            row['original_revision_id'] = lowest_cw[1]
+
+        else:
+            row['original_cost_weight'] = cost_weights[0]
+            row['original_revision_id'] = ids[0]
+
+        return row
+
+    agg_revisions_df = (
+        all_revisions_df
+        .groupby(SOCIODEMOGRAPHIC_ID_COL)
+        .agg(list)
+        .reset_index(drop=False)
+        .apply(_filter_cost_weights, axis=1)
+        [[SOCIODEMOGRAPHIC_ID_COL, 'original_revision_id', 'original_cost_weight']]
+    )
+
+    joined_revision_dfs = pd.merge(agg_revisions_df, revisions_df, on=SOCIODEMOGRAPHIC_ID_COL)
+    joined_revision_dfs['invalid_upcoding'] = (joined_revision_dfs['effective_cost_weight'] - joined_revision_dfs['original_cost_weight']) < 0.001
+
+    discarded_sociodemographic_ids = joined_revision_dfs[joined_revision_dfs['invalid_upcoding']][SOCIODEMOGRAPHIC_ID_COL].values.tolist()
+
+    if len(discarded_sociodemographic_ids) > 0:
+        logger.warning(f'{len(discarded_sociodemographic_ids)}/{revisions_df.shape[0]} revised cases did not improve in terms of effective Cost Weight, so they were discarded')
+
+    valid_revisions_df = joined_revision_dfs[~joined_revision_dfs['invalid_upcoding']].reset_index(drop=True).copy()
+    valid_revisions_df.drop(columns=['original_revision_id', 'original_cost_weight', 'invalid_upcoding'], inplace=True)
+
+    return valid_revisions_df, discarded_sociodemographic_ids

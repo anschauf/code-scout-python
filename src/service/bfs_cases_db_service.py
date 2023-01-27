@@ -1,5 +1,7 @@
 from decimal import *
+from typing import Optional
 
+import numpy as np
 import pandas as pd
 from beartype import beartype
 from loguru import logger
@@ -14,7 +16,7 @@ from src.models.duration_of_stay import DurationOfStay
 from src.models.hospital import Hospital
 from src.models.procedure import Procedure
 from src.models.revision import Revision
-from src.models.sociodemographics import Sociodemographics, SOCIODEMOGRAPHIC_ID_COL
+from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL, Sociodemographics
 from src.utils.global_configs import *
 
 
@@ -84,6 +86,15 @@ def get_clinics(session: Session) -> pd.DataFrame:
 
 
 @beartype
+def get_hospitals(session: Session) -> pd.DataFrame:
+    """
+    Get all records from dimension.hospital as a pandas dataframe
+    """
+    query = session.query(Hospital)
+    return pd.read_sql(query.statement, session.bind)
+
+
+@beartype
 def get_duration_of_stay_df(session: Session) -> pd.DataFrame:
     """
     Get all records from dimension.duration_of_stay table
@@ -133,15 +144,13 @@ def get_all_revised_cases(session: Session) -> pd.DataFrame:
 
 
 @beartype
-def get_original_revision_id_for_sociodemographic_ids(sociodemographic_ids: list[int],
-                                                      session: Session) -> pd.DataFrame:
+def get_original_revision_id_for_sociodemographic_ids(sociodemographic_ids: list[int], session: Session) -> pd.DataFrame:
     """
     Get the original revisions ids of sociodemographic_ids
     @param session: active DB session
     @param sociodemographic_ids:
     @return: a Dataframe containing sociodemographic ids, revision ids
     """
-
     query_revisions = (
         session
         .query(Revision)
@@ -189,8 +198,7 @@ def get_all_reviewed_cases(session: Session) -> pd.DataFrame:
     return df
 
 
-def get_revision_for_revision_ids(revision_ids: list[int],
-                                  session: Session) -> pd.DataFrame:
+def get_revision_for_revision_ids(revision_ids: list[int], session: Session) -> pd.DataFrame:
     """
     Get revisions for revision_ids
     @param session: active DB session
@@ -367,11 +375,11 @@ def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, 
 
     for revision in revision_list:
         values_to_insert.append({
-            "sociodemographic_id": int(revision[SOCIODEMOGRAPHIC_ID_COL]),
-            "drg": str(revision[DRG_COL]),
-            "drg_cost_weight": float(revision[DRG_COST_WEIGHT_COL]),
-            "effective_cost_weight": float(revision[EFFECTIVE_COST_WEIGHT_COL]),
-            "pccl": int(revision[PCCL_COL]),
+            'sociodemographic_id': int(revision[SOCIODEMOGRAPHIC_ID_COL]),
+            'drg': str(revision[DRG_COL]),
+            'drg_cost_weight': float(revision[DRG_COST_WEIGHT_COL]),
+            'effective_cost_weight': float(revision[EFFECTIVE_COST_WEIGHT_COL]),
+            'pccl': int(revision[PCCL_COL]),
             'dos_id': int(revision['dos_id']),
             'mdc': str(revision['mdc']),
             'mdc_partition': str(revision['mdc_partition']),
@@ -380,11 +388,10 @@ def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, 
             'supplement_charge_ppu': Decimal(revision['supplement_charge_ppu']),
             'reviewed': bool(revision['reviewed']),
             'revised': bool(revision['revised']),
-            "revision_date": str(revision[REVISION_DATE_COL])
+            'revision_date': str(revision[REVISION_DATE_COL])
         })
 
-    values_info = [(values_dict[SOCIODEMOGRAPHIC_ID_COL], values_dict[REVISION_DATE_COL]) for values_dict in
-                   values_to_insert]
+    values_info = [(values_dict[SOCIODEMOGRAPHIC_ID_COL], values_dict[REVISION_DATE_COL]) for values_dict in values_to_insert]
 
     num_rows_before = session.query(Revision).count()
     delete_statement = (Revision.__table__
@@ -395,19 +402,16 @@ def insert_revised_cases_into_revisions(revised_case_revision_df: pd.DataFrame, 
 
     num_rows_after = session.query(Revision).count()
     if num_rows_after != num_rows_before:
-        logger.info(
-            f"Deleted {num_rows_before - num_rows_after} rows from the 'Revisions' table, which is about to be updated")
+        logger.info(f"Deleted {num_rows_before - num_rows_after} rows from the 'Revisions' table, which is about to be updated")
 
     insert_statement = (Revision.__table__
-                        .insert()
-                        .values(values_to_insert)
+                        .insert().values(values_to_insert)
                         .returning(Revision.sociodemographic_id, Revision.revision_id))
 
     result = session.execute(insert_statement).fetchall()
     session.commit()
 
-    sociodemographic_id_with_revision_id = {sociodemographic_id: revision_id for sociodemographic_id, revision_id in
-                                            result}
+    sociodemographic_id_with_revision_id = {sociodemographic_id: revision_id for sociodemographic_id, revision_id in result}
     logger.success(f"Inserted {len(result)} cases into the 'Revisions' table")
     return sociodemographic_id_with_revision_id
 
@@ -428,23 +432,20 @@ def insert_revised_cases_into_diagnoses(revised_case_diagnoses: pd.DataFrame,
 
     values_to_insert = list()
 
-    for diagnoses in diagnosis_list:
-        sociodemographic_id = int(diagnoses[SOCIODEMOGRAPHIC_ID_COL])
+    for diagnosis in diagnosis_list:
+        sociodemographic_id = int(diagnosis[SOCIODEMOGRAPHIC_ID_COL])
 
         values_to_insert.append({
             "sociodemographic_id": sociodemographic_id,
             "revision_id": int(sociodemographic_id_with_revision_id[sociodemographic_id]),
-            "code": str(diagnoses[CODE_COL]),
-            "ccl": int(diagnoses[CCL_COL]),
-            "is_primary": bool(diagnoses[IS_PRIMARY_COL]),
-            "is_grouper_relevant": bool(diagnoses[IS_GROUPER_RELEVANT_COL]),
-            'global_functions': str(diagnoses['global_functions'])
+            "code": str(diagnosis[CODE_COL]),
+            "ccl": int(diagnosis[CCL_COL]),
+            "is_primary": bool(diagnosis[IS_PRIMARY_COL]),
+            "is_grouper_relevant": bool(diagnosis[IS_GROUPER_RELEVANT_COL]),
+            'global_functions': __format_global_functions_for_db(diagnosis['global_functions']),
         })
 
-    insert_statement = (Diagnosis.__table__
-                        .insert()
-                        .values(values_to_insert))
-
+    insert_statement = Diagnosis.__table__.insert().values(values_to_insert)
     session.execute(insert_statement)
     session.commit()
 
@@ -452,8 +453,7 @@ def insert_revised_cases_into_diagnoses(revised_case_diagnoses: pd.DataFrame,
 
 
 @beartype
-def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame,
-                                         sociodemographic_id_with_revision_id: dict, session: Session):
+def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame, sociodemographic_id_with_revision_id: dict, session: Session):
     """Insert revised cases into table coding_revision.procedures.
 
     @param revised_case_procedures: a Dataframe of revised case for procedures after grouping.
@@ -469,35 +469,41 @@ def insert_revised_cases_into_procedures(revised_case_procedures: pd.DataFrame,
     for procedure in procedure_list:
         sociodemographic_id = int(procedure[SOCIODEMOGRAPHIC_ID_COL])
 
-        # Get the procedure date as None or as a string
-        procedure_date = procedure[PROCEDURE_DATE_COL]
-        if procedure_date is None or isinstance(procedure_date, Null):
-            procedure_date = None
-        else:
-            procedure_date = str(procedure_date)
-
         values_to_insert.append({
-            "sociodemographic_id": sociodemographic_id,
-            "revision_id": int(sociodemographic_id_with_revision_id[sociodemographic_id]),
-            "code": str(procedure[CODE_COL]),
-            "side": str(procedure[PROCEDURE_SIDE_COL]),
-            "date": procedure_date,
-            "is_primary": bool(procedure[IS_PRIMARY_COL]),
-            "is_grouper_relevant": bool(procedure[IS_GROUPER_RELEVANT_COL]),
-            "global_functions": str(procedure['global_functions']),
-            "supplement_charge": Decimal(procedure['supplement_charge']),
-            "supplement_charge_ppu": Decimal(procedure['supplement_charge_ppu']),
-
+            'sociodemographic_id': sociodemographic_id,
+            'revision_id': int(sociodemographic_id_with_revision_id[sociodemographic_id]),
+            'code': str(procedure[CODE_COL]),
+            'side': __format_procedure_value_for_db(procedure[PROCEDURE_SIDE_COL]),
+            'date': __format_procedure_value_for_db(procedure[PROCEDURE_DATE_COL]),
+            'is_grouper_relevant': bool(procedure[IS_GROUPER_RELEVANT_COL]),
+            'is_primary': bool(procedure[IS_PRIMARY_COL]),
+            'global_functions': __format_global_functions_for_db(procedure['global_functions']),
+            'supplement_charge': Decimal(procedure['supplement_charge']),
+            'supplement_charge_ppu': Decimal(procedure['supplement_charge_ppu']),
         })
 
-    insert_statement = (Procedure.__table__
-                        .insert()
-                        .values(values_to_insert))
-
+    insert_statement = Procedure.__table__.insert().values(values_to_insert)
     session.execute(insert_statement)
     session.commit()
 
     logger.success(f"Inserted {len(values_to_insert)} rows into the 'Procedures' table")
+
+
+# noinspection PyTypeChecker
+def __format_global_functions_for_db(global_functions) -> Optional[str]:
+    if global_functions is None or isinstance(global_functions, Null) or global_functions == '' \
+            or (isinstance(global_functions, float) and np.isnan(global_functions)) \
+            or (isinstance(global_functions, (list, tuple)) and len(global_functions) == 0):
+        return None
+    else:
+        return ' | '.join(sorted(list(global_functions)))
+
+
+def __format_procedure_value_for_db(value) -> Optional[str]:
+    if value is None or isinstance(value, Null) or (isinstance(value, float) and np.isnan(value)):
+        return None
+    else:
+        return str(value)
 
 
 def get_revised_case_with_codes_after_revision(session: Session) -> pd.DataFrame:
