@@ -10,15 +10,6 @@ from decouple import config
 
 from src import ROOT_DIR
 
-# DataFrame column names
-_sociodemographic_id_field = 'aimedicId'
-_revision_field = 'revision'
-_dos_code_field = 'durationOfStayLegacyCode'
-_diagnoses_field = 'diagnoses'
-_procedures_field = 'procedures'
-_json_fields = (_sociodemographic_id_field, _revision_field, _diagnoses_field, _procedures_field, _dos_code_field)
-
-
 
 class AimedicGrouper:
     def __init__(self):
