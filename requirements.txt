@@ -34,4 +34,4 @@ python-decouple
 coverage
 
 efficient-apriori
-# mlxtend
+mlxtend
