@@ -3,11 +3,14 @@ from src.service.bfs_cases_db_service import get_all_diagonosis, get_sociodemogr
     get_revised_case_with_codes_before_revision, get_revised_case_with_codes_after_revision
 from src.service.database import Database
 from efficient_apriori import apriori
-from test.sandbox_model_case_predictions.data_handler import DTYPES
+from test.sandbox_model_case_predictions.data_handler import DTYPES, load_data_single_file
 from src import ROOT_DIR
 import os
 from mlxtend.preprocessing import TransactionEncoder
 from mlxtend.frequent_patterns import apriori, association_rules
+from test.sandbox_model_case_predictions.utils import get_revised_case_ids
+from test.sandbox_model_case_predictions.data_handler import load_data
+
 
 
 hospital = "Kantonsspital Winterthur"
@@ -15,24 +18,36 @@ file_name = 'KSW_2020.json'
 year = 2020
 # get the hospital and year
 dir_data = os.path.join(ROOT_DIR, 'resources', 'data'),
+REVISED_CASE_IDS_FILENAME = os.path.join(ROOT_DIR, 'resources', 'data', 'revised_case_ids.csv')
 # df = pd.read_json(os.path.join(dir_data, 'KSW_2020.json'), lines=True, dtype=DTYPES)
 
-#revised_cases_in_data = get_revised_case_ids(all_data, REVISED_CASE_IDS_FILENAME, overwrite=False)
+data_ksw2020 = load_data_single_file(dir_data==dir_data, file_name=file_name)
 
-# with Database() as db:
-#     all_codes = get_all_diagonosis(db.session)
-#     sociodemo = get_sociodemographics_for_hospital_year(hospital_name=hospital, year=2020, session=db.session)
-#     # maybe it will be better only get the sociodemographic_ids for ksw 2020
-#     sociodemo_ids = sociodemo['sociodemographic_id'].tolist()
-#
-#     revised_cases_before_revision = get_revised_case_with_codes_before_revision(db.session)
-#     revised_cases_after_revision = get_revised_case_with_codes_after_revision(db.session)
-#     revised_cases_sociodemographic_id = revised_cases_before_revision['sociodemographic_id'].tolist()
-#     revised_cases_sociodemographic_id_ksw = [sociodemo_id for sociodemo_id in revised_cases_sociodemographic_id if sociodemo_id in sociodemo_ids]
-#
-#     revised_cases_before_revision_ksw = revised_cases_before_revision[revised_cases_before_revision['sociodemographic_id'].isin(revised_cases_sociodemographic_id_ksw)]
-#     revised_cases_after_revision_ksw = revised_cases_after_revision[revised_cases_after_revision['sociodemographic_id'].isin(revised_cases_sociodemographic_id_ksw)]
-#
+revised_cases_in_data = get_revised_case_ids(data_ksw2020, REVISED_CASE_IDS_FILENAME, overwrite=False)
+
+with Database() as db:
+    all_codes = get_all_diagonosis(db.session)
+    sociodemo = get_sociodemographics_for_hospital_year(hospital_name=hospital, year=2020, session=db.session)
+    # maybe it will be better only get the sociodemographic_ids for ksw 2020
+    sociodemo_ids = sociodemo['sociodemographic_id'].tolist()
+
+    revised_cases_before_revision = get_revised_case_with_codes_before_revision(db.session)
+    revised_cases_after_revision = get_revised_case_with_codes_after_revision(db.session)
+    revised_cases_sociodemographic_id = revised_cases_before_revision['sociodemographic_id'].tolist()
+    revised_cases_sociodemographic_id_ksw = [sociodemo_id for sociodemo_id in revised_cases_sociodemographic_id if sociodemo_id in sociodemo_ids]
+
+    revised_cases_before_revision_ksw = revised_cases_before_revision[revised_cases_before_revision['sociodemographic_id'].isin(revised_cases_sociodemographic_id_ksw)]
+    revised_cases_after_revision_ksw = revised_cases_after_revision[revised_cases_after_revision['sociodemographic_id'].isin(revised_cases_sociodemographic_id_ksw)]
+
+    # map case_id to revised case
+    revised_cases_socio_ksw2020 = sociodemo[sociodemo['sociodemographic_id'].isin(revised_cases_sociodemographic_id_ksw)]
+    sociodemo_id_case_id_ksw2020 = revised_cases_socio_ksw2020.reset_index()[['sociodemographic_id', 'case_id']]
+    revised_case_ksw_2020 = sociodemo_id_case_id_ksw2020.merge(revised_cases_in_data, how='inner', left_on='case_id', right_on='id')
+
+revised_case_ksw_2020_all_info = revised_cases_before_revision_ksw.merge(revised_case_ksw_2020, on='sociodemographic_id')
+
+
+
 # example_case_before_revision = revised_cases_before_revision_ksw.iloc[0]
 #
 # case_sociodemo_id = example_case_before_revision['sociodemographic_id']
@@ -42,7 +57,7 @@ dir_data = os.path.join(ROOT_DIR, 'resources', 'data'),
 # example_case_after_revision = revised_cases_after_revision_ksw[revised_cases_after_revision['sociodemographic_id']==case_sociodemo_id]
 # case_pd_after_revision = example_case_after_revision["pd"].values[0]
 # case_sd_after_revision = example_case_after_revision['secondary_diagnoses']
-#
+
 
 
 # d  = all_codes.groupby(['sociodemographic_id','revision_id'], as_index=False).agg({'code': lambda x: list(x), 'is_primary': lambda x: list(x), 'ccl': lambda x: list(x)})
@@ -62,13 +77,13 @@ def clean_alt_list(list_):
 
     return list_
 # case_need to get the suggestions
-example_ksw_2020_revised_cases_before_revision = pd.read_csv(os.path.join(ROOT_DIR, 'test/sandbox_aprior_code_suggestion/example_ksw_2020_revised_cases_before_revision.csv'))
-example_ksw_2020_revised_cases_before_revision['secondary_diagnoses'] = example_ksw_2020_revised_cases_before_revision['secondary_diagnoses'].apply(clean_alt_list)
-example_ksw_2020_revised_cases_before_revision
+# example_ksw_2020_revised_cases_before_revision = pd.read_csv(os.path.join(ROOT_DIR, 'test/sandbox_aprior_code_suggestion/example_ksw_2020_revised_cases_before_revision.csv'))
+revised_case_ksw_2020_all_info['secondary_diagnoses'] = revised_case_ksw_2020_all_info['secondary_diagnoses'].apply(clean_alt_list)
+revised_case_ksw_2020_all_info.to_csv('revised_case_ksw_2020_all_info.csv')
 
     # n = 0
-for n in [1 ,2 , 3, 4]:
-    row_n = example_ksw_2020_revised_cases_before_revision.iloc[n]
+for n in range(0, revised_case_ksw_2020_all_info.shape[0]):
+    row_n = revised_case_ksw_2020_all_info.iloc[n]
 
     revision_id = row_n['revision_id']
     sociodemographic_id = row_n['sociodemographic_id']
@@ -77,7 +92,8 @@ for n in [1 ,2 , 3, 4]:
     sd = row_n['secondary_diagnoses']
     case_icds = set(sd)
     case_icds.add(case_pd)
-    case_info = f'{revision_id=}_{sociodemographic_id=}'
+    case_id = row_n['case_id']
+    case_info = f'{case_id=}_{revision_id=}_{sociodemographic_id=}'
     case_icds
 
     # filter out the data contain any codes from the case need suggestions
