@@ -92,7 +92,6 @@ DTYPES = {
     'VectorizedCodes': object,
 }
 
-
 @beartype
 def load_data(
         dir_data=join(ROOT_DIR, 'resources', 'data'),
@@ -128,6 +127,20 @@ def load_data(
             .reset_index(drop=False)
         )
         logger.success(f'Loaded {all_data.shape[0]} rows')
+
+    return __preprocess_data(all_data)
+
+
+@beartype
+def load_data_single_file(
+        dir_data=join(ROOT_DIR, 'resources', 'data'),
+        *,
+        file_name='/KSW_2020.json'):
+    logger.info(f'Reading from {file_name} file ...')
+
+    all_data = pd.read_json(path_or_buf=os.path.join(dir_data, file_name), lines=True, dtype=DTYPES).reset_index(drop=False)
+
+    logger.success(f'Loaded {all_data.shape[0]} rows')
 
     return __preprocess_data(all_data)
 
