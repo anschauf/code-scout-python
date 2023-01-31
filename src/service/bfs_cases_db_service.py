@@ -570,13 +570,39 @@ def get_all_diagonosis(session: Session) -> pd.DataFrame:
     query_diagnoses = (
         session
         .query(Diagnosis)
-        .with_entities(Diagnosis.diagnoses_pk, Diagnosis.sociodemographic_id,Diagnosis.revision_id, Diagnosis.code, Diagnosis.is_primary, Diagnosis.ccl)
+        .with_entities(Diagnosis.diagnoses_pk, Diagnosis.sociodemographic_id,Diagnosis.revision_id, Diagnosis.code)
         .filter(Diagnosis.revision_id.notin_(original_revision_ids_revised_cases))
-        # .group_by(Diagnosis.revision_id)
        )
 
     all_diagonosis_df = pd.read_sql(query_diagnoses.statement, session.bind)
-    # all_diagonosis_df.groupby()
-    # delete original cases which are revised
+    all_diagonosis_df = all_diagonosis_df.groupby(['sociodemographic_id','revision_id'], as_index=False).agg({'code': lambda x: list(x)})
+    all_diagonosis_df.rename(columns={'code': 'diagnosis'}, inplace=True)
+
 
     return all_diagonosis_df
+
+def get_all_procedures(session: Session) -> pd.DataFrame:
+    """
+    Get all procedures from database
+    @param session:
+    @return: a dataframe with procedure codes as a list for each case
+    """
+
+    revised_cases = get_all_revised_cases(session)
+    revised_case_sociodemographic_ids = revised_cases[SOCIODEMOGRAPHIC_ID_COL].values.tolist()
+    original_revision_ids_revised_cases = get_original_revision_id_for_sociodemographic_ids(revised_case_sociodemographic_ids, session)[REVISION_ID_COL].tolist()
+
+    query_procedures = (
+        session
+        .query(Procedure)
+        .with_entities(Procedure.procedures_pk, Procedure.sociodemographic_id, Procedure.revision_id, Procedure.code)
+        .filter(Procedure.revision_id.notin_(original_revision_ids_revised_cases)) # delete original cases before revision
+       )
+
+    all_procedures_df = pd.read_sql(query_procedures.statement, session.bind)
+    all_procedures_df = all_procedures_df.groupby(['sociodemographic_id','revision_id'], as_index=False).agg({'code': lambda x: list(x)})
+    all_procedures_df.rename(columns={'code': 'procedure'}, inplace=True)
+
+
+
+    return all_procedures_df
