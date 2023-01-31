@@ -329,6 +329,8 @@ def get_list_of_all_predictors(
             data = calculate_delta_pccl(data, delta_value_for_max=10.0)
             store_raw_feature('delta_ccl_to_next_pccl')
 
+    features_filenames['trimmed_codes_OHE'] = __make_feature_filename('trimmed_codes', 'OHE')
+
     return features_filenames, encoders
 
 
@@ -642,7 +644,7 @@ def create_predictions_output_performance_app(filename: str, case_ids: ArrayLike
         'UpcodingConfidenceScore': predictions
     })
 
-    if add_on_information:
+    if not add_on_information is None:
         for col in add_on_information.columns:
             result[col] = add_on_information[col].values
 

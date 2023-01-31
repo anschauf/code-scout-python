@@ -1,8 +1,11 @@
+import calendar
+import datetime
 import json
 import os
 import sys
+import time
 import warnings
-from os.path import join
+from os.path import join, exists
 
 import numpy as np
 import pandas as pd
@@ -27,10 +30,10 @@ def train_ae():
 
     parameters = dict()
     parameters['dim_latent_non_categorical'] = 6
-    parameters['dim_latent_categorical'] = 6
-    parameters['dim_latent_count'] = 6
-    parameters['batch_size'] = 128
-    parameters['epochs'] = 200
+    parameters['dim_latent_categorical'] = 70
+    parameters['dim_latent_count'] = 5
+    parameters['batch_size'] = 512
+    parameters['epochs'] = 50
 
 
     # for LEAVE_ON_OUT in [
@@ -70,8 +73,10 @@ def train_ae():
         # ('SLI', 2019),
         # ('SRRWS', 2019)
     ]:
-
-        folder_name = f'01_autoencoder/{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
+        current_GMT = time.gmtime()
+        ts = calendar.timegm(current_GMT)
+        dt = str(datetime.datetime.fromtimestamp(ts)).replace(' ', '_')
+        folder_name = f'01_autoencoder/{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}_{dt}'
         RESULTS_DIR = join(ROOT_DIR, 'results', folder_name)
         if not os.path.exists(RESULTS_DIR):
             os.makedirs(RESULTS_DIR)
@@ -83,7 +88,7 @@ def train_ae():
 
             REVISED_CASE_IDS_FILENAME = join(ROOT_DIR, 'resources', 'data', 'revised_case_ids.csv')
 
-            DISCARDED_FEATURES = ('hospital', 'month_admission', 'month_discharge', 'year_discharge', 'mdc_OHE', 'hauptkostenstelle_OHE', 'gender_RAW'
+            DISCARDED_FEATURES = ('hospital', 'month_admission', 'month_discharge', 'year_discharge', 'mdc_OHE', 'hauptkostenstelle_OHE', 'gender_RAW', 'trimmed_codes_OHE'
                                   # 'behandlung_nach_austritt_OHE', 'is_case_below_pccl_split_RAW', 'duration_of_stay_case_type_OHE', 'binned_age_RAW', 'aufenthalts_klasse_OHE'
                                   )
 
@@ -238,6 +243,46 @@ def train_ae():
                 plt.savefig(join(RESULTS_DIR, 'pca_latent_space_val.pdf'), bbox_inches='tight')
                 plt.close()
 
+                # plot latent space KDE plot
+                ind_random = np.random.choice(range(latent_space_test_pca.shape[0]), size=(10000,))
+                plt.figure()
+                sns.kdeplot(pd.DataFrame({
+                    'PC1': latent_space_test_pca[ind_random][:, 0],
+                    'PC2': latent_space_test_pca[ind_random][:, 1]
+                }), x='PC1', y='PC2')
+                plt.savefig(join(RESULTS_DIR, 'pca_latent_space_val_kde.pdf'), bbox_inches='tight')
+                plt.close()
+
+                # plot latent space against each categorical feature
+                dir_output_categorical = join(RESULTS_DIR, 'latent_space_categorical')
+                if not exists(dir_output_categorical):
+                    os.makedirs(dir_output_categorical)
+
+                for index in ind_categorical_features:
+                    plt.figure()
+                    ind_negative = np.where(features_val[:, index] == 0)[0]
+                    ind_positive = np.where(features_val[:, index] == 1)[0]
+                    plt.scatter(latent_space_test_pca[ind_negative][:, 0],latent_space_test_pca[ind_negative][:, 1], c='b', alpha=0.5, s=1)
+                    plt.scatter(latent_space_test_pca[ind_positive][:, 0], latent_space_test_pca[ind_positive][:, 1],c='r', s=1)
+                    plt.xlabel('PC1')
+                    plt.ylabel('PC2')
+                    plt.savefig(join(dir_output_categorical, f'pca_latent_space_val_{feature_ids[index]}.png'), bbox_inches='tight', dpi=300)
+                    plt.close()
+
+                # plot latent space against each non categorical and count feature
+                dir_output_non_categorical = join(RESULTS_DIR, 'latent_space_non_categorical_and_count')
+                if not exists(dir_output_non_categorical):
+                    os.makedirs(dir_output_non_categorical)
+
+                for index in np.concatenate([ind_non_categorical_features, ind_count_features]):
+                    plt.figure()
+                    cm = plt.cm.get_cmap('turbo')
+                    plt.scatter(latent_space_test_pca[:, 0],latent_space_test_pca[:, 1], c=features_val[:, index], s=1, cmap=cm)
+                    plt.xlabel('PC1')
+                    plt.ylabel('PC2')
+                    plt.colorbar()
+                    plt.savefig(join(dir_output_non_categorical, f'pca_latent_space_val_{feature_ids[index]}.png'), bbox_inches='tight', dpi=300)
+                    plt.close()
 
                 n_top = 1000
                 ##### categorical reconstruction
@@ -316,10 +361,15 @@ def train_ae():
                     predictions_loo = ae.model_predict_revision.predict(data_test).flatten()
 
                     filename_output = join(RESULTS_DIR_TEST_PREDICTIONS, f'ae_model.csv')
+                    ind_pccl = np.where(np.asarray(feature_ids) == 'pccl_RAW')[0]
+                    add_on_info = pd.DataFrame({
+                        'pccl': test_features[:, ind_pccl].flatten()
+                    })
 
                     create_predictions_output_performance_app(filename=filename_output,
                                                               case_ids=case_ids,
-                                                              predictions=predictions_loo)
+                                                              predictions=predictions_loo,
+                                                              add_on_information=add_on_info)
 
             logger.info(f'{f1_train=}, {f1_val=} | {recall_train=}, {recall_val=} | {precision_train=}, {precision_val=}')
     logger.success('done')

@@ -240,8 +240,8 @@ if __name__ == '__main__':
         # 'KSSG_2021',
         # 'KSW_2017',
         # 'KSW_2018',
-        'KSW_2019',
-        # 'KSW_2020',
+        # 'KSW_2019',
+        'KSW_2020',
         # 'LI_2017',
         # 'LI_2018', 'SLI_2019', 'SRRWS_2019'
      ]:
@@ -251,3 +251,10 @@ if __name__ == '__main__':
             dir_output=f's3://code-scout/brute_force_case_ranking_predictions/02_rf_hyperparameter_screen/predictions_LOO_{hospital}_results',
             s3_bucket='code-scout'
         )
+
+    # create_rankings_of_revised_cases(
+    #     filename_revised_cases='s3://code-scout/performance-measuring/ground_truth_performance_app_case_ranking_KSW_2019.csv',
+    #     dir_rankings='s3://code-scout/performance-measuring/case_rankings/2023-01-30_significance_filter/',
+    #     dir_output='s3://code-scout/performance-measuring/case_rankings/2023-01-30_significance_filter_results',
+    #     s3_bucket='code-scout'
+    # )

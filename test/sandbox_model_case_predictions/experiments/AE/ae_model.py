@@ -20,6 +20,11 @@ class Autoencoder(Model):
     input_count = tf.keras.Input(shape=(dim_input_count,))
     input_revised_not_revised = tf.keras.Input(shape=(1,), dtype=tf.float32)
 
+    ##### ensure the latent space is always lower dimensional than the input #####
+    dim_latent_non_categorical = np.min([dim_latent_non_categorical, dim_input_non_categorical-1])
+    dim_latent_categorical = np.min([dim_latent_categorical, dim_input_categorical-1])
+    dim_latent_count = np.min([dim_latent_count, dim_input_count-1])
+
 
 
 
@@ -29,7 +34,7 @@ class Autoencoder(Model):
       # tf.keras.layers.Dense(int(self.dim_latent * 2), activation='tanh'),
       # tf.keras.layers.BatchNormalization(),
       # tf.keras.layers.Dropout(rate=0.5),
-      tf.keras.layers.Dense(np.min([dim_latent_categorical, dim_input_categorical-1]), name='encoder_categorical')
+      tf.keras.layers.Dense(dim_latent_categorical, name='encoder_categorical')
     ])
     input_categorical_encoded = encoder_categorical(input_categorical)
 
@@ -55,7 +60,7 @@ class Autoencoder(Model):
       # tf.keras.layers.Dense(int(dim_input_non_categorical / 2), activation='relu'),
       # tf.keras.layers.BatchNormalization(),
       # tf.keras.layers.Dropout(rate=0.5),
-      tf.keras.layers.Dense(np.min([dim_latent_non_categorical, dim_input_non_categorical-1]), name='encoder_non_categorical')
+      tf.keras.layers.Dense(dim_latent_non_categorical, name='encoder_non_categorical')
     ])
     input_non_categorical_encoded = encoder_non_categorical(input_non_categorical)
 
@@ -76,7 +81,7 @@ class Autoencoder(Model):
       # tf.keras.layers.Dense(int(dim_input_non_categorical / 2), activation='relu'),
       # tf.keras.layers.BatchNormalization(),
       # tf.keras.layers.Dropout(rate=0.5),
-      tf.keras.layers.Dense(np.min([dim_latent_count, dim_input_count-1]), name='encoder_count', kernel_initializer=tf.keras.initializers.constant(value=0))
+      tf.keras.layers.Dense(dim_latent_count, name='encoder_count', kernel_initializer=tf.keras.initializers.constant(value=0))
     ])
     input_count_encoded = encoder_count(input_count)
 
@@ -84,7 +89,8 @@ class Autoencoder(Model):
       # tf.keras.layers.Dense(int(dim_input_non_categorical / 2), activation='tanh'),
       # tf.keras.layers.BatchNormalization(),
       # tf.keras.layers.Dropout(rate=0.5),
-      tf.keras.layers.Dense(dim_input_count, name='decoder_count', kernel_initializer=tf.keras.initializers.constant(value=0), activation=tf.keras.activations.exponential)
+      tf.keras.layers.Dense(dim_input_count, name='decoder_count', kernel_initializer=tf.keras.initializers.constant(value=0),
+                            activation=tf.keras.activations.exponential)
     ], name='reconstruction_count')
     reconstructed_input_count = decoder_count(input_count_encoded)
 
