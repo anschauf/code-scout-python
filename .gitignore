@@ -1,5 +1,5 @@
 .idea
 resources/jars
-src/revised_case_normalization/raw_data
+resources/data
 .env
 logs

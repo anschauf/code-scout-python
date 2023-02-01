@@ -20,7 +20,7 @@ ENV AWS_REGION=$AWS_REGION
 
 # -----------------------------------------------------------------------------
 # The grouper version is hard-coded here, so that it can be versioned with git
-ENV AIMEDIC_GROUPER_VERSION=2.0.0_rc16
+ENV AIMEDIC_GROUPER_VERSION=2.0.0_rc30
 # -----------------------------------------------------------------------------
 
 RUN apt-get update -y
@@ -46,7 +46,7 @@ RUN ~/aws-cli/bin/aws codeartifact get-package-version-asset --domain aimedic --
 
 # -----------------------------------------------------------------------------
 # The runtime environment, containing python and our compiled Scala projects.
-# Note: It seems easier to download python on a Docker image containing Java, than the other way round.
+# Note: It seems easier to install python on a Docker image based on Java, than the other way round.
 # -----------------------------------------------------------------------------
 FROM eclipse-temurin:18.0.2.1_1-jre-jammy AS RUNTIME
 
@@ -54,7 +54,7 @@ FROM eclipse-temurin:18.0.2.1_1-jre-jammy AS RUNTIME
 RUN apt-get update -y
 RUN apt-get install -y --no-install-recommends ca-certificates curl python3.10 python3-pip python3-dev python3-setuptools python3-wheel
 
-# Link python3 to python (https://askubuntu.com/q/320996)
+# Link the binary `python3` to `python` to make it easier to configure the interpreter in PyCharm (https://askubuntu.com/q/320996)
 RUN apt-get install python-is-python3 -y
 
 # Copy the aimedic-grouper JAR from the other container
@@ -62,7 +62,7 @@ RUN mkdir -p /opt/project/resources/jars
 WORKDIR /opt/project/resources/jars
 COPY --from=AWS-CLI /tmp/jars/aimedic-grouper-assembly.jar .
 
-# Install the python dependencies for code-scout-python
+# Install the python dependencies
 RUN python3 -m pip install --upgrade pip
 COPY requirements.txt .
 COPY constraints.txt .
