@@ -476,3 +476,27 @@ def get_revised_case_with_codes_before_revision(session: Session) -> pd.DataFram
          df_procedures[[PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL]]], axis=1)
     revised_cases_before_revision.rename(columns={'old_pd': 'pd'}, inplace=True)
     return revised_cases_before_revision
+
+
+def get_all_revision_ids_containing_a_chop(chops: list[str], session: Session) -> DataFrame:
+
+    query_procedures = (
+        session
+        .query(Procedure)
+        .with_entities(Procedure.sociodemographic_id, Procedure.revision_id, Procedure.code)
+        .filter(Procedure.code.in_(chops))
+    )
+
+    df = pd.read_sql(query_procedures.statement, session.bind)
+    return df
+
+def get_all_chops_for_revision_ids(revision_ids: list[str], session: Session) -> DataFrame:
+    query_procedures = (
+        session
+        .query(Procedure)
+        .with_entities(Procedure.sociodemographic_id, Procedure.revision_id, Procedure.code)
+        .filter(Procedure.revision_id.in_(revision_ids))
+    )
+
+    df = pd.read_sql(query_procedures.statement, session.bind)
+    return df

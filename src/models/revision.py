@@ -1,5 +1,5 @@
 from sqlalchemy import BOOLEAN, CHAR, Column, Date, DECIMAL, FLOAT, ForeignKey, Integer, MetaData, VARCHAR
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.ext.declarative import declarative_base
 
 from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL, Sociodemographics
 from src.utils.global_configs import DRG_COL, PCCL_COL
