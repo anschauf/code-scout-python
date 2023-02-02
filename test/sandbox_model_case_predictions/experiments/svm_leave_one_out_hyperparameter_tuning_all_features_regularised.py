@@ -7,7 +7,7 @@ from os.path import join
 import numpy as np
 from loguru import logger
 from sklearn.model_selection import cross_validate, StratifiedShuffleSplit
-from sklearn.svm import SVC
+from sklearn.svm import LinearSVC
 from tqdm import tqdm
 
 from src import ROOT_DIR
@@ -21,22 +21,26 @@ from sklearn.preprocessing import StandardScaler
 DISCARDED_FEATURES = (
     'hospital', 'month_admission', 'month_discharge', 'year_discharge', 'mdc_OHE', 'hauptkostenstelle_OHE', 'vectorized_codes')
 
+
+RANDOM_SEED = 42
+
+
 # create folder names for output
 LEAVE_ON_OUT = ('KSW', 2020)
 
 # hand selected raw features
-USE_HAND_SELECTED_FEATURES = True
+USE_HAND_SELECTED_FEATURES = False
 
 # create folder names for output
 LEAVE_ON_OUT = ('KSW', 2020)
 
 if USE_HAND_SELECTED_FEATURES:
-    FOLDER_NAME = f'svm_use_hand_selected_features_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
+    FOLDER_NAME = f'svm_use_hand_selected_features_regularised_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
     HAND_SELECTED_FEATURES = ('binned_age_RAW', 'drg_cost_weight_RAW', 'mdc_OHE', 'pccl_OHE', 'duration_of_stay_RAW',
                               'gender_OHE', 'number_of_chops_RAW', 'number_of_diags_RAW',
                               'number_of_diags_ccl_greater_0_RAW', 'num_drg_relevant_procedures_RAW', 'num_drg_relevant_diagnoses_RAW')
 else:
-    FOLDER_NAME = f'svm_use_all_features_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
+    FOLDER_NAME = f'svm_use_all_features_regularised_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
 
 
 
@@ -48,7 +52,7 @@ if not os.path.exists(RESULTS_DIR_TEST_PREDICTIONS):
 REVISED_CASE_IDS_FILENAME = join(ROOT_DIR, 'resources', 'data', 'revised_case_ids.csv')
 
 
-def hyper_tuning_svm_hand_selected_features_only_reviewed_cases():
+def hyper_tuning_linear_svm_regularised_only_reviewed_cases():
 
     all_data = load_data(only_2_rows=True)
     features_dir = join(ROOT_DIR, 'resources', 'features')
@@ -102,14 +106,18 @@ def hyper_tuning_svm_hand_selected_features_only_reviewed_cases():
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
 
-        logger.info(f'Hyperparameter tuning for a svm model: ...')
+        logger.info(f'Hyperparameter tuning for a linear SVC with regularization: ...')
 
         # parameter grid
-        for C in [0.01, 0.1, 1, 10]:
-            for kernel in ['linear', 'rbf']:
-                hyper_info = f'{C=}_{kernel=}'
+        for C in [0.01, 0.1, 1, 10, 100]:
+            for penalty in ['l1', 'l2']:
 
-                estimator = SVC(C=C, class_weight='balanced', kernel=kernel, probability=True, random_state=RANDOM_SEED)
+                hyper_info = f'{C=}_{penalty=}'
+
+                if penalty == 'l1':
+                    estimator = LinearSVC(C=C, penalty=penalty, class_weight='balanced', random_state=RANDOM_SEED, dual=False)
+                else:
+                    estimator = LinearSVC(C=C, penalty=penalty, class_weight='balanced', random_state=RANDOM_SEED)
 
                 cv = StratifiedShuffleSplit(n_splits=5, test_size=0.2, random_state=RANDOM_SEED)
 
@@ -187,7 +195,7 @@ def hyper_tuning_svm_hand_selected_features_only_reviewed_cases():
 
                         predictions = list()
                         for model in scores['estimator']:
-                            predictions.append(model.predict_proba(test_features)[:, 1])
+                            predictions.append(model._predict_proba_lr(test_features)[:, 1])
                         predictions = np.mean(np.vstack(predictions), axis=0)
 
                         filename_output = join(RESULTS_DIR_TEST_PREDICTIONS,
@@ -199,5 +207,5 @@ def hyper_tuning_svm_hand_selected_features_only_reviewed_cases():
     logger.success('done')
 
 if __name__ == '__main__':
-    hyper_tuning_svm_hand_selected_features_only_reviewed_cases()
+    hyper_tuning_linear_svm_regularised_only_reviewed_cases()
     sys.exit(0)

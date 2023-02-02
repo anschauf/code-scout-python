@@ -78,6 +78,17 @@ if not os.path.exists(RESULTS_DIR_TEST_PREDICTIONS):
 REVISED_CASE_IDS_FILENAME = join(ROOT_DIR, 'resources', 'data', 'revised_case_ids.csv')
 
 
+list_model_description = list()
+list_f1_measure_train = list()
+list_precision_train = list()
+list_recall_train = list()
+list_accuracy_train = list()
+list_f1_measure_test = list()
+list_precision_test = list()
+list_recall_test = list()
+list_accuracy_test = list()
+
+
 def train_logistic_regression_only_reviewed_cases():
     all_data = load_data(only_2_rows=True)
     features_dir = join(ROOT_DIR, 'resources', 'features')
@@ -164,7 +175,7 @@ def train_logistic_regression_only_reviewed_cases():
         if metric == 'AUROC':
             suffix = ' (random 0.5)'
         elif metric == 'AUPRC':
-            random_performance = float(y.sum()) / y.shape[0]
+            random_performance = float(y.sum())  / y.shape[0]
             suffix = f' (random {random_performance:.6f})'
         else:
             suffix = ''

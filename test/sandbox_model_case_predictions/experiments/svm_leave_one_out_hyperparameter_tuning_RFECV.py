@@ -7,6 +7,7 @@ from os.path import join
 import numpy as np
 from loguru import logger
 from sklearn.model_selection import cross_validate, StratifiedShuffleSplit
+from sklearn.feature_selection import RFECV, RFE
 from sklearn.svm import SVC
 from tqdm import tqdm
 
@@ -15,7 +16,7 @@ from test.sandbox_model_case_predictions.data_handler import load_data
 from test.sandbox_model_case_predictions.utils import create_predictions_output_performance_app, \
     get_list_of_all_predictors, get_revised_case_ids, RANDOM_SEED, prepare_train_eval_test_split
 
-from sklearn.preprocessing import StandardScaler
+
 
 # discarded features when using all features
 DISCARDED_FEATURES = (
@@ -31,7 +32,7 @@ USE_HAND_SELECTED_FEATURES = True
 LEAVE_ON_OUT = ('KSW', 2020)
 
 if USE_HAND_SELECTED_FEATURES:
-    FOLDER_NAME = f'svm_use_hand_selected_features_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
+    FOLDER_NAME = f'svm_RFECV_features_{LEAVE_ON_OUT[0]}_{LEAVE_ON_OUT[1]}'
     HAND_SELECTED_FEATURES = ('binned_age_RAW', 'drg_cost_weight_RAW', 'mdc_OHE', 'pccl_OHE', 'duration_of_stay_RAW',
                               'gender_OHE', 'number_of_chops_RAW', 'number_of_diags_RAW',
                               'number_of_diags_ccl_greater_0_RAW', 'num_drg_relevant_procedures_RAW', 'num_drg_relevant_diagnoses_RAW')
@@ -48,8 +49,7 @@ if not os.path.exists(RESULTS_DIR_TEST_PREDICTIONS):
 REVISED_CASE_IDS_FILENAME = join(ROOT_DIR, 'resources', 'data', 'revised_case_ids.csv')
 
 
-def hyper_tuning_svm_hand_selected_features_only_reviewed_cases():
-
+def hyper_tuning_svm_RFE_only_reviewed_cases():
     all_data = load_data(only_2_rows=True)
     features_dir = join(ROOT_DIR, 'resources', 'features')
     feature_filenames, encoders = get_list_of_all_predictors(all_data, features_dir, overwrite=False)
@@ -94,7 +94,6 @@ def hyper_tuning_svm_hand_selected_features_only_reviewed_cases():
     features = np.hstack(features)
 
     # concatenate train and test for cross validation
-    normalizer = StandardScaler()
     ind_train_test = np.concatenate([ind_train, ind_test])
     features_train = features[ind_train_test]
     y_train = y[ind_train_test]
@@ -105,15 +104,10 @@ def hyper_tuning_svm_hand_selected_features_only_reviewed_cases():
         logger.info(f'Hyperparameter tuning for a svm model: ...')
 
         # parameter grid
-        for C in [0.01, 0.1, 1, 10]:
-            for kernel in ['linear', 'rbf']:
+        for C in [1]:
+            for kernel in ['linear']:
                 hyper_info = f'{C=}_{kernel=}'
 
-                estimator = SVC(C=C, class_weight='balanced', kernel=kernel, probability=True, random_state=RANDOM_SEED)
-
-                cv = StratifiedShuffleSplit(n_splits=5, test_size=0.2, random_state=RANDOM_SEED)
-
-                # https://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter
                 scoring = {
                     'AUROC': 'roc_auc',
                     'AUPRC': 'average_precision',
@@ -122,9 +116,22 @@ def hyper_tuning_svm_hand_selected_features_only_reviewed_cases():
                     'F1': 'f1',
                 }
 
-                scores = cross_validate(estimator, normalizer.fit_transform(features_train), y_train, scoring=scoring, cv=cv,
-                                        return_train_score=True, return_estimator=True, error_score=np.nan,
-                                        n_jobs=None, verbose=10)
+                estimator = SVC(C=C, class_weight='balanced', kernel=kernel, probability=True, random_state=RANDOM_SEED)
+
+                cv = StratifiedShuffleSplit(n_splits=5, test_size=0.2, random_state=RANDOM_SEED)
+
+                rfecv = RFECV(estimator=estimator, step=1, cv=cv, scoring="roc_auc", min_features_to_select=1)
+
+                rfecv.fit(features_train, y_train)
+
+                print("")
+                # https://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter
+                #
+                # cv = StratifiedShuffleSplit(n_splits=5, test_size=0.2, random_state=RANDOM_SEED)
+                #
+                # scores = cross_validate(selector, features_train, y_train, scoring=scoring, cv=cv,
+                #                         return_train_score=True, return_estimator=True, error_score=np.nan,
+                #                         n_jobs=None, verbose=10)
 
                 RESULTS_DIR = join(ROOT_DIR, 'results', FOLDER_NAME,
                                    f'{FOLDER_NAME}_{hyper_info}')
@@ -183,7 +190,7 @@ def hyper_tuning_svm_hand_selected_features_only_reviewed_cases():
                             feature_filename = feature_filenames[feature_name]
                             feature_values = np.load(feature_filename, mmap_mode='r', allow_pickle=False, fix_imports=False)
                             test_features.append(feature_values[indices, :])
-                        test_features = normalizer.transform(np.hstack(test_features))
+                        test_features = np.hstack(test_features)
 
                         predictions = list()
                         for model in scores['estimator']:
@@ -199,5 +206,5 @@ def hyper_tuning_svm_hand_selected_features_only_reviewed_cases():
     logger.success('done')
 
 if __name__ == '__main__':
-    hyper_tuning_svm_hand_selected_features_only_reviewed_cases()
+    hyper_tuning_svm_RFE_only_reviewed_cases()
     sys.exit(0)

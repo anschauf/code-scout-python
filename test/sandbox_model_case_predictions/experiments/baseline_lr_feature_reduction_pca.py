@@ -131,13 +131,6 @@ def feature_reduction_only_reviewed_cases():
         cv = StratifiedShuffleSplit(n_splits=5, test_size=0.2, random_state=RANDOM_SEED)
 
         # https://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter
-        scoring = {
-            'AUROC': 'roc_auc',
-            'AUPRC': 'average_precision',
-            'precision': 'precision',
-            'recall': 'recall',
-            'F1': 'f1',
-        }
 
         scoring = {
             'AUROC': 'roc_auc',
