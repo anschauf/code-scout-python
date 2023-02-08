@@ -114,6 +114,29 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int, sessi
 
     return df
 
+@beartype
+def get_sociodemographics_for_year(year: int, session: Session) -> pd.DataFrame:
+    """
+    Get the cases filtered by year and hospital name, joined together with all its ICD and CHOP codes.
+    @param year:
+    @return: a dataframe with all matching cases.
+    """
+    query_sociodemo = (
+        session
+        .query(Sociodemographics)
+        .join(Hospital, Sociodemographics.hospital_id == Hospital.hospital_id)
+        .filter(Sociodemographics.discharge_year == year)
+        .filter(Sociodemographics.case_id != '')
+    )
+
+    df = pd.read_sql(query_sociodemo.statement, session.bind)
+
+    num_cases_in_db = df.shape[0]
+    if num_cases_in_db == 0:
+        raise ValueError(f"There is no data in {year}")
+
+    return df
+
 
 @beartype
 def get_all_revised_cases(session: Session) -> pd.DataFrame:
@@ -496,6 +519,7 @@ def get_all_revision_ids_containing_a_chop(chops: list[str], session: Session) -
     df = pd.read_sql(query_procedures.statement, session.bind)
     return df
 
+
 def get_all_chops_for_revision_ids(revision_ids: list[str], session: Session) -> DataFrame:
     query_procedures = (
         session
@@ -506,3 +530,37 @@ def get_all_chops_for_revision_ids(revision_ids: list[str], session: Session) ->
 
     df = pd.read_sql(query_procedures.statement, session.bind)
     return df
+
+
+def get_all_unique_sociodemographic_ids(session: Session) -> DataFrame:
+    query_procedures = (
+        session
+        .query(Sociodemographics.sociodemographic_id).distinct()
+    )
+
+    df = pd.read_sql(query_procedures.statement, session.bind)
+    return df
+
+
+def get_all_unique_sociodemographic_ids_with_diagnoses(code: str, session: Session) -> DataFrame:
+    query_procedures = (
+        session
+        .query(Diagnosis)
+        .with_entities(Diagnosis.sociodemographic_id, Diagnosis.code)
+        .filter(Diagnosis.code == code)
+    )
+
+    df = pd.read_sql(query_procedures.statement, session.bind)
+    return df.drop_duplicates(subset=SOCIODEMOGRAPHIC_ID_COL)[[SOCIODEMOGRAPHIC_ID_COL]]
+
+
+def get_all_unique_sociodemographic_ids_with_procedures(code: str, session: Session) -> DataFrame:
+    query_procedures = (
+        session
+        .query(Procedure)
+        .with_entities(Procedure.sociodemographic_id, Procedure.code)
+        .filter(Procedure.code == code)
+    )
+
+    df = pd.read_sql(query_procedures.statement, session.bind)
+    return df.drop_duplicates(subset=SOCIODEMOGRAPHIC_ID_COL)[[SOCIODEMOGRAPHIC_ID_COL]]
