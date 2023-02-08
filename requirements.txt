@@ -10,6 +10,8 @@ pyarrow
 scipy
 srsly
 pyhumps
+statsmodels
+tqdm
 
 # Plotting
 matplotlib

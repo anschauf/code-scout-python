@@ -105,6 +105,44 @@ def get_sociodemographics_for_hospital_year(hospital_name: str, year: int, sessi
 
 
 @beartype
+def get_sociodemographics_for_year(year: int, session: Session) -> pd.DataFrame:
+    """
+    Get the cases filtered by year and hospital name, joined together with all its ICD and CHOP codes.
+    @param year:
+    @return: a dataframe with all matching cases.
+    """
+    query_sociodemo = (
+        session
+        .query(Sociodemographics)
+        .join(Hospital, Sociodemographics.hospital_id == Hospital.hospital_id)
+        .filter(Sociodemographics.discharge_year == year)
+        .filter(Sociodemographics.case_id != '')
+    )
+
+    df = pd.read_sql(query_sociodemo.statement, session.bind)
+
+    num_cases_in_db = df.shape[0]
+    if num_cases_in_db == 0:
+        raise ValueError(f"There is no data in {year}")
+
+    return df
+
+
+@beartype
+def get_hospital_cases_df(hospital_name: str, session: Session) -> DataFrame:
+    """
+     Get records from case_data.Sociodemographics table using hospital_name
+     @param hospital_name:
+     @return: a Dataframe
+     """
+
+    query = (session.query(Sociodemographics)
+             .join(Hospital)
+             .filter(Hospital.hospital_name == hospital_name))
+    return pd.read_sql(query.statement, session.bind)
+
+
+@beartype
 def get_all_revised_cases(session: Session) -> pd.DataFrame:
     """
     Get all revised cases from revision table
