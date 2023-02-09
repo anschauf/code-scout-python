@@ -114,7 +114,7 @@ for i in trange(np.max([len(all_diagnoses), len(all_chops)])):
 
 
     if len(all_diagnoses) > i:
-        pval_diag, stat_diag, counts_all_data_diag, counts_data_to_test_diag = run_enrichment_for_code(all_chops[i], col_name_all_data='all_diagnoses', col_name_data_to_test='all_diagnoses')
+        pval_diag, stat_diag, counts_all_data_diag, counts_data_to_test_diag = run_enrichment_for_code(all_diagnoses[i], col_name_all_data='all_diagnoses', col_name_data_to_test='all_diagnoses')
         diags_pvalues[i] = pval_diag
         diags_statistic[i] = stat_diag
         diags_mean_all[i] = np.mean(counts_all_data_diag)

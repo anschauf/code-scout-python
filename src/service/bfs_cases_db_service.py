@@ -514,3 +514,18 @@ def get_revised_case_with_codes_before_revision(session: Session) -> pd.DataFram
          df_procedures[[PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL]]], axis=1)
     revised_cases_before_revision.rename(columns={'old_pd': 'pd'}, inplace=True)
     return revised_cases_before_revision
+
+
+def get_drg_for_revision(revision_id: list[int], session: Session) -> DataFrame:
+    query_revisions = (
+        session
+        .query(Revision)
+        .with_entities(Revision.revision_id, Revision.sociodemographic_id, Revision.drg)
+        .filter(Revision.revision_id.in_(revision_id))
+        .filter(Revision.revised.is_(False))
+        .filter(Revision.reviewed.is_(False))
+    )
+
+    df = pd.read_sql(query_revisions.statement, session.bind)
+
+    return df
