@@ -170,8 +170,8 @@ def calculate_code_ranking_performance(*,
 
 if __name__ == '__main__':
     calculate_code_ranking_performance(
-        dir_rankings='s3://code-scout/performance-measuring/code_rankings/2022-11-18_test-boxplot-code-probabilities/',
-        dir_output='s3://code-scout/performance-measuring/code_rankings/2022-11-18_test-boxplot-code-probabilities_results_4-classes_ksw/',
+        dir_rankings='s3://code-scout/performance-measuring/code_rankings/apriori_mindbend/',
+        dir_output='s3://code-scout/performance-measuring/code_rankings/apriori_mindbend_results_4-classes_ksw/',
         filename_revised_cases='s3://code-scout/performance-measuring/CodeScout_GroundTruthforPerformanceMeasuring.csv',
         s3_bucket='code-scout'
     )
