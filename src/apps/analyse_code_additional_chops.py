@@ -1,5 +1,8 @@
+import calendar
 import re
+import time
 from dataclasses import dataclass
+from datetime import datetime
 from os import makedirs
 from os.path import join, exists
 
@@ -13,7 +16,7 @@ from src import ROOT_DIR
 from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
 from src.service.aimedic_grouper import AIMEDIC_GROUPER
 from src.service.bfs_cases_db_service import get_all_revision_ids_containing_a_chop, \
-    get_sociodemographics_for_hospital_year, get_all_chops_for_revision_ids, get_codes, \
+    get_all_chops_for_revision_ids, get_codes, \
     get_sociodemographics_by_sociodemographics_ids, get_sociodemographics_for_year
 from src.service.database import Database
 from src.utils.global_configs import GROUPER_FORMAT_COL
@@ -24,9 +27,22 @@ discharge_year = 2019
 replace = True
 
 # dir_output = join(ROOT_DIR, 'results', 'missing_additional_chops_multilang', f'{hopsital_name}_{discharge_year}')
-dir_output = join(ROOT_DIR, 'results', 'missing_additional_chops_multilang_test', f'{discharge_year}')
+dir_output = join(ROOT_DIR, 'results', 'missing_additional_chops_multilang_reporting', f'{discharge_year}')
 if not exists(dir_output):
     makedirs(dir_output)
+
+filename_analysed_cases=join(dir_output, 'analysed_cases.csv')
+if exists(filename_analysed_cases):
+    analysed_cases = pd.read_csv(filename_analysed_cases)[SOCIODEMOGRAPHIC_ID_COL].tolist()
+else:
+    analysed_cases = list()
+
+current_GMT = time.gmtime()
+ts = calendar.timegm(current_GMT)
+dt = datetime.fromtimestamp(ts)
+dir_output_time_stamp = join(dir_output, str(dt).replace(' ', '_'))
+if not exists(dir_output_time_stamp):
+     makedirs(dir_output_time_stamp)
 
 # chop_catalogue = wr.s3.read_csv('s3://aimedic-catalogues/chop/2020/CHOP 2020 Multilang CSV DE 2019_10_22.csv', sep=';')
 chop_catalogue = wr.s3.read_csv('s3://aimedic-catalogues/chop/2021/CHOP 2021 Multilang CSV DE 2020_10_30.csv', sep=';')
@@ -110,7 +126,7 @@ chop_catalogue_additional_codes = chop_catalogue_additional_codes[chop_catalogue
 chop_catalogue_additional_codes['code_without_dot'] = chop_catalogue_additional_codes['code'].apply(lambda code: code.replace('.', ''))
 chop_catalogue_additional_codes['extracted_additional_codes_without_dot'] = chop_catalogue_additional_codes['extracted_additional_codes'].apply(lambda codes: [code.replace('.', '') for code in codes])
 
-chop_catalogue_additional_codes.to_csv(join(dir_output, 'processed_chop_catalogue.csv'), index=False)
+chop_catalogue_additional_codes.to_csv(join(dir_output_time_stamp, 'processed_chop_catalogue.csv'), index=False)
 logger.info(f'Found {chop_catalogue_additional_codes.shape[0]} codes with additional codes.')
 logger.info(f'All codes map in total to {chop_catalogue_additional_codes["extracted_additional_codes"].apply(lambda x: len(x)).sum()} additional codes.')
 
@@ -143,7 +159,7 @@ missing_chops_summary = pd.DataFrame({
 missing_chops_summary_catalogue = pd.merge(missing_chops_summary, chop_catalogue_additional_codes[['code_without_dot', 'extracted_additional_codes_without_dot']], left_on='code', right_on='code_without_dot', how='left')
 missing_chops_summary_catalogue.drop(columns=['code_without_dot'], inplace=True)
 missing_chops_summary_catalogue.rename(columns={'extracted_additional_codes_without_dot': 'extracted_additional_codes'}, inplace=True)
-missing_chops_summary_catalogue.to_csv(join(dir_output, 'count_missing_chops.csv'), index=False)
+missing_chops_summary_catalogue.to_csv(join(dir_output_time_stamp, 'count_missing_chops.csv'), index=False)
 
 cases_replace_additional_chops = all_code_appearances.loc[case_indices_replace_additional_chops]
 unique_replace_chop, count_replace_chop = np.unique(cases_replace_additional_chops['code'], return_counts=True)
@@ -154,7 +170,7 @@ replace_chops_summary = pd.DataFrame({
 replace_chops_summary_catalogue = pd.merge(replace_chops_summary, chop_catalogue_additional_codes[['code_without_dot', 'extracted_additional_codes_without_dot']], left_on='code', right_on='code_without_dot', how='left')
 replace_chops_summary_catalogue.drop(columns=['code_without_dot'], inplace=True)
 replace_chops_summary_catalogue.rename(columns={'extracted_additional_codes_without_dot': 'extracted_additional_codes'}, inplace=True)
-replace_chops_summary_catalogue.to_csv(join(dir_output, 'count_replace_chops.csv'), index=False)
+replace_chops_summary_catalogue.to_csv(join(dir_output_time_stamp, 'count_replace_chops.csv'), index=False)
 
 
 def get_original_case(original_codes, original_case_sociodemographics):
@@ -241,134 +257,154 @@ class Case:
     new_effective_cw: list[float]
     supplement_charges: list[float]
 
+
+upcodeable_cases = list()
+failed_cases = list()
+def write_to_file():
+    pd.DataFrame({
+        'case_id': [x.case_id for x in upcodeable_cases],
+        'sociodemographic_id': [x.sociodemographic_id for x in upcodeable_cases],
+        'revision_id': [x.revision_id for x in upcodeable_cases],
+        'effective_cw': [x.effective_cw for x in upcodeable_cases],
+        'code_to_add_on': [x.code_to_add_on for x in upcodeable_cases],
+        'code_to_replace': ['|'.join(x.code_to_replace) for x in upcodeable_cases],
+        'codes_to_add': ['|'.join(x.codes_to_add) for x in upcodeable_cases],
+        'new_effective_cw': ['|'.join([str(y) for y in x.new_effective_cw]) if len(x.new_effective_cw) > 1 else str(x.new_effective_cw[0]) for x in upcodeable_cases],
+        'new_supplementary_charges': ['|'.join([str(y) for y in x.supplement_charges]) if len(x.supplement_charges) > 1 else str(x.supplement_charges[0]) for x in upcodeable_cases]
+    }).to_csv(join(dir_output_time_stamp, 'upcodeable_cases.csv'), index=False)
+    pd.DataFrame({'sociodemographic_id': [x.sociodemographic_id for x in failed_cases]}).to_csv(join(dir_output_time_stamp, 'failed_cases.csv'), index=False)
+    if len(analysed_cases) > 1:
+        pd.DataFrame({SOCIODEMOGRAPHIC_ID_COL: analysed_cases}).to_csv(filename_analysed_cases, index=False)
+
 if replace:
 
     with Database() as db:
-        upcodeable_cases = list()
-        failed_cases = list()
         for case in tqdm(cases_replace_additional_chops.itertuples(), total=cases_replace_additional_chops.shape[0]):
-            potential_codes_for_replacement = chop_catalogue_additional_codes[chop_catalogue_additional_codes['code_without_dot'] == case.code]['extracted_additional_codes_without_dot'].values[0]
-            original_case, all_permuted_cases = create_all_cases_with_replacements(case, potential_codes_for_replacement)
-            try:
+            if not case.sociodemographic_id in analysed_cases:
+                potential_codes_for_replacement = chop_catalogue_additional_codes[chop_catalogue_additional_codes['code_without_dot'] == case.code]['extracted_additional_codes_without_dot'].values[0]
+                original_case, all_permuted_cases = create_all_cases_with_replacements(case, potential_codes_for_replacement)
+                try:
 
-                # group original case
-                original_case_formatted = format_for_grouper(original_case).iloc[0][GROUPER_FORMAT_COL]
+                    # group original case
+                    original_case_formatted = format_for_grouper(original_case).iloc[0][GROUPER_FORMAT_COL]
 
-                # group all permuted cases
-                permuted_cases_formatted = [format_for_grouper(x).iloc[0][GROUPER_FORMAT_COL] for x in all_permuted_cases]
-                all_cases = [original_case_formatted] + permuted_cases_formatted
-                grouper_result = AIMEDIC_GROUPER.run_batch_grouper(cases=all_cases)
-                effective_cost_weight_original_case = grouper_result['effectiveCostWeight'].values[0]
-                supplement_charges_original_case = grouper_result['supplementCharges'].values[0]
+                    # group all permuted cases
+                    permuted_cases_formatted = [format_for_grouper(x).iloc[0][GROUPER_FORMAT_COL] for x in all_permuted_cases]
+                    all_cases = [original_case_formatted] + permuted_cases_formatted
+                    grouper_result = AIMEDIC_GROUPER.run_batch_grouper(cases=all_cases)
+                    effective_cost_weight_original_case = grouper_result['effectiveCostWeight'].values[0]
+                    supplement_charges_original_case = grouper_result['supplementCharges'].values[0]
 
-                list_code_to_replace = list()
-                list_code_inserted = list()
-                list_new_cw = list()
-                list_new_supplement_charges = list()
-                for i, upgrade in enumerate(grouper_result.itertuples()):
-                    if np.logical_or(upgrade.effectiveCostWeight > effective_cost_weight_original_case,
-                            upgrade.supplementCharges > supplement_charges_original_case) and not i == 0:
-                        if (upgrade.effectiveCostWeight > effective_cost_weight_original_case):
-                            logger.info(f'Higher CW based on {case.code}!')
-                        else:
-                            logger.info(f'Higher supplement charges based on {case.code}!')
+                    list_code_to_replace = list()
+                    list_code_inserted = list()
+                    list_new_cw = list()
+                    list_new_supplement_charges = list()
+                    for i, upgrade in enumerate(grouper_result.itertuples()):
+                        if np.logical_or(upgrade.effectiveCostWeight > effective_cost_weight_original_case,
+                                upgrade.supplementCharges > supplement_charges_original_case) and not i == 0:
+                            if (upgrade.effectiveCostWeight > effective_cost_weight_original_case):
+                                logger.info(f'Higher CW based on {case.code}!')
+                            else:
+                                logger.info(f'Higher supplement charges based on {case.code}!')
 
-                        code_to_replace = all_permuted_cases[i - 1]['code_to_replace'].values[0]
-                        list_code_to_replace.append(code_to_replace)
-                        code_replacement = all_permuted_cases[i - 1]['code_inserted'].values[0]
-                        list_code_inserted.append(code_replacement)
-                        list_new_cw.append(upgrade.effectiveCostWeight)
-                        list_new_supplement_charges.append(upgrade.supplementCharges)
+                            code_to_replace = all_permuted_cases[i - 1]['code_to_replace'].values[0]
+                            list_code_to_replace.append(code_to_replace)
+                            code_replacement = all_permuted_cases[i - 1]['code_inserted'].values[0]
+                            list_code_inserted.append(code_replacement)
+                            list_new_cw.append(upgrade.effectiveCostWeight)
+                            list_new_supplement_charges.append(upgrade.supplementCharges)
 
 
-                if len(list_code_to_replace) > 0:
-                    logger.info(f'Found {len(list_code_to_replace)} suggestions for case sociodemographic_id {original_case[SOCIODEMOGRAPHIC_ID_COL].values[0]}')
-                    upcodeable_cases.append(
-                        Case(
-                            case_id=original_case['case_id'].values[0],
-                            sociodemographic_id=case.sociodemographic_id,
-                            revision_id=case.revision_id,
-                            effective_cw=grouper_result['effectiveCostWeight'].values[0],
-                            code_to_add_on=case.code,
-                            code_to_replace=list_code_to_replace,
-                            codes_to_add=list_code_inserted,
-                            new_effective_cw=list_new_cw,
-                            supplement_charges=list_new_supplement_charges
+                    if len(list_code_to_replace) > 0:
+                        logger.info(f'Found {len(list_code_to_replace)} suggestions for case sociodemographic_id {original_case[SOCIODEMOGRAPHIC_ID_COL].values[0]}')
+                        upcodeable_cases.append(
+                            Case(
+                                case_id=original_case['case_id'].values[0],
+                                sociodemographic_id=case.sociodemographic_id,
+                                revision_id=case.revision_id,
+                                effective_cw=grouper_result['effectiveCostWeight'].values[0],
+                                code_to_add_on=case.code,
+                                code_to_replace=list_code_to_replace,
+                                codes_to_add=list_code_inserted,
+                                new_effective_cw=list_new_cw,
+                                supplement_charges=list_new_supplement_charges
+                            )
                         )
-                    )
 
-            except:
-                logger.warning(f'Case with sociodemographic_id: {original_case[SOCIODEMOGRAPHIC_ID_COL].values[0]} failed.')
-                failed_cases.append(case)
+                    analysed_cases.append(case.sociodemographic_id)
+
+                except:
+                    logger.warning(f'Case with sociodemographic_id: {original_case[SOCIODEMOGRAPHIC_ID_COL].values[0]} failed.')
+                    failed_cases.append(case)
+
+                finally:
+                    write_to_file()
+
+            else:
+                logger.info(f'Case with sociodemographic_id {case.sociodemographic_id} already analysed.')
 
 
 
 else:
     with Database() as db:
-        upcodeable_cases = list()
-        failed_cases = list()
         for case in tqdm(cases_missing_additional_chops.itertuples(), total=cases_missing_additional_chops.shape[0]):
-            potential_missing_codes = chop_catalogue_additional_codes[chop_catalogue_additional_codes['code_without_dot'] == case.code]['extracted_additional_codes_without_dot'].values[0]
-            original_case, all_permuted_cases = create_all_cases_with_add_ons(case, potential_missing_codes)
-            try:
+            if not case.sociodemographic_id in analysed_cases:
+                potential_missing_codes = chop_catalogue_additional_codes[chop_catalogue_additional_codes['code_without_dot'] == case.code]['extracted_additional_codes_without_dot'].values[0]
+                original_case, all_permuted_cases = create_all_cases_with_add_ons(case, potential_missing_codes)
+                try:
 
-                # group original case
-                original_case_formatted = format_for_grouper(original_case).iloc[0][GROUPER_FORMAT_COL]
+                    # group original case
+                    original_case_formatted = format_for_grouper(original_case).iloc[0][GROUPER_FORMAT_COL]
 
-                # group all permuted cases
-                permuted_cases_formatted = [format_for_grouper(x).iloc[0][GROUPER_FORMAT_COL] for x in all_permuted_cases]
-                all_cases = [original_case_formatted] + permuted_cases_formatted
-                grouper_result = AIMEDIC_GROUPER.run_batch_grouper(cases=all_cases)
-                effective_cost_weight_original_case = grouper_result['effectiveCostWeight'].values[0]
-                supplement_charges_original_case = grouper_result['supplementCharges'].values[0]
+                    # group all permuted cases
+                    permuted_cases_formatted = [format_for_grouper(x).iloc[0][GROUPER_FORMAT_COL] for x in all_permuted_cases]
+                    all_cases = [original_case_formatted] + permuted_cases_formatted
+                    grouper_result = AIMEDIC_GROUPER.run_batch_grouper(cases=all_cases)
+                    effective_cost_weight_original_case = grouper_result['effectiveCostWeight'].values[0]
+                    supplement_charges_original_case = grouper_result['supplementCharges'].values[0]
 
 
-                list_codes_upgrading = list()
-                list_new_cw = list()
-                list_new_supplement_charges = list()
-                for i, upgrade in enumerate(grouper_result.itertuples()):
-                    if np.logical_or(upgrade.effectiveCostWeight > effective_cost_weight_original_case,
-                            upgrade.supplementCharges > supplement_charges_original_case) and not i == 0:
-                        if (upgrade.effectiveCostWeight > effective_cost_weight_original_case):
-                            logger.info(f'Higher CW based on {case.code}!')
-                        else:
-                            logger.info(f'Higher supplement charges based on {case.code}!')
+                    list_codes_upgrading = list()
+                    list_new_cw = list()
+                    list_new_supplement_charges = list()
+                    for i, upgrade in enumerate(grouper_result.itertuples()):
+                        if np.logical_or(upgrade.effectiveCostWeight > effective_cost_weight_original_case,
+                                upgrade.supplementCharges > supplement_charges_original_case) and not i == 0:
+                            if (upgrade.effectiveCostWeight > effective_cost_weight_original_case):
+                                logger.info(f'Higher CW based on {case.code}!')
+                            else:
+                                logger.info(f'Higher supplement charges based on {case.code}!')
 
-                        code_to_replace = all_permuted_cases[i - 1]['code_to_add'].values[0]
-                        list_codes_upgrading.append(code_to_replace)
-                        list_new_cw.append(upgrade.effectiveCostWeight)
-                        list_new_supplement_charges.append(upgrade.supplementCharges)
+                            code_to_replace = all_permuted_cases[i - 1]['code_to_add'].values[0]
+                            list_codes_upgrading.append(code_to_replace)
+                            list_new_cw.append(upgrade.effectiveCostWeight)
+                            list_new_supplement_charges.append(upgrade.supplementCharges)
 
-                if len(list_codes_upgrading) > 0:
-                    logger.info(f'Found {len(list_codes_upgrading)} suggestions for case sociodemographic_id {original_case[SOCIODEMOGRAPHIC_ID_COL].values[0]}')
-                    upcodeable_cases.append(
-                        Case(
-                            case_id=original_case['case_id'].values[0],
-                            sociodemographic_id=case.sociodemographic_id,
-                            revision_id=case.revision_id,
-                            effective_cw=grouper_result['effectiveCostWeight'].values[0],
-                            code_to_add_on=case.code,
-                            codes_to_add=list_codes_upgrading,
-                            code_to_replace=[''],
-                            new_effective_cw=list_new_cw,
-                            supplement_charges=list_new_supplement_charges
+                    if len(list_codes_upgrading) > 0:
+                        logger.info(f'Found {len(list_codes_upgrading)} suggestions for case sociodemographic_id {original_case[SOCIODEMOGRAPHIC_ID_COL].values[0]}')
+                        upcodeable_cases.append(
+                            Case(
+                                case_id=original_case['case_id'].values[0],
+                                sociodemographic_id=case.sociodemographic_id,
+                                revision_id=case.revision_id,
+                                effective_cw=grouper_result['effectiveCostWeight'].values[0],
+                                code_to_add_on=case.code,
+                                codes_to_add=list_codes_upgrading,
+                                code_to_replace=[''],
+                                new_effective_cw=list_new_cw,
+                                supplement_charges=list_new_supplement_charges
+                            )
                         )
-                    )
-            except:
-                logger.warning(f'Case with sociodemographic_id: {original_case[SOCIODEMOGRAPHIC_ID_COL].values[0]} failed.')
-                failed_cases.append(case)
 
-pd.DataFrame({
-    'case_id': [x.case_id for x in upcodeable_cases],
-    'sociodemographic_id': [x.sociodemographic_id for x in upcodeable_cases],
-    'revision_id': [x.revision_id for x in upcodeable_cases],
-    'effective_cw': [x.effective_cw for x in upcodeable_cases],
-    'code_to_add_on': [x.code_to_add_on for x in upcodeable_cases],
-    'code_to_replace': ['|'.join(x.code_to_replace) for x in upcodeable_cases],
-    'codes_to_add': ['|'.join(x.codes_to_add) for x in upcodeable_cases],
-    'new_effective_cw': ['|'.join([str(y) for y in x.new_effective_cw]) if len(x.new_effective_cw) > 1 else str(x.new_effective_cw[0]) for x in upcodeable_cases],
-    'new_supplementary_charges': ['|'.join([str(y) for y in x.supplement_charges]) if len(x.supplement_charges) > 1 else str(x.supplement_charges[0]) for x in upcodeable_cases]
-}).to_csv(join(dir_output, 'upcodeable_cases.csv'), index=False)
-pd.DataFrame({'case_id': [x.sociodemographic_id for x in failed_cases]}).to_csv(join(dir_output, 'failed_cases.csv'), index=False)
+                    analysed_cases.append(case.sociodemographic_id)
+                except:
+                    logger.warning(f'Case with sociodemographic_id: {original_case[SOCIODEMOGRAPHIC_ID_COL].values[0]} failed.')
+                    failed_cases.append(case)
+
+                finally:
+                    write_to_file()
+
+            else:
+                logger.info(f'Case with sociodemographic_id {case.sociodemographic_id} already analysed.')
 
 print('')
