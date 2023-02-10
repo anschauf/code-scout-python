@@ -9,6 +9,7 @@ from statsmodels.stats.multitest import multipletests
 from tqdm import trange
 
 from src import ROOT_DIR
+from src.apps.enrichment_utils import generate_patient_sets
 from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
 from src.service.bfs_cases_db_service import get_sociodemographics_for_hospital_year, get_sociodemographics_for_year, \
     get_original_revision_id_for_sociodemographic_ids, get_codes
@@ -35,6 +36,7 @@ with Database() as db:
     revision_id_year = get_original_revision_id_for_sociodemographic_ids(all_cases_year[SOCIODEMOGRAPHIC_ID_COL].tolist(), db.session)
     codes_year = get_codes(revision_id_year, db.session)
 
+
 def combine_diagnoses(row):
     combined = row['secondary_diagnoses']
     combined.append(row['old_pd'])
@@ -48,6 +50,7 @@ def combine_chops(row):
         combined_split.remove('')
     return combined_split
 
+
 codes_hospital_year['all_diagnoses'] = codes_hospital_year.apply(combine_diagnoses, axis=1)
 codes_year['all_diagnoses'] = codes_year.apply(combine_diagnoses, axis=1)
 codes_hospital_year['all_procedures'] = codes_hospital_year.apply(combine_chops, axis=1)
@@ -59,25 +62,9 @@ all_chops, all_chops_counts = np.unique(np.concatenate([np.concatenate(codes_hos
 
 # generate samples for both data sets
 sample_size = 1000
-def generate_patient_sets(n_patients, sample_size):
-    patient_indices = set(range(n_patients))
-    patient_sets = list()
-    while len(patient_indices) > 0:
-        temp_set = np.random.choice(list(patient_indices), replace=False, size=np.min([sample_size, len(patient_indices)]))
-        patient_indices -= set(temp_set)
-        patient_sets.append(temp_set)
-    return patient_sets
-
 logger.info("generating patient sets")
 patient_sets_all_data = generate_patient_sets(codes_year.shape[0], sample_size)
 patient_sets_data_to_test = generate_patient_sets(codes_hospital_year.shape[0], sample_size)
-
-def get_counts(patient_sets, data, code, col):
-    counts = np.zeros((len(patient_sets), ))
-    for i, set in enumerate(patient_sets):
-        data_set = data.iloc[np.asarray(set)]
-        counts[i] = data_set[data_set[col].apply(lambda x: code in x)].shape[0]
-    return counts
 
 # initialize result fields for diags and chops
 diags_pvalues = np.ones((len(all_diagnoses), ))
@@ -89,6 +76,14 @@ chops_pvalues = np.ones((len(all_chops), ))
 chops_statistic = np.zeros((len(all_chops), ))
 chops_mean_all = np.zeros((len(all_chops), ))
 chops_mean_data_to_test = np.zeros((len(all_chops), ))
+
+
+def get_counts(patient_sets, data, code, col):
+    counts = np.zeros((len(patient_sets), ))
+    for i, set in enumerate(patient_sets):
+        data_set = data.iloc[np.asarray(set)]
+        counts[i] = data_set[data_set[col].apply(lambda x: code in x)].shape[0]
+    return counts
 
 
 def run_enrichment_for_code(code, col_name_all_data, col_name_data_to_test):

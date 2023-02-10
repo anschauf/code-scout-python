@@ -9,7 +9,7 @@ from statsmodels.stats.multitest import multipletests
 from tqdm import trange
 
 from src import ROOT_DIR
-from src.apps.enrichment_analysis_codes import generate_patient_sets
+from src.apps.enrichment_utils import generate_patient_sets
 from src.models.sociodemographics import SOCIODEMOGRAPHIC_ID_COL
 from src.service.bfs_cases_db_service import get_sociodemographics_for_hospital_year, get_sociodemographics_for_year, \
     get_original_revision_id_for_sociodemographic_ids, get_drg_for_revision
@@ -18,7 +18,8 @@ from src.service.database import Database
 hospital = 'Kantonsspital Winterthur'
 year = 2019
 test='t-test'
-dir_output = join(ROOT_DIR, 'results', 'code_enrichment_analysis', f'{hospital}_{year}')
+logger.info(f'Running {hospital} - {year} - {test}')
+dir_output = join(ROOT_DIR, 'results', 'drg_enrichment_analysis', f'{hospital}_{year}')
 if not exists(dir_output):
     os.makedirs(dir_output)
 
@@ -37,13 +38,13 @@ with Database() as db:
     drgs_year = get_drg_for_revision(revision_id_year['revision_id'].tolist(), db.session)
 
 # get all diagnoses and chops
-all_drgs, all_drgs_counts = np.unique(np.concatenate([np.concatenate(drgs_year['drg'].values), np.concatenate(drgs_hospital_year['drg'].values)]), return_counts=True)
+all_drgs, all_drgs_counts = np.unique(np.concatenate([drgs_year['drg'].values, drgs_hospital_year['drg'].values]), return_counts=True)
 
 # generate samples for both data sets
-sample_size = 1000
+sample_size = 2000
 logger.info("generating patient sets")
 patient_sets_all_data = generate_patient_sets(drgs_year.shape[0], sample_size)
-patient_sets_data_to_test = generate_patient_sets(drgs_hospital_year.shape[0], sample_size)
+patient_sets_data_to_test = generate_patient_sets(drgs_hospital_year.shape[0], sample_size, replace=True)
 
 # initialize result fields for diags and chops
 drgs_pvalues = np.ones((len(all_drgs),))
