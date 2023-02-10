@@ -23,7 +23,7 @@ from src.utils.global_configs import GROUPER_FORMAT_COL
 from src.utils.group import format_for_grouper
 
 # hopsital_name = 'Kantonsspital Winterthur'
-discharge_year = 2019
+discharge_year = 2020
 replace = True
 
 # dir_output = join(ROOT_DIR, 'results', 'missing_additional_chops_multilang', f'{hopsital_name}_{discharge_year}')

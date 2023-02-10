@@ -564,3 +564,18 @@ def get_all_unique_sociodemographic_ids_with_procedures(code: str, session: Sess
 
     df = pd.read_sql(query_procedures.statement, session.bind)
     return df.drop_duplicates(subset=SOCIODEMOGRAPHIC_ID_COL)[[SOCIODEMOGRAPHIC_ID_COL]]
+
+
+def get_drg_for_revision(revision_id: list[int], session: Session) -> DataFrame:
+    query_revisions = (
+        session
+        .query(Revision)
+        .with_entities(Revision.revision_id, Revision.sociodemographic_id, Revision.drg)
+        .filter(Revision.revision_id.in_(revision_id))
+        .filter(Revision.revised.is_(False))
+        .filter(Revision.reviewed.is_(False))
+    )
+
+    df = pd.read_sql(query_revisions.statement, session.bind)
+
+    return df
