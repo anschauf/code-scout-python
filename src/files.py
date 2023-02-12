@@ -67,11 +67,12 @@ def load_all_rankings(dir_rankings: str, *, verbose: bool = True) -> list[tuple[
     all_rankings = list()
     for filename in all_ranking_filenames:
         if filename.startswith(S3_PREFIX):
-            rankings = wr.s3.read_csv(filename, sep=";", dtype='string')
+            rankings = wr.s3.read_csv(filename, sep=",", dtype='string')
         else:
-            rankings = pd.read_csv(join(dir_rankings, filename), sep=";", dtype='string')
+            rankings = pd.read_csv(join(dir_rankings, filename), sep=",", dtype='string')
         rankings = rankings.dropna(subset=['CaseId', 'UpcodingConfidenceScore'])
         rankings[prob_most_likely_code_col] = rankings[prob_most_likely_code_col].astype(float)
+        rankings.drop_duplicates(subset='CaseId', inplace=True)
 
         all_case_ids = rankings[case_id_col].values
         unique_case_ids = np.unique(all_case_ids)
@@ -88,6 +89,8 @@ def load_all_rankings(dir_rankings: str, *, verbose: bool = True) -> list[tuple[
         all_rankings.append((folder_name, method_name, rankings))
 
     return all_rankings
+
+
 
 
 def load_code_scout_results(dir_rankings: str) -> list[(str, pd.DataFrame)]:
