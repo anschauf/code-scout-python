@@ -8,10 +8,13 @@ import seaborn as sns
 from loguru import logger
 from matplotlib import pyplot as plt
 
-from src.files import load_revised_cases, load_all_rankings
+from src import ROOT_DIR
+from src.files import load_all_rankings
 from src.rankings import LABEL_NOT_SUGGESTED, RANKING_LABELS, RANKING_RANGES, LABEL_NOT_SUGGESTED_PROBABILITIES
 from src.schema import case_id_col, suggested_code_rankings_split_col, suggested_code_probabilities_split_col
-from src.utils.general_utils import save_figure_to_pdf_on_s3
+from src.utils.general_utils import save_figure_to_pdf_on_s3, split_codes
+from test.sandbox_model_case_predictions.data_handler import load_data
+from test.sandbox_model_case_predictions.utils import get_revised_case_ids
 
 
 def calculate_code_ranking_performance(*,
@@ -30,7 +33,16 @@ def calculate_code_ranking_performance(*,
     """
 
     # Load the revised cases, which are the ground truth for calculating the performance
-    revised_cases = load_revised_cases(filename_revised_cases)
+
+    REVISED_CASE_IDS_FILENAME = os.path.join(ROOT_DIR, 'resources', 'data', 'revised_case_ids.csv')
+    all_data = load_data(only_2_rows=True)
+    revised_cases_in_data = get_revised_case_ids(all_data, REVISED_CASE_IDS_FILENAME, overwrite=False)
+    revised_cases = revised_cases_in_data[(revised_cases_in_data['is_revised'] == 1)]
+    revised_cases['ICD_added_split'] = revised_cases['diagnoses_added'].apply(split_codes)
+    revised_cases['CHOP_added_split'] = revised_cases['procedures_added'].apply(split_codes)
+    revised_cases.drop_duplicates(subset='id', inplace=True)
+
+    # revised_cases_old = load_revised_cases(filename_revised_cases)
     n_revised_cases = revised_cases.shape[0]
 
     # Load the rankings from CodeScout
@@ -46,10 +58,13 @@ def calculate_code_ranking_performance(*,
 
         for _, current_revised_case in revised_cases.iterrows():
             # Get the suggestions for the currently revised case
-            case_id = current_revised_case['combined_id']
-            ranked_suggestions = ranked_cases[ranked_cases[case_id_col] == case_id][suggested_code_rankings_split_col].values
+            # case_id = current_revised_case['combined_id']
+            case_id = current_revised_case['id']
+            ranked_suggestions = ranked_cases[ranked_cases[case_id_col] == case_id][
+                suggested_code_rankings_split_col].values
             if suggested_code_probabilities_split_col in ranked_cases.columns:
-                ranked_probabilities = ranked_cases[ranked_cases[case_id_col] == case_id][suggested_code_probabilities_split_col].values
+                ranked_probabilities = ranked_cases[ranked_cases[case_id_col] == case_id][
+                    suggested_code_probabilities_split_col].values
 
             # If no suggestions are available, skip this case
             if ranked_suggestions.shape[0] == 0:
@@ -84,23 +99,36 @@ def calculate_code_ranking_performance(*,
                 current_method_code_ranks.append(code_rank)
 
         if suggested_code_probabilities_split_col in ranked_cases.columns:
-            df_true_positives = pd.DataFrame(np.vstack(current_method_code_ranks), columns=[case_id_col, 'added_ICD', 'ICD_suggested_list', 'rank', 'probability'])
-            df_true_positives.astype({case_id_col: 'string', 'added_ICD': 'string', 'ICD_suggested_list': 'string', 'rank': int, 'probability': float})
+            df_true_positives = pd.DataFrame(np.vstack(current_method_code_ranks),
+                                             columns=[case_id_col, 'added_ICD', 'ICD_suggested_list', 'rank',
+                                                      'probability'])
+            df_true_positives.astype(
+                {case_id_col: 'string', 'added_ICD': 'string', 'ICD_suggested_list': 'string', 'rank': int,
+                 'probability': float})
 
             # get probabilities of all false positive suggestions
             # explode rank and probability columns
-            df_all_rankings_exploded = ranked_cases.apply(lambda x: x.explode() if x.name in [suggested_code_rankings_split_col, suggested_code_probabilities_split_col] else x)
+            df_all_rankings_exploded = ranked_cases.apply(
+                lambda x: x.explode() if x.name in [suggested_code_rankings_split_col,
+                                                    suggested_code_probabilities_split_col] else x)
             # merge with the true positives to filter them out later
-            df_all_rankings_exploded_merged_true_positive = pd.merge(df_all_rankings_exploded, df_true_positives, how='outer', left_on=[case_id_col, suggested_code_rankings_split_col], right_on=[case_id_col, 'added_ICD'])
+            df_all_rankings_exploded_merged_true_positive = pd.merge(df_all_rankings_exploded, df_true_positives,
+                                                                     how='outer', left_on=[case_id_col,
+                                                                                           suggested_code_rankings_split_col],
+                                                                     right_on=[case_id_col, 'added_ICD'])
             # only take suggestions which do not have a entry in probability column, those are the true positives
-            df_false_positive = df_all_rankings_exploded_merged_true_positive[pd.isna(df_all_rankings_exploded_merged_true_positive['probability'])]
+            df_false_positive = df_all_rankings_exploded_merged_true_positive[
+                pd.isna(df_all_rankings_exploded_merged_true_positive['probability'])]
             code_probabilities_fp.append(df_false_positive)
         else:
-            df_true_positives = pd.DataFrame(np.vstack(current_method_code_ranks), columns=[case_id_col, 'added_ICD', 'ICD_suggested_list', 'rank'])
-            df_true_positives.astype({case_id_col: 'string', 'added_ICD': 'string', 'ICD_suggested_list': 'string', 'rank': int})
+            df_true_positives = pd.DataFrame(np.vstack(current_method_code_ranks),
+                                             columns=[case_id_col, 'added_ICD', 'ICD_suggested_list', 'rank'])
+            df_true_positives.astype(
+                {case_id_col: 'string', 'added_ICD': 'string', 'ICD_suggested_list': 'string', 'rank': int})
         code_ranks_and_probabilities_tp.append(df_true_positives)
 
-        logger.info(f'{method_name}: {n_revised_cases_without_suggestions}/{n_revised_cases} revised cases had no suggestions')
+        logger.info(
+            f'{method_name}: {n_revised_cases_without_suggestions}/{n_revised_cases} revised cases had no suggestions')
 
     # write results to file and get the categorical rankings
     logger.info('Writing single results to s3.')
@@ -118,14 +146,16 @@ def calculate_code_ranking_performance(*,
     x = np.arange(len(RANKING_LABELS))
     plt.figure()
     width = 0.9 / len(all_rankings)
-    offset_x = np.linspace(0, stop=width*(len(code_ranks_and_probabilities_tp)-1), num=len(code_ranks_and_probabilities_tp))
+    offset_x = np.linspace(0, stop=width * (len(code_ranks_and_probabilities_tp) - 1),
+                           num=len(code_ranks_and_probabilities_tp))
     color_map = matplotlib.cm.get_cmap('rainbow')
     color_map_distances = np.linspace(0, 1, len(code_ranks_and_probabilities_tp))
     # reverse color to go from green to red
     colors = [color_map(x) for x in color_map_distances]
     for i_loop, i_best_model in enumerate(ind_best_to_worst_ordering):
         bar_heights = code_categorical_ranks[i_best_model]  # replace with np.histogram here
-        plt.bar(x + offset_x[i_loop], bar_heights, color=colors[i_loop], width=width, label=all_rankings[i_best_model][1])
+        plt.bar(x + offset_x[i_loop], bar_heights, color=colors[i_loop], width=width,
+                label=all_rankings[i_best_model][1])
     plt.xticks(range(len(RANKING_LABELS)), RANKING_LABELS, rotation=90)
     plt.xlabel('Ranking classes')
     plt.ylabel('Frequency')
@@ -144,9 +174,11 @@ def calculate_code_ranking_performance(*,
             probas_fp = result[1]
 
             df_probability_plot = pd.DataFrame({
-                'Probability': np.concatenate([probas_tp['probability'].values, probas_fp[suggested_code_probabilities_split_col].values]),
+                'Probability': np.concatenate(
+                    [probas_tp['probability'].values, probas_fp[suggested_code_probabilities_split_col].values]),
                 'Method': [all_rankings[i][1]] * (probas_tp.shape[0] + probas_fp.shape[0]),
-                'Truth': np.concatenate([['True Positive'] * probas_tp.shape[0], ['False Positive'] * probas_fp.shape[0]])
+                'Truth': np.concatenate(
+                    [['True Positive'] * probas_tp.shape[0], ['False Positive'] * probas_fp.shape[0]])
             })
             all_probabilities.append(df_probability_plot)
         all_probabilities = pd.concat(all_probabilities)
@@ -157,14 +189,19 @@ def calculate_code_ranking_performance(*,
         plt.close()
 
     logger.info('Combining all results to one output file and write to s3.')
-    suffix_left = '_'+all_rankings[0][1]
+    suffix_left = '_' + all_rankings[0][1]
     suffix_right = '_' + all_rankings[1][1]
-    combined_ranks = pd.merge(code_ranks_and_probabilities_tp[0], code_ranks_and_probabilities_tp[1], how='outer', on=['CaseId', 'added_ICD'], suffixes=(suffix_left, suffix_right))
+    combined_ranks = pd.merge(code_ranks_and_probabilities_tp[0], code_ranks_and_probabilities_tp[1], how='outer',
+                              on=['CaseId', 'added_ICD'], suffixes=(suffix_left, suffix_right))
     for i in range(2, len(all_rankings)):
-        suffix_right = '_'+all_rankings[i][1]
-        combined_ranks = pd.merge(combined_ranks, code_ranks_and_probabilities_tp[i], how='outer', on=['CaseId', 'added_ICD'], suffixes=(None, suffix_right))
-        combined_ranks.rename(columns={'ICD_suggested_list' : 'ICD_suggested_list_' + all_rankings[i][1], 'rank': 'rank_'+all_rankings[i][1]}, inplace=True)
-    combined_ranks = combined_ranks.reindex(['CaseId', 'added_ICD'] + ['rank_' + x[1] for x in all_rankings] + ['ICD_suggested_list_' + x[1] for x in all_rankings], axis=1)
+        suffix_right = '_' + all_rankings[i][1]
+        combined_ranks = pd.merge(combined_ranks, code_ranks_and_probabilities_tp[i], how='outer',
+                                  on=['CaseId', 'added_ICD'], suffixes=(None, suffix_right))
+        combined_ranks.rename(columns={'ICD_suggested_list': 'ICD_suggested_list_' + all_rankings[i][1],
+                                       'rank': 'rank_' + all_rankings[i][1]}, inplace=True)
+    combined_ranks = combined_ranks.reindex(
+        ['CaseId', 'added_ICD'] + ['rank_' + x[1] for x in all_rankings] + ['ICD_suggested_list_' + x[1] for x in
+                                                                            all_rankings], axis=1)
     wr.s3.to_csv(combined_ranks, os.path.join(dir_output, 'all_ranks.csv'), index=False)
 
 
