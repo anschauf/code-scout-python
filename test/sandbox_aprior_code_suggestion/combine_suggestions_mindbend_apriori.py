@@ -1,17 +1,14 @@
 import os.path
-from collections import Counter
-from itertools import chain
 
+import numpy as np
 import pandas as pd
 from loguru import logger
 
 from src import ROOT_DIR
-from test.sandbox_aprior_code_suggestion.utils import clean_alt_list
 from test.sandbox_aprior_code_suggestion.apriori_related_functions import combine_apriori_mindbend
-
+from test.sandbox_aprior_code_suggestion.utils import clean_alt_list
 from test.sandbox_model_case_predictions.data_handler import load_data_single_file
 from test.sandbox_model_case_predictions.utils import get_revised_case_ids
-
 
 num_condition_code_apriori = 'condition_all_drg'
 # min_confidence = 0.25
@@ -23,15 +20,13 @@ year = 2020
 
 revised_case_ksw_2020 = False
 revised_case_all = True
-min_confidence = 0.20
+min_confidence = 0.25
 # get the hospital and year
 dir_data = os.path.join(ROOT_DIR, 'resources', 'data')
 REVISED_CASE_IDS_FILENAME = os.path.join(ROOT_DIR, 'resources', 'data', 'revised_case_ids.csv')
 
 data_single_hospital = load_data_single_file(dir_data=dir_data, file_name=file_name)
 revised_cases_in_data = get_revised_case_ids(data_single_hospital, REVISED_CASE_IDS_FILENAME, overwrite=False)
-
-
 
 if revised_case_ksw_2020:
     dir_apriori_suggestions = os.path.join(ROOT_DIR,
@@ -43,7 +38,9 @@ if revised_case_ksw_2020:
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
 
-    revised_cases_ksw2020 = revised_cases_in_data[(revised_cases_in_data["is_revised"] == 1) and (revised_cases_in_data["hospital"] == 'KSW') and (revised_cases_in_data["dischargeYear"] == 2020)]
+    revised_cases_ksw2020 = revised_cases_in_data[
+        (revised_cases_in_data["is_revised"] == 1) and (revised_cases_in_data["hospital"] == 'KSW') and (
+                revised_cases_in_data["dischargeYear"] == 2020)]
     case_ids_ksw2020 = revised_cases_ksw2020['id'].tolist()
 
     mindbend_suggestions = pd.read_csv(
@@ -71,7 +68,6 @@ if revised_case_ksw_2020:
             summary_suggestions_all.append(summary_suggestions)
         summary_suggestions_all_df = pd.concat(summary_suggestions_all)
         summary_suggestions_all_df.to_csv(os.path.join(output_dir, 'summary_sugggestions_revised_case_df.csv'))
-
 
 if revised_case_all:
     dir_apriori_suggestions = os.path.join(ROOT_DIR,
@@ -104,7 +100,12 @@ if revised_case_all:
         if apriori_hospital_year.startswith(
                 'revised_case_') and apriori_hospital_year.find('_combined_suggestions_apriori_mindbend') == -1:
             hospital = apriori_hospital_year.split('_')[2]
-            year = int(apriori_hospital_year.split('_')[3])
+            logger.info(f"Combine suggestions for {apriori_hospital_year}")
+
+            try:
+                year = int(apriori_hospital_year.split('_')[3])
+            except ValueError:
+                print(apriori_hospital_year)
 
             apriori_hospital_year_path = os.path.join(dir_apriori_suggestions, apriori_hospital_year)
             summary_suggestions, summary_suggestions_apriori = combine_apriori_mindbend(apriori_hospital_year_path,
@@ -119,10 +120,26 @@ if revised_case_all:
 
     # delete cases has not suggestions
     summary_suggestions_all_df = summary_suggestions_all_df[~(summary_suggestions_all_df['suggested_codes_pdx'] == '')]
-    summary_suggestions_apriori_all_df = summary_suggestions_apriori_all_df[~(summary_suggestions_apriori_all_df['suggested_codes_pdx'] == '')]
+    summary_suggestions_apriori_all_df = summary_suggestions_apriori_all_df[
+        ~(summary_suggestions_apriori_all_df['suggested_codes_pdx'] == '')]
+    df = summary_suggestions_apriori_all_df.drop_duplicates(subset='case_ids_suggestions')
+
+    # prepare the format for code ranking
+    summary_suggestions_all_df.rename(
+        columns={"case_ids_suggestions": "CaseId", "suggested_codes_pdx": "SuggestedCodeRankings"}, inplace=True)
+    summary_suggestions_apriori_all_df.rename(
+        columns={"case_ids_suggestions": "CaseId", "suggested_codes_pdx": "SuggestedCodeRankings"}, inplace=True)
+    # create aa artificial UpcodingConfidenceScore (need to decide later which one to use)
+    summary_suggestions_all_df['rank'] = np.arange(1, len(summary_suggestions_all_df) + 1)
+    summary_suggestions_apriori_all_df['rank'] = np.arange(1, len(summary_suggestions_apriori_all_df) + 1)
+    summary_suggestions_all_df['UpcodingConfidenceScore'] = summary_suggestions_all_df['rank'].apply(
+        lambda x: 1 - x / summary_suggestions_all_df['rank'].sum())
+    summary_suggestions_apriori_all_df['UpcodingConfidenceScore'] = summary_suggestions_apriori_all_df['rank'].apply(
+        lambda x: 1 - x / summary_suggestions_apriori_all_df['rank'].sum())
 
     summary_suggestions_all_df.to_csv(os.path.join(output_dir, 'summary_sugggestions_combined_revised_case_df.csv'))
-    summary_suggestions_apriori_all_df.to_csv(os.path.join(output_dir, 'summary_sugggestions_apriori_revised_case_df.csv'))
+    summary_suggestions_apriori_all_df.to_csv(
+        os.path.join(output_dir, 'summary_sugggestions_apriori_revised_case_df.csv'))
 
 
 else:
@@ -170,13 +187,15 @@ else:
     summary_suggestions_apriori_all = list()
     for apriori_hospital_year in os.listdir(dir_apriori_suggestions):
         if apriori_hospital_year.startswith(
-                'top100_KSW_2020_') and apriori_hospital_year.find('_combined_suggestions_apriori_mindbend')==-1:
+                'top100_KSW_2020_') and apriori_hospital_year.find('_combined_suggestions_apriori_mindbend') == -1:
             hospital = apriori_hospital_year.split('_')[2]
             year = int(apriori_hospital_year.split('_')[3])
 
             apriori_hospital_year_path = os.path.join(dir_apriori_suggestions, apriori_hospital_year)
-            summary_suggestions, summary_suggestions_apriori = combine_apriori_mindbend(apriori_hospital_year_path, mindbend_suggestions,
-                                                           num_condition_code_apriori, output_dir)
+            summary_suggestions, summary_suggestions_apriori = combine_apriori_mindbend(apriori_hospital_year_path,
+                                                                                        mindbend_suggestions,
+                                                                                        num_condition_code_apriori,
+                                                                                        output_dir)
             summary_suggestions_all.append(summary_suggestions)
             summary_suggestions_apriori_all.append(summary_suggestions_apriori)
 
@@ -186,4 +205,3 @@ else:
     # delete cases has not suggestions
     summary_suggestions_all_df = summary_suggestions_all_df[~(summary_suggestions_all_df['suggested_codes_pdx'] == '')]
     summary_suggestions_all_df.to_csv(os.path.join(output_dir, 'top100_KSW_2020_suggestion_summary.csv'))
-
