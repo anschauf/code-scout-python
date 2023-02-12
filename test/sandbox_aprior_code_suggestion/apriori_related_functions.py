@@ -38,154 +38,148 @@ def aprior_algorithms(cases_hospital_all_info, all_codes_df, min_confidence, out
 
         case_info = f'{case_id=}_{hospital=}_{year=}'
 
-        # all_codes_df['contain_case_pd'] = all_codes_df['diagnosis_list'].apply(
-        #     lambda x: len(all_diagnosis.intersection(set(x))) > 0)
-        # all_codes_df['contain_case_procedure'] = all_codes_df['procedure_list'].apply(
-        #     lambda x: len(procedures.intersection(set(x))) > 0)
-        #
-        # subset_for_apriori = all_codes_df[
-        #     (all_codes_df['contain_case_pd'] == True) & (all_codes_df['contain_case_procedure'] == True)]
-        # # combine icds and chops for each case
-        # subset_for_apriori['all_code'] = subset_for_apriori['diagnosis_list'] + subset_for_apriori['procedure_list']
-        # print(subset_for_apriori.shape)
-        #
-        # num_subset = subset_for_apriori.shape[0]
-        # if num_subset == 0:
-        #     logger.info(f'No useful subsets contain case codes for {n + 1}th {case_info})')
-        #     continue
-        # elif num_subset <= 200:
-        #     min_support = 0.01
-        #     low_memory = False
-        #     max_len = 3
-        #     # subset_for_apriori.to_csv(os.path.join(output_dir, f'{n + 1}th_case_subsets_{case_info}.csv'))
-        #     # continue
-        # elif num_subset <= 2000:
-        #     min_support = 0.01
-        #     low_memory = False
-        #     max_len = 4
-        # else:
-        #     min_support = 0.001
-        #     low_memory = True
-        #     max_len = 4
-        #
-        # # Instantiate transaction encoder and identify unique items in transactions
-        # encoder = TransactionEncoder()
-        #
-        # # One-hot encode transactions
-        # subset_icds_list = subset_for_apriori['all_code'].to_list()
-        # fitted = encoder.fit_transform(subset_icds_list, sparse=True)
-        #
-        # df_icds_onehot = pd.DataFrame.sparse.from_spmatrix(fitted, columns=encoder.columns_)  # seemed to work good
-        #
-        # # Compute frequent itemsets using the Apriori algorithm
-        # logger.info(f'Computing the {n + 1}/{num_cases} frequent itemset for {case_info} ...')
-        #
-        # # min_support need less when there are more transactions, verse vise
-        # frequent_itemsets = apriori(df_icds_onehot,
-        #                             min_support=min_support,
-        #                             max_len=max_len,
-        #                             verbose=1,
-        #                             low_memory=low_memory,
-        #                             use_colnames=True)
-        #
-        # logger.info(f'{len(frequent_itemsets)} itemsets are generated')
-        #
-        # # define rules based on the metrics confidence
-        # frequent_itemsets_rules = association_rules(frequent_itemsets,
-        #                                             min_threshold=min_confidence)
-        # logger.info \
-        #     (f'{len(frequent_itemsets_rules)} association rules are generated based on {min_confidence=}.')
-        #
-        # # sort the rules based on the confidence and lift
-        # frequent_itemsets_rules = frequent_itemsets_rules.sort_values(['confidence', 'lift'], ascending=[False, False])
-        #
-        # # change the antecedents and consequents from frozen set to list
-        # frequent_itemsets_rules['antecedents_ls'] = frequent_itemsets_rules['antecedents'].apply(lambda x: list(x))
-        # frequent_itemsets_rules['consequents_ls'] = frequent_itemsets_rules['consequents'].apply(lambda x: list(x))
-        #
-        # # filter rule which contains the codes from example cases
-        # # based on pd and procedure
-        #
-        # frequent_itemsets_rules['contain_drg_relevant_icd'] = frequent_itemsets_rules['antecedents_ls'].apply(
-        #     lambda x: len(set(x).intersection(drg_relevant_icds)) > 0)
-        # frequent_itemsets_rules['contain_drg_relevant_chops'] = frequent_itemsets_rules['antecedents_ls'].apply(
-        #     lambda x: len(set(x).intersection(drg_relevant_chops)) > 0)
-        #
-        # frequent_itemsets_rules['condition_one'] = frequent_itemsets_rules['antecedents_ls'].apply(
-        #     lambda x: len(set(x).intersection(all_codes)) == 1 and len(x) == 1)
-        # frequent_itemsets_rules['condition_two'] = frequent_itemsets_rules['antecedents_ls'].apply(
-        #     lambda x: len(set(x).intersection(all_codes)) == 2 and len(x) == 2)
-        # frequent_itemsets_rules['condition_three'] = frequent_itemsets_rules['antecedents_ls'].apply(
-        #     lambda x: len(set(x).intersection(all_codes)) == 3 and len(x) == 3)
-        #
-        # frequent_itemsets_rules['suggestion_not_contain_case_code'] = frequent_itemsets_rules['consequents_ls'].apply(
-        #     lambda x: (len(set(x).intersection(all_codes)) == 0) if len(x) <= 1 else (
-        #             len(set(x).intersection(all_codes)) == 1))
-        #
-        # #      save useful rules to check later
-        # frequent_itemsets_rules_case_condition_one = frequent_itemsets_rules[(
-        #                                                                              frequent_itemsets_rules[
-        #                                                                                  'condition_one'] == True) & (
-        #                                                                              frequent_itemsets_rules[
-        #                                                                                  'suggestion_not_contain_case_code'] == True)]
-        # frequent_itemsets_rules_case_condition_two = frequent_itemsets_rules[(
-        #                                                                              frequent_itemsets_rules[
-        #                                                                                  'condition_two'] == True) & (
-        #                                                                              frequent_itemsets_rules[
-        #                                                                                  'suggestion_not_contain_case_code'] == True)]
-        # frequent_itemsets_rules_case_condition_three = frequent_itemsets_rules[
-        #     (frequent_itemsets_rules['condition_three'] == True) & (
-        #             frequent_itemsets_rules['suggestion_not_contain_case_code'] == True)]
-        #
-        # frequent_itemsets_rules_case_condition_one_drg = frequent_itemsets_rules_case_condition_one[
-        #     (frequent_itemsets_rules_case_condition_one['contain_drg_relevant_icd'] == True) |
-        #     (frequent_itemsets_rules_case_condition_one['contain_drg_relevant_chops'] == True)]
-        #
-        # frequent_itemsets_rules_case_condition_two_drg = frequent_itemsets_rules_case_condition_two[
-        #     (frequent_itemsets_rules_case_condition_two['contain_drg_relevant_icd'] == True) |
-        #     (frequent_itemsets_rules_case_condition_two['contain_drg_relevant_chops'] == True)]
-        #
-        # frequent_itemsets_rules_case_condition_three_drg = frequent_itemsets_rules_case_condition_three[
-        #     (frequent_itemsets_rules_case_condition_three['contain_drg_relevant_icd'] == True) |
-        #     (frequent_itemsets_rules_case_condition_three['contain_drg_relevant_chops'] == True)]
-        #
-        # num_1 = frequent_itemsets_rules_case_condition_one_drg.shape[0]
-        # num_2 = frequent_itemsets_rules_case_condition_two_drg.shape[0]
-        # num_3 = frequent_itemsets_rules_case_condition_three_drg.shape[0]
-        #
-        # frequent_itemsets_rules_case_condition_one_drg.to_csv(
-        #     os.path.join(output_dir, f'{n + 1}th_case_{num_1}_suggestions_{case_info}_condition_one_drg.csv'))
-        # frequent_itemsets_rules_case_condition_two_drg.to_csv(
-        #     os.path.join(output_dir, f'{n + 1}th_case_{num_2}_suggestions{num_2}_{case_info}_condition_two_drg.csv'))
-        # frequent_itemsets_rules_case_condition_three_drg.to_csv(
-        #     os.path.join(output_dir, f'{n + 1}th_case_{num_3}_suggestions_{case_info}_condition_three_drg.csv'))
-        # frequent_itemsets_rules_case_condition_all_drg = pd.concat(
-        #     [frequent_itemsets_rules_case_condition_one_drg, frequent_itemsets_rules_case_condition_two_drg,
-        #      frequent_itemsets_rules_case_condition_three_drg])
-        # frequent_itemsets_rules_case_condition_all_drg.to_csv(os.path.join(output_dir,
-        #                                                                    f'{n + 1}th_case_{num_3 + num_2 + num_3}_suggestions_{case_info}_condition_all_drg.csv'))
+        all_codes_df['contain_case_pd'] = all_codes_df['diagnosis_list'].apply(
+            lambda x: len(all_diagnosis.intersection(set(x))) > 0)
+        all_codes_df['contain_case_procedure'] = all_codes_df['procedure_list'].apply(
+            lambda x: len(procedures.intersection(set(x))) > 0)
+
+        subset_for_apriori = all_codes_df[
+            (all_codes_df['contain_case_pd'] == True) & (all_codes_df['contain_case_procedure'] == True)]
+        # combine icds and chops for each case
+        subset_for_apriori['all_code'] = subset_for_apriori['diagnosis_list'] + subset_for_apriori['procedure_list']
+        print(subset_for_apriori.shape)
+
+        num_subset = subset_for_apriori.shape[0]
+        if num_subset == 0:
+            logger.info(f'No useful subsets contain case codes for {n + 1}th {case_info})')
+            continue
+        elif num_subset <= 200:
+            min_support = 0.01
+            low_memory = False
+            max_len = 3
+            # subset_for_apriori.to_csv(os.path.join(output_dir, f'{n + 1}th_case_subsets_{case_info}.csv'))
+            # continue
+        elif num_subset <= 2000:
+            min_support = 0.01
+            low_memory = False
+            max_len = 4
+        else:
+            min_support = 0.001
+            low_memory = True
+            max_len = 4
+
+        # Instantiate transaction encoder and identify unique items in transactions
+        encoder = TransactionEncoder()
+
+        # One-hot encode transactions
+        subset_icds_list = subset_for_apriori['all_code'].to_list()
+        fitted = encoder.fit_transform(subset_icds_list, sparse=True)
+
+        df_icds_onehot = pd.DataFrame.sparse.from_spmatrix(fitted, columns=encoder.columns_)  # seemed to work good
+
+        # Compute frequent itemsets using the Apriori algorithm
+        logger.info(f'Computing the {n + 1}/{num_cases} frequent itemset for {case_info} ...')
+
+        # min_support need less when there are more transactions, verse vise
+        frequent_itemsets = apriori(df_icds_onehot,
+                                    min_support=min_support,
+                                    max_len=max_len,
+                                    verbose=1,
+                                    low_memory=low_memory,
+                                    use_colnames=True)
+
+        logger.info(f'{len(frequent_itemsets)} itemsets are generated')
+
+        # define rules based on the metrics confidence
+        frequent_itemsets_rules = association_rules(frequent_itemsets,
+                                                    min_threshold=min_confidence)
+        logger.info \
+            (f'{len(frequent_itemsets_rules)} association rules are generated based on {min_confidence=}.')
+
+        # sort the rules based on the confidence and lift
+        frequent_itemsets_rules = frequent_itemsets_rules.sort_values(['confidence', 'lift'], ascending=[False, False])
+
+        # change the antecedents and consequents from frozen set to list
+        frequent_itemsets_rules['antecedents_ls'] = frequent_itemsets_rules['antecedents'].apply(lambda x: list(x))
+        frequent_itemsets_rules['consequents_ls'] = frequent_itemsets_rules['consequents'].apply(lambda x: list(x))
+
+        # filter rule which contains the codes from example cases
+        # based on pd and procedure
+
+        frequent_itemsets_rules['contain_drg_relevant_icd'] = frequent_itemsets_rules['antecedents_ls'].apply(
+            lambda x: len(set(x).intersection(drg_relevant_icds)) > 0)
+        frequent_itemsets_rules['contain_drg_relevant_chops'] = frequent_itemsets_rules['antecedents_ls'].apply(
+            lambda x: len(set(x).intersection(drg_relevant_chops)) > 0)
+
+        frequent_itemsets_rules['condition_one'] = frequent_itemsets_rules['antecedents_ls'].apply(
+            lambda x: len(set(x).intersection(all_codes)) == 1 and len(x) == 1)
+        frequent_itemsets_rules['condition_two'] = frequent_itemsets_rules['antecedents_ls'].apply(
+            lambda x: len(set(x).intersection(all_codes)) == 2 and len(x) == 2)
+        frequent_itemsets_rules['condition_three'] = frequent_itemsets_rules['antecedents_ls'].apply(
+            lambda x: len(set(x).intersection(all_codes)) == 3 and len(x) == 3)
+
+        frequent_itemsets_rules['suggestion_not_contain_case_code'] = frequent_itemsets_rules['consequents_ls'].apply(
+            lambda x: (len(set(x).intersection(all_codes)) == 0) if len(x) <= 1 else (
+                    len(set(x).intersection(all_codes)) == 1))
+
+        #      save useful rules to check later
+        frequent_itemsets_rules_case_condition_one = frequent_itemsets_rules[(
+                                                                                     frequent_itemsets_rules[
+                                                                                         'condition_one'] == True) & (
+                                                                                     frequent_itemsets_rules[
+                                                                                         'suggestion_not_contain_case_code'] == True)]
+        frequent_itemsets_rules_case_condition_two = frequent_itemsets_rules[(
+                                                                                     frequent_itemsets_rules[
+                                                                                         'condition_two'] == True) & (
+                                                                                     frequent_itemsets_rules[
+                                                                                         'suggestion_not_contain_case_code'] == True)]
+        frequent_itemsets_rules_case_condition_three = frequent_itemsets_rules[
+            (frequent_itemsets_rules['condition_three'] == True) & (
+                    frequent_itemsets_rules['suggestion_not_contain_case_code'] == True)]
+
+        frequent_itemsets_rules_case_condition_one_drg = frequent_itemsets_rules_case_condition_one[
+            (frequent_itemsets_rules_case_condition_one['contain_drg_relevant_icd'] == True) |
+            (frequent_itemsets_rules_case_condition_one['contain_drg_relevant_chops'] == True)]
+
+        frequent_itemsets_rules_case_condition_two_drg = frequent_itemsets_rules_case_condition_two[
+            (frequent_itemsets_rules_case_condition_two['contain_drg_relevant_icd'] == True) |
+            (frequent_itemsets_rules_case_condition_two['contain_drg_relevant_chops'] == True)]
+
+        frequent_itemsets_rules_case_condition_three_drg = frequent_itemsets_rules_case_condition_three[
+            (frequent_itemsets_rules_case_condition_three['contain_drg_relevant_icd'] == True) |
+            (frequent_itemsets_rules_case_condition_three['contain_drg_relevant_chops'] == True)]
+
+        num_1 = frequent_itemsets_rules_case_condition_one_drg.shape[0]
+        num_2 = frequent_itemsets_rules_case_condition_two_drg.shape[0]
+        num_3 = frequent_itemsets_rules_case_condition_three_drg.shape[0]
+
+        frequent_itemsets_rules_case_condition_one_drg.to_csv(
+            os.path.join(output_dir, f'{n + 1}th_case_{num_1}_suggestions_{case_info}_condition_one_drg.csv'))
+        frequent_itemsets_rules_case_condition_two_drg.to_csv(
+            os.path.join(output_dir, f'{n + 1}th_case_{num_2}_suggestions{num_2}_{case_info}_condition_two_drg.csv'))
+        frequent_itemsets_rules_case_condition_three_drg.to_csv(
+            os.path.join(output_dir, f'{n + 1}th_case_{num_3}_suggestions_{case_info}_condition_three_drg.csv'))
+        frequent_itemsets_rules_case_condition_all_drg = pd.concat(
+            [frequent_itemsets_rules_case_condition_one_drg, frequent_itemsets_rules_case_condition_two_drg,
+             frequent_itemsets_rules_case_condition_three_drg])
+        frequent_itemsets_rules_case_condition_all_drg.to_csv(os.path.join(output_dir,
+                                                                           f'{n + 1}th_case_{num_3 + num_2 + num_3}_suggestions_{case_info}_condition_all_drg.csv'))
 
         # Process the suggested codes and save them in the summary dictionary
         # Delete the existed code from suggestions
-        for file_name in os.listdir(output_dir):
-            if file_name.startswith(f'{n + 1}th_case_') and file_name.endswith('_condition_all_drg.csv'):
-                frequent_itemsets_rules_case_condition_all_drg = pd.read_csv((os.path.join(output_dir,file_name)))
-                frequent_itemsets_rules_case_condition_all_drg[
-                    'consequents_ls'] = frequent_itemsets_rules_case_condition_all_drg[
-                    'consequents_ls'].apply(clean_alt_list)
-                frequent_itemsets_rules_case_condition_all_drg['suggestions'] = frequent_itemsets_rules_case_condition_all_drg[
-            'consequents_ls'].apply(lambda x: list(set(x).difference(all_codes)))
+        frequent_itemsets_rules_case_condition_all_drg['suggestions'] = frequent_itemsets_rules_case_condition_all_drg[
+    'consequents_ls'].apply(lambda x: list(set(x).difference(all_codes)))
 
-                all_suggested_code = frequent_itemsets_rules_case_condition_all_drg['suggestions'].tolist()
-                all_suggested_code = list(chain(*all_suggested_code))
-                all_suggested_code_count = Counter(all_suggested_code)
-                suggests_string = '|'.join(all_suggested_code_count.keys())
+        all_suggested_code = frequent_itemsets_rules_case_condition_all_drg['suggestions'].tolist()
+        all_suggested_code = list(chain(*all_suggested_code))
+        all_suggested_code_count = Counter(all_suggested_code)
+        suggests_string = '|'.join(all_suggested_code_count.keys())
 
-                nrow_original.append(n)
-                case_ids_suggestions.append(case_id)
-                suggested_codes_pdx.append(suggests_string)
-                suggested_codes_times.append(list(all_suggested_code_count.values()))
-                logger.info('Generated rules are saved successfully')
+        nrow_original.append(n)
+        case_ids_suggestions.append(case_id)
+        suggested_codes_pdx.append(suggests_string)
+        suggested_codes_times.append(list(all_suggested_code_count.values()))
+        logger.info('Generated rules are saved successfully')
 
     suggests_summary_df = pd.DataFrame.from_records(
         [nrow_original, case_ids_suggestions, suggested_codes_pdx, suggested_codes_times]).transpose()
