@@ -119,27 +119,41 @@ if revised_case_all:
     summary_suggestions_apriori_all_df = pd.concat(summary_suggestions_apriori_all)
 
     # delete cases has not suggestions
-    summary_suggestions_all_df = summary_suggestions_all_df[~(summary_suggestions_all_df['suggested_codes_pdx'] == '')]
-    summary_suggestions_apriori_all_df = summary_suggestions_apriori_all_df[
-        ~(summary_suggestions_apriori_all_df['suggested_codes_pdx'] == '')]
-    df = summary_suggestions_apriori_all_df.drop_duplicates(subset='case_ids_suggestions')
+    # summary_suggestions_all_df = summary_suggestions_all_df[~(summary_suggestions_all_df['suggested_codes_pdx'] == '')]
+    # summary_suggestions_apriori_all_df = summary_suggestions_apriori_all_df[
+    #     ~(summary_suggestions_apriori_all_df['suggested_codes_pdx'] == '')]
+    summary_suggestions_apriori_all_df.drop_duplicates(subset='case_ids_suggestions', inplace=True)
+
+    # save mindbend result for code ranking
+    mindbend_suggestions['icds_string'] = mindbend_suggestions['mind_bend_suggested_icds'].apply(lambda icd_list: '|'.join(icd_list))
+    mindbend_suggestions['chops_string'] = mindbend_suggestions['mind_bend_suggested_chops'].apply(lambda chops_list: '|'.join(chops_list))
+    mindbend_suggestions['suggested_codes_pdx'] = mindbend_suggestions['icds_string'] + "|" + mindbend_suggestions['chops_string']
 
     # prepare the format for code ranking
     summary_suggestions_all_df.rename(
         columns={"case_ids_suggestions": "CaseId", "suggested_codes_pdx": "SuggestedCodeRankings"}, inplace=True)
     summary_suggestions_apriori_all_df.rename(
         columns={"case_ids_suggestions": "CaseId", "suggested_codes_pdx": "SuggestedCodeRankings"}, inplace=True)
+    mindbend_suggestions.rename(columns={"case_id": "CaseId", "suggested_codes_pdx": "SuggestedCodeRankings"}, inplace=True)
     # create aa artificial UpcodingConfidenceScore (need to decide later which one to use)
     summary_suggestions_all_df['rank'] = np.arange(1, len(summary_suggestions_all_df) + 1)
     summary_suggestions_apriori_all_df['rank'] = np.arange(1, len(summary_suggestions_apriori_all_df) + 1)
+    mindbend_suggestions['rank'] = np.arange(1, len(mindbend_suggestions) + 1)
+
+
     summary_suggestions_all_df['UpcodingConfidenceScore'] = summary_suggestions_all_df['rank'].apply(
         lambda x: 1 - x / summary_suggestions_all_df['rank'].sum())
     summary_suggestions_apriori_all_df['UpcodingConfidenceScore'] = summary_suggestions_apriori_all_df['rank'].apply(
         lambda x: 1 - x / summary_suggestions_apriori_all_df['rank'].sum())
+    mindbend_suggestions['UpcodingConfidenceScore'] = mindbend_suggestions['rank'].apply(
+        lambda x: 1 - x / mindbend_suggestions['rank'].sum())
 
     summary_suggestions_all_df.to_csv(os.path.join(output_dir, 'summary_sugggestions_combined_revised_case_df.csv'))
     summary_suggestions_apriori_all_df.to_csv(
         os.path.join(output_dir, 'summary_sugggestions_apriori_revised_case_df.csv'))
+    mindbend_suggestions.to_csv(
+        os.path.join(output_dir, 'summary_sugggestions_mindbend_revised_case_df.csv'))
+
 
 
 else:
