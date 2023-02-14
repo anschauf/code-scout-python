@@ -48,6 +48,15 @@ def calculate_code_ranking_performance(*,
     # Load the rankings from CodeScout
     all_rankings = load_all_rankings(dir_rankings)
 
+    # revised case on specific hospital and year (e.g. KSW, 2020)
+    hospital_year = False # default false
+    if hospital_year:
+        hospital = 'KSW'
+        year = 2020
+        revised_cases_ksw2020 = revised_cases[(revised_cases['hospital'] == hospital) & (revised_cases['dischargeYear'] == year)]
+        revised_cases_ksw2020_case_id = revised_cases_ksw2020['id'].tolist()
+        all_rankings = [(date_, hospital_year_method, data[data['CaseId'].isin(revised_cases_ksw2020_case_id)]) for date_, hospital_year_method, data in all_rankings]
+
     # Collect the code rankings into a list
     code_ranks_and_probabilities_tp = list()
     code_probabilities_fp = list()
@@ -207,8 +216,8 @@ def calculate_code_ranking_performance(*,
 
 if __name__ == '__main__':
     calculate_code_ranking_performance(
-        dir_rankings='s3://code-scout/performance-measuring/code_rankings/apriori_mindbend/',
-        dir_output='s3://code-scout/performance-measuring/code_rankings/apriori_mindbend_results_4-classes_ksw/',
+        dir_rankings='s3://code-scout/revision-suggestions/20230203/',
+        dir_output='s3://code-scout/revision-suggestions/20230203_results_4-classes/',
         filename_revised_cases='s3://code-scout/performance-measuring/CodeScout_GroundTruthforPerformanceMeasuring.csv',
         s3_bucket='code-scout'
     )

@@ -68,8 +68,20 @@ def load_all_rankings(dir_rankings: str, *, verbose: bool = True) -> list[tuple[
     for filename in all_ranking_filenames:
         if filename.startswith(S3_PREFIX):
             rankings = wr.s3.read_csv(filename, sep=",", dtype='string')
+            if rankings.columns.shape[0] < 2: # csv sometime seprate with ;, sometimes with ,
+                rankings = wr.s3.read_csv(filename, sep=";", dtype='string')
         else:
             rankings = pd.read_csv(join(dir_rankings, filename), sep=",", dtype='string')
+            if rankings.columns.shape[0] < 2: # csv sometime seprate with ;, sometimes with ,
+                rankings = wr.s3.read_csv(filename, sep=";", dtype='string')
+        # if UpcodingConfidenceScore column not available, create temporary one for code ranking based on the index
+        if prob_most_likely_code_col not in rankings.columns:
+            rankings[prob_most_likely_code_col] = 1- (rankings.index + 1)/sum(rankings.index + 1)
+        if "case_id" in rankings.columns:
+            rankings.rename(columns={'case_id': 'CaseId'}, inplace=True)
+        if "suggested_codes" in rankings.columns:
+            rankings.rename(columns={'suggested_codes': 'SuggestedCodeRankings'}, inplace=True)
+
         rankings = rankings.dropna(subset=['CaseId', 'UpcodingConfidenceScore'])
         rankings[prob_most_likely_code_col] = rankings[prob_most_likely_code_col].astype(float)
         rankings.drop_duplicates(subset='CaseId', inplace=True)
