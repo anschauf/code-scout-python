@@ -97,6 +97,10 @@ if __name__ == '__main__':
         chop_catalogue_additional_codes['code_without_dot'] = chop_catalogue_additional_codes['code'].apply(lambda code: code.replace('.', ''))
         chop_catalogue_additional_codes['extracted_additional_codes_without_dot'] = chop_catalogue_additional_codes['extracted_additional_codes'].apply(lambda codes: [code.replace('.', '') for code in codes])
 
+        # pipe join lists in df
+        chop_catalogue_additional_codes['extracted_additional_codes'] = chop_catalogue_additional_codes['extracted_additional_codes'].apply(lambda x: '|'.join(x))
+        chop_catalogue_additional_codes['extracted_additional_codes_without_dot'] = chop_catalogue_additional_codes['extracted_additional_codes_without_dot'].apply(lambda x: '|'.join(x))
+
         wr.s3.to_csv(chop_catalogue_additional_codes, filename_catelogue.replace('.csv', '_processed.csv'), index=False)
         logger.success(f'Found {chop_catalogue_additional_codes.shape[0]} codes with additional codes.')
         logger.success(f'All codes map in total to {chop_catalogue_additional_codes["extracted_additional_codes"].apply(lambda x: len(x)).sum()} additional codes.')
