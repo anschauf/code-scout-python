@@ -49,13 +49,15 @@ def calculate_code_ranking_performance(*,
     all_rankings = load_all_rankings(dir_rankings)
 
     # revised case on specific hospital and year (e.g. KSW, 2020)
-    hospital_year = False # default false
+    hospital_year = False  # default false
     if hospital_year:
         hospital = 'KSW'
         year = 2020
-        revised_cases_ksw2020 = revised_cases[(revised_cases['hospital'] == hospital) & (revised_cases['dischargeYear'] == year)]
+        revised_cases_ksw2020 = revised_cases[
+            (revised_cases['hospital'] == hospital) & (revised_cases['dischargeYear'] == year)]
         revised_cases_ksw2020_case_id = revised_cases_ksw2020['id'].tolist()
-        all_rankings = [(date_, hospital_year_method, data[data['CaseId'].isin(revised_cases_ksw2020_case_id)]) for date_, hospital_year_method, data in all_rankings]
+        all_rankings = [(date_, hospital_year_method, data[data['CaseId'].isin(revised_cases_ksw2020_case_id)]) for
+                        date_, hospital_year_method, data in all_rankings]
 
     # Collect the code rankings into a list
     code_ranks_and_probabilities_tp = list()
@@ -69,8 +71,10 @@ def calculate_code_ranking_performance(*,
             # Get the suggestions for the currently revised case
             # case_id = current_revised_case['combined_id']
             case_id = current_revised_case['id']
-            ranked_suggestions = ranked_cases[ranked_cases[case_id_col] == case_id][
-                suggested_code_rankings_split_col].values
+
+            ranked_suggestions = ranked_cases[ranked_cases[case_id_col] == case_id]
+            ranked_suggestions = ranked_suggestions[suggested_code_rankings_split_col].values
+
             if suggested_code_probabilities_split_col in ranked_cases.columns:
                 ranked_probabilities = ranked_cases[ranked_cases[case_id_col] == case_id][
                     suggested_code_probabilities_split_col].values
@@ -202,22 +206,30 @@ def calculate_code_ranking_performance(*,
     suffix_right = '_' + all_rankings[1][1]
     combined_ranks = pd.merge(code_ranks_and_probabilities_tp[0], code_ranks_and_probabilities_tp[1], how='outer',
                               on=['CaseId', 'added_ICD'], suffixes=(suffix_left, suffix_right))
+
     for i in range(2, len(all_rankings)):
         suffix_right = '_' + all_rankings[i][1]
         combined_ranks = pd.merge(combined_ranks, code_ranks_and_probabilities_tp[i], how='outer',
                                   on=['CaseId', 'added_ICD'], suffixes=(None, suffix_right))
         combined_ranks.rename(columns={'ICD_suggested_list': 'ICD_suggested_list_' + all_rankings[i][1],
                                        'rank': 'rank_' + all_rankings[i][1]}, inplace=True)
+
     combined_ranks = combined_ranks.reindex(
         ['CaseId', 'added_ICD'] + ['rank_' + x[1] for x in all_rankings] + ['ICD_suggested_list_' + x[1] for x in
                                                                             all_rankings], axis=1)
+    columns_without_codes = ['CaseId', 'added_ICD']
+    rank_col_methods = [col for col in combined_ranks.columns if 'rank' in col]
+    columns_without_codes.extend(rank_col_methods)
+    combined_ranks_without_codes = combined_ranks[columns_without_codes]
+
+    wr.s3.to_csv(combined_ranks_without_codes, os.path.join(dir_output, 'all_ranks_without_codes.csv'), index=False)
     wr.s3.to_csv(combined_ranks, os.path.join(dir_output, 'all_ranks.csv'), index=False)
 
 
 if __name__ == '__main__':
     calculate_code_ranking_performance(
-        dir_rankings='s3://code-scout/revision-suggestions/20230203/',
-        dir_output='s3://code-scout/revision-suggestions/20230203_results_4-classes/',
+        dir_rankings='s3://code-scout/performance-measuring/code_rankings/apriori_mindbend',
+        dir_output='s3://code-scout/performance-measuring/code_rankings/apriori_mindbend_results_4-classes_revised_cases',
         filename_revised_cases='s3://code-scout/performance-measuring/CodeScout_GroundTruthforPerformanceMeasuring.csv',
         s3_bucket='code-scout'
     )
