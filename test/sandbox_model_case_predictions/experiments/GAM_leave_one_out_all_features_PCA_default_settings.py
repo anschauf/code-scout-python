@@ -17,8 +17,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from src import ROOT_DIR
 from test.sandbox_model_case_predictions.data_handler import load_data
 from test.sandbox_model_case_predictions.utils import create_predictions_output_performance_app, \
-    get_list_of_all_predictors, get_revised_case_ids, RANDOM_SEED, prepare_train_eval_test_split, \
-    prepare_train_eval_test_split_GAM
+    get_list_of_all_predictors, get_revised_case_ids, RANDOM_SEED, prepare_train_eval_test_split
 from tqdm import tqdm
 
 VARIANCE_PERCENT_PCA = 0.99
@@ -69,7 +68,7 @@ def LogisticGAM_hand_selected_features_only_reviewed_cases():
     # create_performance_app_ground_truth(dir_output, revised_cases_in_data, hospital_year_for_performance_app[0], hospital_year_for_performance_app[1])
 
     ind_train, ind_test, y_train, y_test, ind_hospital_leave_out, y_hospital_leave_out = \
-        prepare_train_eval_test_split_GAM(revised_cases_in_data=revised_cases_in_data,
+        prepare_train_eval_test_split(revised_cases_in_data=revised_cases_in_data,
                                       hospital_leave_out=LEAVE_ON_OUT[0],
                                       year_leave_out=LEAVE_ON_OUT[1],
                                       only_reviewed_cases=True)
