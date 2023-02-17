@@ -246,17 +246,22 @@ def get_diagnoses_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.D
     primary_diagnoses.rename(columns={'code': PRIMARY_DIAGNOSIS_COL}, inplace=True)
 
     # Aggregate the subset of rows, which contain the secondary diagnoses for each case
-    secondary_diagnoses = df[~df['is_primary']]
+    secondary_diagnoses = df[~df['is_primary']][['revision_id', 'code']]
     secondary_diagnoses = secondary_diagnoses.groupby(REVISION_ID_COL).agg(
-        {'code': lambda x: list(x), 'is_grouper_relevant': lambda x: list(x)})
-
+        {'code': lambda x: list(x)})
     secondary_diagnoses.rename(
-        columns={'code': SECONDARY_DIAGNOSES_COL, 'is_grouper_relevant': 'is_grouper_relevant_diagnoses'}, inplace=True)
+        columns={'code': SECONDARY_DIAGNOSES_COL}, inplace=True)
+    # get all codes and is_grouper_relevant
+    all_diagnoses = df[['revision_id', 'code', 'is_grouper_relevant']].groupby(REVISION_ID_COL).agg(
+        {'code': lambda x: list(x), 'is_grouper_relevant': lambda x: list(x)})
+    all_diagnoses.rename(
+        columns={'code': 'all_diagnoses', 'is_grouper_relevant': 'is_grouper_relevant_diagnoses'}, inplace=True)
     secondary_diagnoses.reset_index(drop=False, inplace=True)
 
     codes_df = (df_revision_ids
                 .merge(primary_diagnoses, on='revision_id', how='left')
-                .merge(secondary_diagnoses, on='revision_id', how='left'))
+                .merge(secondary_diagnoses, on='revision_id', how='left')
+                .merge(all_diagnoses, on='revision_id', how='left'))
 
     n_cases_no_pd = codes_df[PRIMARY_DIAGNOSIS_COL].isna().sum()
     if n_cases_no_pd > 0:
@@ -264,6 +269,8 @@ def get_diagnoses_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.D
 
     # Replace NaNs with an empty list
     codes_df[SECONDARY_DIAGNOSES_COL] = codes_df[SECONDARY_DIAGNOSES_COL].apply(
+        lambda x: x if isinstance(x, list) else [])
+    codes_df['all_diagnoses'] = codes_df['all_diagnoses'].apply(
         lambda x: x if isinstance(x, list) else [])
 
     return codes_df
@@ -330,20 +337,29 @@ def get_procedures_codes(df_revision_ids: pd.DataFrame, session: Session) -> pd.
     primary_procedure = df[df[IS_PRIMARY_COL]][[REVISION_ID_COL, CODE_COL]]
     primary_procedure.rename(columns={CODE_COL: PRIMARY_PROCEDURE_COL}, inplace=True)
 
-    secondary_procedures = df[~df[IS_PRIMARY_COL]][[REVISION_ID_COL, CODE_COL, 'is_grouper_relevant']]
+    secondary_procedures = df[~df[IS_PRIMARY_COL]][[REVISION_ID_COL, CODE_COL]]
     secondary_procedures = secondary_procedures.groupby(REVISION_ID_COL).agg(
-        {'code': lambda x: list(x), 'is_grouper_relevant': lambda x: list(x)})
+        {'code': lambda x: list(x)})
     secondary_procedures.rename(
-        columns={CODE_COL: SECONDARY_PROCEDURES_COL, 'is_grouper_relevant': 'is_grouper_relevant_procedures'},
+        columns={CODE_COL: SECONDARY_PROCEDURES_COL},
+        inplace=True)
+    all_procedures = df.groupby(REVISION_ID_COL).agg(
+        {'code': lambda x: list(x), 'is_grouper_relevant': lambda x: list(x)})
+    all_procedures.rename(
+        columns={CODE_COL: 'all_procedures', 'is_grouper_relevant': 'is_grouper_relevant_procedures'},
         inplace=True)
 
     codes_df = (df_revision_ids
                 .merge(primary_procedure, on=REVISION_ID_COL, how='left')
-                .merge(secondary_procedures, on=REVISION_ID_COL, how='left'))
+                .merge(secondary_procedures, on=REVISION_ID_COL, how='left')
+                .merge(all_procedures, on=REVISION_ID_COL, how='left')
+                )
 
     # Fill NaNs
     codes_df[PRIMARY_PROCEDURE_COL] = codes_df[PRIMARY_PROCEDURE_COL].fillna('')
     codes_df[SECONDARY_PROCEDURES_COL] = codes_df[SECONDARY_PROCEDURES_COL].apply(
+        lambda x: x if isinstance(x, list) else [])
+    codes_df['all_procedures'] = codes_df['all_procedures'].apply(
         lambda x: x if isinstance(x, list) else [])
 
     return codes_df
@@ -535,9 +551,11 @@ def get_revised_case_with_codes_after_revision(session: Session) -> pd.DataFrame
     df_procedures.set_index(REVISION_ID_COL, inplace=True)
 
     #  merge all data using revision_id
-    revised_cases_df = pd.concat([revised_case, df_diagnoses[[PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL,  'is_grouper_relevant_diagnoses']],
-                                  df_procedures[[PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL, 'is_grouper_relevant_procedures']]],
-                                 axis=1).reset_index()
+    revised_cases_df = pd.concat(
+        [revised_case,
+         df_diagnoses[[PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL, 'all_diagnoses', 'is_grouper_relevant_diagnoses']],
+         df_procedures[[PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL, 'all_procedures', 'is_grouper_relevant_procedures']]],
+        axis=1).reset_index()
     revised_cases_df.rename(columns={'old_pd': 'pd'}, inplace=True)
 
     return revised_cases_df
@@ -566,8 +584,10 @@ def get_revised_case_with_codes_before_revision(session: Session) -> pd.DataFram
     #  merge all data using revision_id
     revised_cases_before_revision = pd.concat(
         [revised_case_orig,
-         df_diagnoses[[PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL, 'is_grouper_relevant_diagnoses']],
-         df_procedures[[PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL, 'is_grouper_relevant_procedures']]],
+         df_diagnoses[
+             [PRIMARY_DIAGNOSIS_COL, SECONDARY_DIAGNOSES_COL, 'all_diagnoses', 'is_grouper_relevant_diagnoses']],
+         df_procedures[
+             [PRIMARY_PROCEDURE_COL, SECONDARY_PROCEDURES_COL, 'all_procedures', 'is_grouper_relevant_procedures']]],
         axis=1).reset_index()
     revised_cases_before_revision.rename(columns={'old_pd': 'pd'}, inplace=True)
     return revised_cases_before_revision
