@@ -84,15 +84,20 @@ if revised_case_all:
     # mindbend suggestions
     mindbend_suggestions = pd.read_csv(
         os.path.join(ROOT_DIR, 'test/sandbox_aprior_code_suggestion/mind_bend_codes_list_reviewed_cases.csv'), sep=',')
+
+    mindbend_suggestions['case_id'] = mindbend_suggestions['case_id'].astype(str)
     mindbend_suggestions = mindbend_suggestions[
         mindbend_suggestions['case_id'].isin(revised_cases_only_case_id)]
     mindbend_suggestions.dropna(axis=1, inplace=True)
     mindbend_suggestions.drop_duplicates(subset='case_id', inplace=True)
     # mindbend_suggestions.columns: 'case_id', 'mind_bend_suggested_icds', 'mind_bend_suggested_chops'
+
     mindbend_suggestions['mind_bend_suggested_icds'] = mindbend_suggestions[
         'mind_bend_suggested_icds'].apply(clean_alt_list)
     mindbend_suggestions['mind_bend_suggested_chops'] = mindbend_suggestions[
         'mind_bend_suggested_chops'].apply(clean_alt_list)
+    mindbend_suggestions['ranked_codes'] = mindbend_suggestions[
+        'ranked_codes'].apply(clean_alt_list)
 
     summary_suggestions_all = list()
     summary_suggestions_apriori_all = list()
@@ -108,6 +113,7 @@ if revised_case_all:
                 print(apriori_hospital_year)
 
             apriori_hospital_year_path = os.path.join(dir_apriori_suggestions, apriori_hospital_year)
+
             summary_suggestions, summary_suggestions_apriori = combine_apriori_mindbend(apriori_hospital_year_path,
                                                                                         mindbend_suggestions,
                                                                                         num_condition_code_apriori,
@@ -117,29 +123,24 @@ if revised_case_all:
 
     summary_suggestions_all_df = pd.concat(summary_suggestions_all)
     summary_suggestions_apriori_all_df = pd.concat(summary_suggestions_apriori_all)
-
-    # delete cases has not suggestions
-    # summary_suggestions_all_df = summary_suggestions_all_df[~(summary_suggestions_all_df['suggested_codes_pdx'] == '')]
-    # summary_suggestions_apriori_all_df = summary_suggestions_apriori_all_df[
-    #     ~(summary_suggestions_apriori_all_df['suggested_codes_pdx'] == '')]
     summary_suggestions_apriori_all_df.drop_duplicates(subset='case_ids_suggestions', inplace=True)
+    summary_suggestions_apriori_all_df.dropna(subset='suggested_codes_pdx', inplace=True)
 
     # save mindbend result for code ranking
-    mindbend_suggestions['icds_string'] = mindbend_suggestions['mind_bend_suggested_icds'].apply(lambda icd_list: '|'.join(icd_list))
-    mindbend_suggestions['chops_string'] = mindbend_suggestions['mind_bend_suggested_chops'].apply(lambda chops_list: '|'.join(chops_list))
-    mindbend_suggestions['suggested_codes_pdx'] = mindbend_suggestions['icds_string'] + "|" + mindbend_suggestions['chops_string']
 
     # prepare the format for code ranking
     summary_suggestions_all_df.rename(
         columns={"case_ids_suggestions": "CaseId", "suggested_codes_pdx": "SuggestedCodeRankings"}, inplace=True)
     summary_suggestions_apriori_all_df.rename(
         columns={"case_ids_suggestions": "CaseId", "suggested_codes_pdx": "SuggestedCodeRankings"}, inplace=True)
-    mindbend_suggestions.rename(columns={"case_id": "CaseId", "suggested_codes_pdx": "SuggestedCodeRankings"}, inplace=True)
+
+    mindbend_suggestions['ranked_codes'] = mindbend_suggestions['ranked_codes'].apply(
+        lambda codes_list: '|'.join(codes_list))
+    mindbend_suggestions.rename(columns={"case_id": "CaseId", "ranked_codes": "SuggestedCodeRankings"}, inplace=True)
     # create aa artificial UpcodingConfidenceScore (need to decide later which one to use)
     summary_suggestions_all_df['rank'] = np.arange(1, len(summary_suggestions_all_df) + 1)
     summary_suggestions_apriori_all_df['rank'] = np.arange(1, len(summary_suggestions_apriori_all_df) + 1)
     mindbend_suggestions['rank'] = np.arange(1, len(mindbend_suggestions) + 1)
-
 
     summary_suggestions_all_df['UpcodingConfidenceScore'] = summary_suggestions_all_df['rank'].apply(
         lambda x: 1 - x / summary_suggestions_all_df['rank'].sum())
@@ -148,8 +149,26 @@ if revised_case_all:
     mindbend_suggestions['UpcodingConfidenceScore'] = mindbend_suggestions['rank'].apply(
         lambda x: 1 - x / mindbend_suggestions['rank'].sum())
 
-    summary_suggestions_all_df.to_csv(os.path.join(output_dir, 'summary_sugggestions_combined_revised_case_df.csv'))
-    summary_suggestions_apriori_all_df.to_csv(
+    # delete cases has not suggestions
+    summary_suggestions_all_df = summary_suggestions_all_df[
+        ~(summary_suggestions_all_df['SuggestedCodeRankings'] == '')]
+    summary_suggestions_apriori_all_df = summary_suggestions_apriori_all_df[
+        ~(summary_suggestions_apriori_all_df['SuggestedCodeRankings'] == '')]
+    mindbend_suggestions = mindbend_suggestions[~(mindbend_suggestions['SuggestedCodeRankings'] == '')]
+
+    # save files for coding ranking
+    columns_code_ranking = ['CaseId', 'SuggestedCodeRankings', 'UpcodingConfidenceScore']
+    mindbend_suggestions = mindbend_suggestions[columns_code_ranking]
+    combined_suggestions = summary_suggestions_all_df[columns_code_ranking]
+    apriori_suggestions = summary_suggestions_apriori_all_df[columns_code_ranking]
+    num_mindbend = mindbend_suggestions.shape[0]
+    num_apriori = apriori_suggestions.shape[0]
+    num_combined = combined_suggestions.shape[0]
+    logger.info(
+        f'The number of cases with suggestions for each methods: {num_mindbend=}, {num_apriori=}, {num_combined=}')
+
+    combined_suggestions.to_csv(os.path.join(output_dir, 'summary_sugggestions_combined_revised_case_df.csv'))
+    apriori_suggestions.to_csv(
         os.path.join(output_dir, 'summary_sugggestions_apriori_revised_case_df.csv'))
     mindbend_suggestions.to_csv(
         os.path.join(output_dir, 'summary_sugggestions_mindbend_revised_case_df.csv'))
@@ -194,6 +213,8 @@ else:
     # case_ids = case_ids_m100_m200[:topn]
     case_ids = case_ids_not_reviewed_revised[:topn]
 
+    mindbend_suggestions = pd.read_csv(
+        os.path.join(ROOT_DIR, 'test/sandbox_aprior_code_suggestion/n-estimator-1000_max-depth-9_min-sample-leaf-400_min-samples-split-1_KSW-2020.csv'), sep=',')
     mindbend_suggestions = mindbend_suggestions[
         mindbend_suggestions['case_id'].isin(case_ids)]
 
